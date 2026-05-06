@@ -1,5 +1,5 @@
 import type { DanmuItem, SC, Gift, AutoClipSignalConfig } from "@biliLive-tools/types";
-import type { CandidateWindow, TimeWindow, DanmuStats, DanmuSample, SCSummary } from "./types";
+import type { CandidateWindow, TimeWindow, DanmuStats, DanmuSample, SCSummary } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

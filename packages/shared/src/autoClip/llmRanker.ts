@@ -5,7 +5,7 @@ import type {
   LLMRankResult,
   HighlightSegment,
   TimeWindow,
-} from "./types";
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Default prompt template
