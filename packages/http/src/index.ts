@@ -27,6 +27,7 @@ import filesRouter from "./routes/files.js";
 import danmaRouter from "./routes/danma.js";
 import syncRouter from "./routes/sync.js";
 import aiRouter from "./routes/ai.js";
+import autoClipRouter from "./routes/autoClip.js";
 import { WebhookHandler } from "./services/webhook/webhook.js";
 import { createFileCache } from "./services/fileCache.js";
 
@@ -122,6 +123,7 @@ export async function serverStart(
   app.use(danmaRouter.routes());
   app.use(syncRouter.routes());
   app.use(aiRouter.routes());
+  app.use(autoClipRouter.routes());
 
   app.use(SSERouter.routes());
   app.use(router.allowedMethods());
