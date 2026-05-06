@@ -4,6 +4,7 @@ import { createContainer, asValue, asClass } from "awilix";
 import { default as checkDiskSpace } from "check-disk-space";
 
 export * from "./presets/index.js";
+export * from "./autoClip/index.js";
 import { taskQueue, TaskQueue } from "./task/task.js";
 import { appConfig, AppConfig } from "./config.js";
 import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset } from "./presets/index.js";
