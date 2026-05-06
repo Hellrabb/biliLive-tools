@@ -1172,3 +1172,69 @@ export interface GlobalConfig {
   version: string;
   userDataPath: string;
 }
+
+// ========== AutoClip 相关类型 ==========
+
+export interface AutoClipSignalConfig {
+  /** 弹幕密度超标倍数 (相对均值), 默认 2.5 */
+  danmakuDensityThreshold: number;
+  /** SC最低金额触发, 默认 30 */
+  scMinAmount: number;
+  /** N秒内礼物数, 默认 10 */
+  giftBurstThreshold: number;
+  /** 礼物统计窗口秒数, 默认 30 */
+  giftBurstWindowSec: number;
+  /** 候选窗口前后padding秒数, 默认 [30, 30] */
+  windowPadding: [number, number];
+  /** 最短候选窗口秒数, 默认 60 */
+  minWindowDuration: number;
+  /** 最长候选窗口秒数, 默认 300 */
+  maxWindowDuration: number;
+  /** 信号分析桶宽秒数, 默认 10 */
+  bucketSec: number;
+  /** 相邻热点合并的最大间隔秒数, 默认 30 */
+  mergeGapSec: number;
+  /** 刷屏检测相似度阈值, 默认 0.8 */
+  brushSimilarityThreshold: number;
+}
+
+export interface AutoClipLLMConfig {
+  enabled: boolean;
+  provider: "qwen" | "ollama";
+  modelId: string;
+  /** 默认 1000 */
+  maxTokens: number;
+  /** 最终保留片段数, 默认 5 */
+  topK: number;
+  /** 送入LLM的最大候选数, 默认 15 */
+  maxCandidatesPerVideo: number;
+  /** 每个候选窗口弹幕采样上限, 默认 200 */
+  danmakuSampleMax: number;
+  /** 自定义 prompt 模板 */
+  promptTemplate?: string;
+}
+
+export interface AutoClipEnhancementConfig {
+  asrEnabled: boolean;
+  /** 多模态关键帧 (保留扩展点, 首版不实现) */
+  visualEnabled: boolean;
+}
+
+export interface AutoClipExportConfig {
+  cutFormat: "mp4" | "flv";
+  ffmpegPresetId: string;
+  burnDanmaku: boolean;
+  uploadToBili: boolean;
+  savePath: string;
+  namingTemplate: string;
+}
+
+export interface AutoClipConfig {
+  signal: AutoClipSignalConfig;
+  llm: AutoClipLLMConfig;
+  enhancement: AutoClipEnhancementConfig;
+  export: AutoClipExportConfig;
+}
+
+/** 预设类型 */
+export type AutoClipPreset = CommonPreset<AutoClipConfig>;
