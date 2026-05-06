@@ -528,6 +528,43 @@ export async function createRecorderManager(appConfig: AppConfig) {
         roomId: recorder.channelId,
       });
     }
+
+    // 6. AutoClip: 录制完成后自动触发切片
+    try {
+      const xmlFile = replaceExtName(filename, ".xml");
+      const globalConfig = config;
+      if (xmlFile && (await fs.pathExists(xmlFile))) {
+        logger.info("AutoClip: 检查自动切片触发条件", {
+          videoPath: filename,
+          danmuPath: xmlFile,
+        });
+        // For now, auto-trigger is always attempted if danmaku XML exists.
+        // Future: check per-recorder AutoClipPreset binding.
+        const { runAutoClipPipeline } = await import("../autoClip/pipeline.js");
+        const { AUTO_CLIP_DEFAULT_CONFIG } = await import("../presets/autoClipPreset.js");
+
+        logger.info("AutoClip: 开始自动切片分析", { videoPath: filename, danmuPath: xmlFile });
+
+        const result = await runAutoClipPipeline({
+          videoPath: filename,
+          danmuPath: xmlFile,
+          presetConfig: AUTO_CLIP_DEFAULT_CONFIG,
+          onProgress: (_stage, _pct, msg) => logger.info(`AutoClip: ${msg}`),
+        });
+
+        if (result.skipped) {
+          logger.info(`AutoClip: 跳过 — ${result.skippedReason}`);
+        } else {
+          logger.info(`AutoClip: 检测到 ${result.highlights.length} 个高光片段`);
+          // Export is optional for auto-trigger; log results for now
+          for (const h of result.highlights) {
+            logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error("AutoClip: 自动切片触发失败", error);
+    }
   });
 
   appConfig.on("update", () => {
