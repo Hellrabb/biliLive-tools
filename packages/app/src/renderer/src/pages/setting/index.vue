@@ -454,7 +454,7 @@ import { useConfirm } from "@renderer/hooks";
 import { FolderOpenOutline, Refresh } from "@vicons/ionicons5";
 import { deepRaw } from "@renderer/utils";
 import { showDirectoryDialog } from "@renderer/utils/fileSystem";
-import { videoPresetApi, ffmpegPresetApi, configApi, commonApi, autoClipPresetApi } from "@renderer/apis";
+import { videoPresetApi, ffmpegPresetApi, configApi, commonApi } from "@renderer/apis";
 import { useThemeStore } from "@renderer/stores/theme";
 
 import type { AppConfig, BiliupPreset, AppRoomConfig } from "@biliLive-tools/types";

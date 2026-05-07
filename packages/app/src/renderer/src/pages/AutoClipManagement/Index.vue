@@ -48,7 +48,6 @@
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
-import type { VNode } from "vue";
 import { NButton, NSpace, NTag, NDataTable } from "naive-ui";
 import request from "@renderer/apis/request";
 
@@ -192,7 +191,7 @@ async function deleteClip(dbId: string) {
 function manualAnalyze() {
   // Open file picker dialog via Electron IPC
   if (window.api?.openFile) {
-    window.api.openFile({ multi: false }).then((files: string[] | null) => {
+    window.api.openFile({ multi: false }).then((files: string[] | undefined) => {
       if (files && files.length > 0) {
         // After file selection, trigger auto-clip analysis
         request.post("/auto-clip/run", {
