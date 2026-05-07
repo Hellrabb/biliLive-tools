@@ -1,13 +1,12 @@
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { runAutoClipPipeline } from "@biliLive-tools/shared/autoClip/pipeline.js";
+import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
 import { container, appConfig } from "../index.js";
 
 import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 
 const router = new Router({ prefix: "/auto-clip" });
-
-const resultCache = new Map<string, any>();
 
 function getAutoClipPreset() {
   return container.resolve("autoClipPreset") as any;
@@ -83,7 +82,25 @@ router.post("/run", async (ctx) => {
       },
     });
 
-    resultCache.set(result.id, result);
+    // Save to DB
+    try {
+      autoClipModel.saveResult({
+        id: result.id,
+        video_path: videoPath,
+        danmu_path: danmuPath,
+        recorder_id: null,
+        preset_id: presetId || null,
+        status: "pending",
+        highlights: JSON.stringify(result.highlights),
+        created_at: new Date().toISOString(),
+        exported_at: null,
+        uploaded_at: null,
+        exported_paths: null,
+        bili_aids: null,
+      });
+    } catch (e) {
+      logger.error("Failed to save autoClip result:", e);
+    }
     ctx.body = result;
   } catch (error: any) {
     logger.error("AutoClip run error:", error);
@@ -94,49 +111,55 @@ router.post("/run", async (ctx) => {
 
 router.get("/result/:id", async (ctx) => {
   const { id } = ctx.params;
-  const result = resultCache.get(id);
+  const result = autoClipModel.getResultById(id);
   if (!result) {
     ctx.status = 404;
     ctx.body = { error: "Result not found" };
     return;
   }
-  ctx.body = result;
+  ctx.body = { ...result, highlights: JSON.parse(result.highlights) };
 });
 
 // ===================== Clips 管理 =====================
 
 router.get("/clips", async (ctx) => {
-  ctx.body = Array.from(resultCache.values());
+  const status = ctx.query.status as string | undefined;
+  const { data, total } = autoClipModel.getResults({ status: status || undefined });
+  ctx.body = {
+    data: data.map(r => ({ ...r, highlights: JSON.parse(r.highlights) })),
+    total,
+  };
 });
 
 router.get("/clip/:id", async (ctx) => {
-  const result = resultCache.get(ctx.params.id);
+  const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
     ctx.body = { error: "Not found" };
     return;
   }
-  ctx.body = result;
+  ctx.body = { ...result, highlights: JSON.parse(result.highlights) };
 });
 
 router.post("/clip/:id/approve", async (ctx) => {
-  const result = resultCache.get(ctx.params.id);
+  const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
     ctx.body = { error: "Not found" };
     return;
   }
-  ctx.body = { status: "approved", message: "Export queued (not yet implemented)" };
+  autoClipModel.updateStatus(ctx.params.id, "approved");
+  ctx.body = { status: "approved" };
 });
 
 router.post("/clip/:id/delete", async (ctx) => {
-  const existed = resultCache.has(ctx.params.id);
-  resultCache.delete(ctx.params.id);
-  if (!existed) {
+  const result = autoClipModel.getResultById(ctx.params.id);
+  if (!result) {
     ctx.status = 404;
     ctx.body = { error: "Not found" };
     return;
   }
+  autoClipModel.deleteResult(ctx.params.id);
   ctx.body = { status: "deleted" };
 });
 
