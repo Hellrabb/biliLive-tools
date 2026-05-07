@@ -160,6 +160,8 @@ export type AppRoomConfig = {
   remark?: string;
   /**不为全局配置的选项 */
   noGlobal?: string[];
+  autoClipEnabled?: boolean;
+  autoClipPresetId?: string;
 } & CommonRoomConfig;
 
 // 工具页配置
@@ -646,6 +648,16 @@ export interface AppConfig {
     autoSave: boolean;
     /** 缓存波形图数据 */
     cacheWaveform: boolean;
+    autoClipEnabled: boolean;
+    autoClipPresetId: string;
+    autoClipExport: boolean;
+    autoClipUpload: boolean;
+    autoClipReviewMode: boolean;
+    autoClipTimeWindow: {
+      enabled: boolean;
+      start: string;
+      end: string;
+    };
   };
   /** 通知配置 */
   notification: {
@@ -658,6 +670,7 @@ export interface AppConfig {
       douyuDownload: NotificationTaskStatus[];
       mediaStatusCheck: NotificationTaskStatus[];
       sync: NotificationTaskStatus[];
+      autoClip: NotificationTaskStatus[];
       diskSpaceCheck: {
         values: Array<"bilirecorder" | "bililiveTools">;
         /** 磁盘空间不足阈值，单位GB */
@@ -1169,6 +1182,7 @@ export interface GlobalConfig {
   defaultBililiveRecorderPath: string;
   defaultAudioWaveformPath: string;
   defaultDanmakuFactoryPath: string;
+  autoClipPresetPath: string;
   version: string;
   userDataPath: string;
 }
