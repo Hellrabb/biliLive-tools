@@ -56,6 +56,7 @@ program
       ffmpegPresetPath: path.join(c.configFolder, "ffmpeg_presets.json"),
       videoPresetPath: path.join(c.configFolder, "presets.json"),
       danmuPresetPath: path.join(c.configFolder, "danmu_presets.json"),
+      autoClipPresetPath: path.join(c.configFolder, "autoClipPresets.json"),
       configPath: path.join(c.configFolder, "appConfig.json"),
       logPath: c.logPath,
       defaultFfmpegPath: c.ffmpegPath,
