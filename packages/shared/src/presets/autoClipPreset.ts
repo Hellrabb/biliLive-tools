@@ -1,6 +1,6 @@
 import CommonPreset from "./preset.js";
 
-import type { AutoClipConfig } from "@biliLive-tools/types";
+import type { AutoClipConfig, GlobalConfig } from "@biliLive-tools/types";
 
 export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
   signal: {
@@ -39,7 +39,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
 };
 
 export class AutoClipPreset extends CommonPreset<AutoClipConfig> {
-  constructor(filepath: string) {
-    super(filepath, AUTO_CLIP_DEFAULT_CONFIG);
+  constructor({ globalConfig }: { globalConfig: Pick<GlobalConfig, "autoClipPresetPath"> }) {
+    super(globalConfig.autoClipPresetPath, AUTO_CLIP_DEFAULT_CONFIG);
   }
 }

@@ -7,7 +7,7 @@ export * from "./presets/index.js";
 export * from "./autoClip/index.js";
 import { taskQueue, TaskQueue } from "./task/task.js";
 import { appConfig, AppConfig } from "./config.js";
-import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset } from "./presets/index.js";
+import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset, AutoClipPreset } from "./presets/index.js";
 import { setFfmpegPath } from "./task/video.js";
 import logger, { initLogger, setLogLevel } from "./utils/log.js";
 import { migrateBiliUser, checkAccountLoop } from "./task/bili.js";
@@ -33,6 +33,7 @@ export interface GlobalContainer {
   videoPreset: VideoPreset;
   ffmpegPreset: FFmpegPreset;
   subtitleStylePreset: SubtitleStylePreset;
+  autoClipPreset: AutoClipPreset;
   recorderManager: Awaited<ReturnType<typeof createRecorderManager>>;
 }
 
@@ -66,6 +67,7 @@ const init = async (config: GlobalConfig) => {
     videoPreset: asClass(VideoPreset).singleton(),
     ffmpegPreset: asClass(FFmpegPreset).singleton(),
     subtitleStylePreset: asClass(SubtitleStylePreset).singleton(),
+    autoClipPreset: asClass(AutoClipPreset).singleton(),
   });
   const recorderManager = await createRecorderManager(appConfig);
   container.register({
