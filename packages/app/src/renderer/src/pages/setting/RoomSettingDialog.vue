@@ -33,6 +33,36 @@
           type="room"
         >
         </CommonSetting>
+        <n-divider />
+        <h3 style="margin-bottom:8px">自动切片</h3>
+        <n-form-item>
+          <template #label>
+            <span class="inline-flex">
+              autoClip
+              <Tip tip="覆盖全局 autoClip 设置"></Tip>
+            </span>
+          </template>
+          <n-switch v-model:value="data.autoClipEnabled" />
+          <n-checkbox v-model:checked="globalFieldsObj.autoClipEnabled" class="global-checkbox">
+            全局
+          </n-checkbox>
+        </n-form-item>
+        <n-form-item>
+          <template #label>
+            <span class="inline-flex">预设</span>
+          </template>
+          <n-select
+            v-model:value="data.autoClipPresetId"
+            :options="autoClipPresetOptions"
+            placeholder="使用全局预设"
+            clearable
+            style="width:200px"
+            :disabled="globalFieldsObj.autoClipPresetId"
+          />
+          <n-checkbox v-model:checked="globalFieldsObj.autoClipPresetId" class="global-checkbox">
+            全局
+          </n-checkbox>
+        </n-form-item>
       </n-form>
       <template #footer>
         <div class="footer">
@@ -79,6 +109,7 @@
 import CommonSetting from "./CommonWebhookSetting.vue";
 import { useConfirm } from "@renderer/hooks";
 import { cloneDeep } from "lodash-es";
+import { autoClipPresetApi } from "@renderer/apis/presets";
 
 import type { AppRoomConfig, SyncType } from "@biliLive-tools/types";
 
@@ -115,6 +146,8 @@ const globalFieldsObj = defineModel<{
   default: () => {},
 });
 const confirm = useConfirm();
+
+const autoClipPresetOptions = ref<{ label: string; value: string }[]>([]);
 
 const emits = defineEmits<{
   (event: "save", value: AppRoomConfig & { id?: string }): void;
@@ -184,6 +217,13 @@ const saveCopyRoom = async () => {
   roomDetailVisible.value = false;
   copyVisible.value = false;
 };
+
+onMounted(async () => {
+  try {
+    const presets = await autoClipPresetApi.list();
+    autoClipPresetOptions.value = presets.map((p: any) => ({ label: p.name, value: p.id }));
+  } catch { /* ignore */ }
+});
 </script>
 
 <style scoped>

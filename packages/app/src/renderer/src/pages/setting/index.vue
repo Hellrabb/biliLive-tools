@@ -454,7 +454,7 @@ import { useConfirm } from "@renderer/hooks";
 import { FolderOpenOutline, Refresh } from "@vicons/ionicons5";
 import { deepRaw } from "@renderer/utils";
 import { showDirectoryDialog } from "@renderer/utils/fileSystem";
-import { videoPresetApi, ffmpegPresetApi, configApi, commonApi } from "@renderer/apis";
+import { videoPresetApi, ffmpegPresetApi, configApi, commonApi, autoClipPresetApi } from "@renderer/apis";
 import { useThemeStore } from "@renderer/stores/theme";
 
 import type { AppConfig, BiliupPreset, AppRoomConfig } from "@biliLive-tools/types";
@@ -682,6 +682,8 @@ const globalFields = ref([
   "videoHandleTime",
   "partTitleTemplate",
   "afterUploadDeletAction",
+  "autoClipEnabled",
+  "autoClipPresetId",
 ]);
 const webhookDefaultValue = computed(() => {
   if (!config.value.webhook) return {};
@@ -750,6 +752,8 @@ const tempRoomDetail = ref<AppRoomConfig & { id?: string }>({
   videoHandleTime: ["00:00:00", "23:59:59"],
   partTitleTemplate: "",
   afterUploadDeletAction: "none",
+  autoClipEnabled: undefined,
+  autoClipPresetId: undefined,
 });
 const saveRoomDetail = (data: AppRoomConfig & { id?: string }) => {
   config.value.webhook.rooms[data.id!] = data;
