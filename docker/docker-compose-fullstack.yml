@@ -1,28 +1,51 @@
 services:
   # 全栈镜像 - 包含前端和后端
   fullstack:
-    image: renmu1234/bililive-tools
-    # 如果需要本地构建，取消下面的注释
-    # build:
-    #   context: ..
-    #   dockerfile: docker/fullstack-dockerfile
-    ports:
-      # 只需要暴露一个端口
-      - "3000:3000"
-    volumes:
-      # 映射的配置目录，用于持久化配置文件
-      - ./data:/app/data
-      # 存储文件的默认目录
-      - ./video:/app/video
-      # 字体目录
-      - ./fonts:/usr/share/fonts
+    cpu_shares: 50
+    command: []
+    container_name: bililive-tools
+    deploy:
+      resources:
+        limits:
+          memory: "8589934592"
+        reservations:
+          devices:
+            - capabilities:
+                - gpu
+              driver: nvidia
+              count: -1
     environment:
-      # 登录密钥
-      - BILILIVE_TOOLS_PASSKEY=your_passkey
-      # 账户加密密钥
-      - BILILIVE_TOOLS_BILIKEY=your_bilikey
-      # 文件管理器可删除的目录
-      - DELETE_DIRS_ENV=/app/video
-      # 中国时区
-      - TZ=Asia/Shanghai
+      BILILIVE_TOOLS_BILIKEY: 18234002278ASD
+      BILILIVE_TOOLS_PASSKEY: 18234002278ASD
+      LANG: zh_CN.UTF-8
+      LANGUAGE: zh_CN:zh
+      LC_ALL: zh_CN.UTF-8
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
+      TZ: Asia/Shanghai
+    group_add:
+      - "110"
+      - video
+    hostname: bililive-tools
+    image: renmu1234/bililive-tools
+    labels:
+      icon: https://icon.casaos.io/main/all/webui.png
+    network_mode: bridge
+    ports:
+      - target: 3000
+        published: "3000"
+    privileged: true
     restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /DATA/Storage/video_music/live-recorder2/data
+        target: /app/data
+      - type: bind
+        source: /DATA/Storage/video_music/live-recorder2/video
+        target: /app/video
+      - type: bind
+        source: /DATA/Storage/video_music/live-recorder2/video2
+        target: /app/video2
+      - type: bind
+        source: /DATA/Storage/video_music/live-recorder2/fonts
+        target: /usr/local/share/fonts
