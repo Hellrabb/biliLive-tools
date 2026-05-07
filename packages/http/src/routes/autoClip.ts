@@ -152,6 +152,42 @@ router.post("/clip/:id/approve", async (ctx) => {
   ctx.body = { status: "approved" };
 });
 
+// POST /auto-clip/clip/:id/re-export — 重新导出切片
+router.post("/clip/:id/re-export", async (ctx) => {
+  const result = autoClipModel.getResultById(ctx.params.id);
+  if (!result) {
+    ctx.status = 404;
+    ctx.body = { error: "Not found" };
+    return;
+  }
+
+  const highlights = JSON.parse(result.highlights);
+
+  try {
+    const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
+    const exportedPaths = await exportClips(
+      result.video_path,
+      highlights,
+      {
+        cutFormat: "mp4",
+        ffmpegPresetId: "default",
+        burnDanmaku: false,
+        uploadToBili: false,
+        savePath: "",
+        namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
+      },
+      (_stage, _pct, msg) => console.log(`AutoClip re-export: ${msg}`),
+    );
+
+    autoClipModel.markExported(ctx.params.id, exportedPaths);
+    ctx.body = { status: "exported", exportedPaths };
+  } catch (error: any) {
+    console.error("Re-export error:", error);
+    ctx.status = 500;
+    ctx.body = { error: error.message };
+  }
+});
+
 router.post("/clip/:id/delete", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
