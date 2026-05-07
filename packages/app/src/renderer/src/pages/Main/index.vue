@@ -48,6 +48,7 @@
               'FlvRepair',
               'BiliDownload',
               'recorder',
+              'AutoClipManagement',
               'videoCut',
               'Queue',
               'User',
@@ -385,6 +386,20 @@ const menuOptions = computed<MenuOption[]>(() => {
           { default: () => "直播录制" },
         ),
       icon: renderIcon(LiveTvRound),
+    },
+    {
+      key: "AutoClipManagement",
+      label: () =>
+        h(
+          RouterLink,
+          {
+            to: {
+              name: "AutoClipManagement",
+            },
+          },
+          { default: () => "自动切片" },
+        ),
+      icon: renderIcon(VideoClip20Regular),
     },
     {
       label: () =>

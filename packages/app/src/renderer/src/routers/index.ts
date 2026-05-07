@@ -114,6 +114,11 @@ const router = createRouter({
           component: () => import("../pages/VideoPlayer/index.vue"),
           meta: { keepAlive: false },
         },
+        {
+          path: "/autoClip",
+          name: "AutoClipManagement",
+          component: () => import("../pages/AutoClipManagement/Index.vue"),
+        },
       ],
     },
   ],
