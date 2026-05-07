@@ -646,10 +646,49 @@ export async function createRecorderManager(appConfig: AppConfig) {
                 autoClipModel.markExported(result.id, exportedPaths);
                 logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
 
-                // 自动上传B站 (Phase 2 Task 11 细化)
+                // 自动上传B站 (Phase 2 Task 11)
                 if (autoUpload) {
-                  // Placeholder: will be implemented in Task 11
-                  logger.info(`AutoClip: 自动上传B站 (Phase 2 Task 11 - not yet implemented)`);
+                  try {
+                    const biliApi = (await import("../task/bili.js")).default;
+                    const { DEFAULT_BILIUP_CONFIG } = await import("../presets/videoPreset.js");
+                    const { container: diContainer } = await import("../index.js");
+
+                    const cfg = appConfig.getAll();
+                    const uid = cfg?.uid;
+
+                    if (!uid) {
+                      logger.warn("AutoClip: 未配置默认B站UID，跳过自动上传");
+                    } else {
+                      // 获取B站上传预设配置，优先使用第一个预设，否则使用默认配置
+                      let biliupConfig = DEFAULT_BILIUP_CONFIG;
+                      try {
+                        const videoPreset = diContainer.resolve("videoPreset");
+                        const presets = await videoPreset.list();
+                        if (presets.length > 0 && presets[0].config) {
+                          biliupConfig = presets[0].config;
+                        }
+                      } catch {
+                        // fallback to default
+                      }
+
+                      for (let i = 0; i < exportedPaths.length; i++) {
+                        const expPath = exportedPaths[i];
+                        const highlight = result.highlights[i];
+                        const title = highlight?.title || path.parse(expPath).name;
+
+                        await biliApi.addMedia(
+                          [{ path: expPath, title }],
+                          { ...biliupConfig, title },
+                          uid,
+                        );
+                      }
+
+                      autoClipModel.markUploaded(result.id, []);
+                      logger.info(`AutoClip: 已添加 ${exportedPaths.length} 个B站上传任务到队列`);
+                    }
+                  } catch (uploadError) {
+                    logger.error("AutoClip: 自动上传B站失败", uploadError);
+                  }
                 }
 
                 // 发送通知
