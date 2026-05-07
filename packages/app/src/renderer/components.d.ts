@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppendVideoDialog: typeof import('./src/components/AppendVideoDialog.vue')['default']
+    AutoClipPresetDialog: typeof import('./src/components/AutoClipPresetDialog.vue')['default']
     BiliSetting: typeof import('./src/components/BiliSetting.vue')['default']
     ButtonGroup: typeof import('./src/components/ButtonGroup.vue')['default']
     ChangelogModal: typeof import('./src/components/ChangelogModal.vue')['default']
@@ -42,6 +43,8 @@ declare module 'vue' {
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
     NDataTable: typeof import('naive-ui')['NDataTable']
     NDatePicker: typeof import('naive-ui')['NDatePicker']
+    NDescriptions: typeof import('naive-ui')['NDescriptions']
+    NDescriptionsItem: typeof import('naive-ui')['NDescriptionsItem']
     NDialogProvider: typeof import('naive-ui')['NDialogProvider']
     NDivider: typeof import('naive-ui')['NDivider']
     NDropdown: typeof import('naive-ui')['NDropdown']
@@ -65,6 +68,7 @@ declare module 'vue' {
     NProgress: typeof import('naive-ui')['NProgress']
     NQrCode: typeof import('naive-ui')['NQrCode']
     NRadio: typeof import('naive-ui')['NRadio']
+    NRadioButton: typeof import('naive-ui')['NRadioButton']
     NRadioGroup: typeof import('naive-ui')['NRadioGroup']
     NSelect: typeof import('naive-ui')['NSelect']
     NSlider: typeof import('naive-ui')['NSlider']
