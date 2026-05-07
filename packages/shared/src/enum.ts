@@ -176,6 +176,16 @@ export const APP_DEFAULT_CONFIG: AppConfig = {
   videoCut: {
     autoSave: true,
     cacheWaveform: true,
+    autoClipEnabled: false,
+    autoClipPresetId: "",
+    autoClipExport: false,
+    autoClipUpload: false,
+    autoClipReviewMode: false,
+    autoClipTimeWindow: {
+      enabled: false,
+      start: "00:00",
+      end: "23:59",
+    },
   },
   notification: {
     task: {
@@ -190,6 +200,7 @@ export const APP_DEFAULT_CONFIG: AppConfig = {
         threshold: 10,
       },
       sync: [],
+      autoClip: [],
     },
     setting: {
       type: undefined,
