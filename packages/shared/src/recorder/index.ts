@@ -596,6 +596,78 @@ export async function createRecorderManager(appConfig: AppConfig) {
           for (const h of result.highlights) {
             logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
           }
+
+          // 持久化到数据库
+          const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
+          const autoExport = videoCutCfg.autoClipExport ?? false;
+          const autoUpload = videoCutCfg.autoClipUpload ?? false;
+
+          try {
+            const { container: diContainer } = await import("../index.js");
+            const autoClipModel = diContainer.resolve("autoClipModel") as import("../db/autoClip.js").default;
+
+            // Use the recorder's channelId as recorder_id
+            const recorderId = recorder?.channelId ?? "";
+            const status = reviewMode ? "pending" : "approved";
+
+            autoClipModel.saveResult({
+              id: result.id,
+              video_path: filename,
+              danmu_path: xmlFile,
+              recorder_id: String(recorderId),
+              preset_id: presetId || null,
+              status,
+              highlights: JSON.stringify(result.highlights),
+              created_at: new Date().toISOString(),
+              exported_at: null,
+              uploaded_at: null,
+              exported_paths: null,
+              bili_aids: null,
+            } satisfies import("../db/autoClip.js").AutoClipResultRow);
+
+            logger.info(`AutoClip: 结果已保存 (status=${status})`);
+
+            // 非审核模式：自动导出
+            if (!reviewMode && autoExport && result.highlights.length > 0) {
+              const { exportClips } = await import("../autoClip/pipeline.js");
+              logger.info(`AutoClip: 开始自动导出 ${result.highlights.length} 个切片...`);
+
+              const exportConfig = presetConfig.export;
+              const savePath = exportConfig.savePath || path.dirname(filename);
+              const effectiveConfig = { ...exportConfig, savePath };
+
+              const exportedPaths = await exportClips(
+                filename,
+                result.highlights,
+                effectiveConfig,
+                (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
+              );
+
+              if (exportedPaths.length > 0) {
+                autoClipModel.markExported(result.id, exportedPaths);
+                logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
+
+                // 自动上传B站 (Phase 2 Task 11 细化)
+                if (autoUpload) {
+                  // Placeholder: will be implemented in Task 11
+                  logger.info(`AutoClip: 自动上传B站 (Phase 2 Task 11 - not yet implemented)`);
+                }
+
+                // 发送通知
+                try {
+                  const { sendNotify } = await import("../notify.js");
+                  await sendNotify(
+                    "autoClip 切片完成",
+                    `录制 ${path.basename(filename)} 自动切片完成，共 ${exportedPaths.length} 个高光片段`,
+                  );
+                } catch {
+                  // notification may not be configured
+                }
+              }
+            }
+          } catch (dbError) {
+            logger.error("AutoClip: 持久化失败", dbError);
+          }
         }
       }
     } catch (error) {
