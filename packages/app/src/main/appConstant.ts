@@ -13,6 +13,7 @@ export const getConfigPath = async () => {
   let VIDEO_PRESET_PATH = join(userDataPath, "presets.json");
   let DANMU_PRESET_PATH = join(userDataPath, "danmu_presets.json");
   let FFMPEG_PRESET_PATH = join(userDataPath, "ffmpeg_presets.json");
+  let AUTO_CLIP_PRESET_PATH = join(userDataPath, "autoClipPresets.json");
   const LOG_PATH = join(app.getPath("logs"), `main.log`);
 
   const portablePath = dirname(app.getPath("exe"));
@@ -22,6 +23,7 @@ export const getConfigPath = async () => {
     VIDEO_PRESET_PATH = join(portablePath, "presets.json");
     DANMU_PRESET_PATH = join(portablePath, "danmu_presets.json");
     FFMPEG_PRESET_PATH = join(portablePath, "ffmpeg_presets.json");
+    AUTO_CLIP_PRESET_PATH = join(portablePath, "autoClipPresets.json");
     userDataPath = portablePath;
   }
 
@@ -51,6 +53,7 @@ export const getConfigPath = async () => {
     VIDEO_PRESET_PATH,
     DANMU_PRESET_PATH,
     FFMPEG_PRESET_PATH,
+    AUTO_CLIP_PRESET_PATH,
     userDataPath,
     LOG_PATH,
     FFMPEG_PATH,
