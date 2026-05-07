@@ -532,7 +532,6 @@ export async function createRecorderManager(appConfig: AppConfig) {
     // 6. AutoClip: 录制完成后自动触发切片
     try {
       const xmlFile = replaceExtName(filename, ".xml");
-      const globalConfig = config;
       if (xmlFile && (await fs.pathExists(xmlFile))) {
         logger.info("AutoClip: 检查自动切片触发条件", {
           videoPath: filename,
