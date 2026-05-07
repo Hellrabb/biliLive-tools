@@ -2,13 +2,13 @@
 
 import { Ollama } from "ollama";
 
-function getModelList(host: string) {
+export function getModelList(host: string) {
   const ollama = new Ollama({ host });
   return ollama.list();
 }
 
-function chat(params: { model: string; messages: any[]; options: any }) {
-  const host = "http://localhost:1300";
+export function chat(params: { host?: string; model: string; messages: any[]; options?: any }) {
+  const host = params.host ?? "http://localhost:11434";
   const ollama = new Ollama({ host: host });
   return ollama.chat({
     model: params.model,

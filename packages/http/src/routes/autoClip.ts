@@ -5,7 +5,6 @@ import { AUTO_CLIP_DEFAULT_CONFIG } from "@biliLive-tools/shared/presets/autoCli
 import { appConfig } from "../index.js";
 
 import type { AutoClipConfig } from "@biliLive-tools/types";
-import type { AwilixContainer } from "awilix";
 
 const router = new Router({ prefix: "/auto-clip" });
 
@@ -56,7 +55,7 @@ router.post("/run", async (ctx) => {
         baseURL: vendor?.baseURL,
       });
       const result = await llm.sendMessage(prompt);
-      return result;
+      return result.content;
     } else if (presetConfig.llm.provider === "ollama") {
       const { chat } = await import("@biliLive-tools/shared/llm/ollama.js");
       const aiConfig = appConfig.getAll().ai;

@@ -3,7 +3,7 @@ services:
   fullstack:
     cpu_shares: 50
     command: []
-    container_name: bililive-tools
+    container_name: bililive-tools_test
     deploy:
       resources:
         limits:
@@ -27,7 +27,14 @@ services:
       - "110"
       - video
     hostname: bililive-tools
-    image: renmu1234/bililive-tools
+    # 使用本地源码构建（包含 autoClip 功能）
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: fullstack
+      args:
+        VITE_FULLSTACK: "true"
+    # image: renmu1234/bililive-tools  # 预构建镜像（不含 autoClip）
     labels:
       icon: https://icon.casaos.io/main/all/webui.png
     network_mode: bridge
