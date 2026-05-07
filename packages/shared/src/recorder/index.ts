@@ -529,25 +529,63 @@ export async function createRecorderManager(appConfig: AppConfig) {
       });
     }
 
-    // 6. AutoClip: 录制完成后自动触发切片
+    // 6. AutoClip: 录制完成后根据配置自动触发
     try {
       const xmlFile = replaceExtName(filename, ".xml");
       if (xmlFile && (await fs.pathExists(xmlFile))) {
+        // 读取 autoClip 配置
+        const cfg = appConfig.getAll();
+        const videoCutCfg = cfg?.videoCut ?? {};
+        const autoClipEnabled = videoCutCfg.autoClipEnabled ?? false;
+
+        if (!autoClipEnabled) {
+          logger.info("AutoClip: 全局开关未开启，跳过");
+          return;
+        }
+
+        // 检查时间窗口
+        const tw = videoCutCfg.autoClipTimeWindow;
+        if (tw?.enabled) {
+          const now = new Date();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          const [sh, sm] = tw.start.split(":").map(Number);
+          const [eh, em] = tw.end.split(":").map(Number);
+          const startMin = sh * 60 + sm;
+          const endMin = eh * 60 + em;
+          if (currentMinutes < startMin || currentMinutes > endMin) {
+            logger.info(`AutoClip: 不在时间窗口内 (${tw.start}-${tw.end})，跳过`);
+            return;
+          }
+        }
+
         logger.info("AutoClip: 检查自动切片触发条件", {
           videoPath: filename,
           danmuPath: xmlFile,
         });
-        // For now, auto-trigger is always attempted if danmaku XML exists.
-        // Future: check per-recorder AutoClipPreset binding.
+
+        // 加载 preset 配置
         const { runAutoClipPipeline } = await import("../autoClip/pipeline.js");
         const { AUTO_CLIP_DEFAULT_CONFIG } = await import("../presets/autoClipPreset.js");
+
+        let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
+        const presetId = videoCutCfg.autoClipPresetId;
+        if (presetId && presetId !== "") {
+          try {
+            const { container: diContainer } = await import("../index.js");
+            const autoClipPreset = diContainer.resolve("autoClipPreset");
+            const p = await autoClipPreset.get(presetId);
+            presetConfig = p?.config ?? AUTO_CLIP_DEFAULT_CONFIG;
+          } catch {
+            // fallback to default
+          }
+        }
 
         logger.info("AutoClip: 开始自动切片分析", { videoPath: filename, danmuPath: xmlFile });
 
         const result = await runAutoClipPipeline({
           videoPath: filename,
           danmuPath: xmlFile,
-          presetConfig: AUTO_CLIP_DEFAULT_CONFIG,
+          presetConfig,
           onProgress: (_stage, _pct, msg) => logger.info(`AutoClip: ${msg}`),
         });
 
@@ -555,7 +593,6 @@ export async function createRecorderManager(appConfig: AppConfig) {
           logger.info(`AutoClip: 跳过 — ${result.skippedReason}`);
         } else {
           logger.info(`AutoClip: 检测到 ${result.highlights.length} 个高光片段`);
-          // Export is optional for auto-trigger; log results for now
           for (const h of result.highlights) {
             logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
           }
