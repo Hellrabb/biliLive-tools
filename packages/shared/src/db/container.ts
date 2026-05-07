@@ -10,6 +10,7 @@ import VideoSubModel from "./model/videoSub.js";
 import RecordHistoryModel from "./model/recordHistory.js";
 import UploadPartModel from "./model/uploadPart.js";
 import SubtitleStyleModel from "./model/subtitleStyle.js";
+import AutoClipModel from "./autoClip.js";
 
 import StatisticsService from "./service/statisticsService.js";
 import VirtualRecordService from "./service/virtualRecordService.js";
@@ -39,6 +40,7 @@ export interface Container {
   recordHistoryModel: RecordHistoryModel;
   uploadPartModel: UploadPartModel;
   subtitleStyleModel: SubtitleStyleModel;
+  autoClipModel: AutoClipModel;
 
   statisticsService: StatisticsService;
   virtualRecordService: VirtualRecordService;
@@ -103,6 +105,7 @@ export function setupContainer(dbRootPath: string) {
     recordHistoryModel: asClass(RecordHistoryModel).singleton(),
     uploadPartModel: asClass(UploadPartModel).singleton(),
     subtitleStyleModel: asClass(SubtitleStyleModel).singleton(),
+    autoClipModel: asClass(AutoClipModel).singleton(),
   });
 
   // Register all Services
