@@ -603,8 +603,7 @@ export async function createRecorderManager(appConfig: AppConfig) {
           const autoUpload = videoCutCfg.autoClipUpload ?? false;
 
           try {
-            const { container: diContainer } = await import("../index.js");
-            const autoClipModel = diContainer.resolve("autoClipModel") as import("../db/autoClip.js").default;
+            const { autoClipModel } = await import("../db/index.js");
 
             // Use the recorder's channelId as recorder_id
             const recorderId = recorder?.channelId ?? "";
