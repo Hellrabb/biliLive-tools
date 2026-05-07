@@ -1,17 +1,49 @@
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { runAutoClipPipeline } from "@biliLive-tools/shared/autoClip/pipeline.js";
-import { AUTO_CLIP_DEFAULT_CONFIG } from "@biliLive-tools/shared/presets/autoClipPreset.js";
-import { appConfig } from "../index.js";
+import { container, appConfig } from "../index.js";
 
-import type { AutoClipConfig } from "@biliLive-tools/types";
+import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 
 const router = new Router({ prefix: "/auto-clip" });
 
-// In-memory result cache
 const resultCache = new Map<string, any>();
 
-// POST /auto-clip/run — manually trigger auto-clip
+function getAutoClipPreset() {
+  return container.resolve("autoClipPreset") as any;
+}
+
+// ===================== 预设 CRUD =====================
+
+router.get("/presets", async (ctx) => {
+  const preset = getAutoClipPreset();
+  ctx.body = await preset.list();
+});
+
+router.get("/preset/:id", async (ctx) => {
+  const preset = getAutoClipPreset();
+  ctx.body = await preset.get(ctx.params.id);
+});
+
+router.post("/preset", async (ctx) => {
+  const preset = getAutoClipPreset();
+  const data = ctx.request.body as AutoClipPresetType;
+  ctx.body = await preset.save(data);
+});
+
+router.put("/preset/:id", async (ctx) => {
+  const preset = getAutoClipPreset();
+  const data = ctx.request.body as AutoClipPresetType;
+  ctx.body = await preset.save({ ...data, id: ctx.params.id });
+});
+
+router.del("/preset/:id", async (ctx) => {
+  const preset = getAutoClipPreset();
+  ctx.body = await preset.delete(ctx.params.id);
+});
+
+// ===================== 手动触发 =====================
+
 router.post("/run", async (ctx) => {
   const { videoPath, danmuPath, presetId } = ctx.request.body as {
     videoPath?: string;
@@ -25,25 +57,91 @@ router.post("/run", async (ctx) => {
     return;
   }
 
-  // Load preset config
   let presetConfig: AutoClipConfig;
   if (presetId) {
     try {
-      const { AutoClipPreset } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
-      const globalConfig = appConfig.getAll();
-      const presetPath = (globalConfig as any).ffmpegPresetPath?.replace("ffmpeg", "autoClip") ?? "";
-      const preset = new AutoClipPreset(presetPath);
+      const preset = getAutoClipPreset();
       const p = await preset.get(presetId);
-      presetConfig = p?.config ?? AUTO_CLIP_DEFAULT_CONFIG;
+      presetConfig = p?.config ?? (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
     } catch {
-      presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
+      presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
     }
   } else {
-    presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
+    presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
   }
 
-  // Build LLM sendMessage function from app config
-  const sendMessage = async (prompt: string): Promise<string> => {
+  const sendMessage = await buildSendMessage(presetConfig);
+
+  try {
+    const result = await runAutoClipPipeline({
+      videoPath,
+      danmuPath,
+      presetConfig,
+      sendMessage,
+      onProgress: (_stage, _pct, message) => {
+        logger.info(`[AutoClip] ${message}`);
+      },
+    });
+
+    resultCache.set(result.id, result);
+    ctx.body = result;
+  } catch (error: any) {
+    logger.error("AutoClip run error:", error);
+    ctx.status = 500;
+    ctx.body = { error: error.message };
+  }
+});
+
+router.get("/result/:id", async (ctx) => {
+  const { id } = ctx.params;
+  const result = resultCache.get(id);
+  if (!result) {
+    ctx.status = 404;
+    ctx.body = { error: "Result not found" };
+    return;
+  }
+  ctx.body = result;
+});
+
+// ===================== Clips 管理 =====================
+
+router.get("/clips", async (ctx) => {
+  ctx.body = Array.from(resultCache.values());
+});
+
+router.get("/clip/:id", async (ctx) => {
+  const result = resultCache.get(ctx.params.id);
+  if (!result) {
+    ctx.status = 404;
+    ctx.body = { error: "Not found" };
+    return;
+  }
+  ctx.body = result;
+});
+
+router.post("/clip/:id/approve", async (ctx) => {
+  const result = resultCache.get(ctx.params.id);
+  if (!result) {
+    ctx.status = 404;
+    ctx.body = { error: "Not found" };
+    return;
+  }
+  ctx.body = { status: "approved", message: "Export queued (not yet implemented)" };
+});
+
+router.post("/clip/:id/delete", async (ctx) => {
+  const existed = resultCache.has(ctx.params.id);
+  resultCache.delete(ctx.params.id);
+  if (!existed) {
+    ctx.status = 404;
+    ctx.body = { error: "Not found" };
+    return;
+  }
+  ctx.body = { status: "deleted" };
+});
+
+async function buildSendMessage(presetConfig: AutoClipConfig) {
+  return async (prompt: string): Promise<string> => {
     if (presetConfig.llm.provider === "qwen") {
       const { QwenLLM } = await import("@biliLive-tools/shared/ai/llm/qwen.js");
       const aiConfig = appConfig.getAll().ai;
@@ -70,37 +168,6 @@ router.post("/run", async (ctx) => {
     }
     throw new Error(`Unknown LLM provider: ${presetConfig.llm.provider}`);
   };
-
-  try {
-    const result = await runAutoClipPipeline({
-      videoPath,
-      danmuPath,
-      presetConfig,
-      sendMessage,
-      onProgress: (_stage, _pct, message) => {
-        logger.info(`[AutoClip] ${message}`);
-      },
-    });
-
-    resultCache.set(result.id, result);
-    ctx.body = result;
-  } catch (error: any) {
-    logger.error("AutoClip run error:", error);
-    ctx.status = 500;
-    ctx.body = { error: error.message };
-  }
-});
-
-// GET /auto-clip/result/:id — query a result by ID
-router.get("/result/:id", async (ctx) => {
-  const { id } = ctx.params;
-  const result = resultCache.get(id);
-  if (!result) {
-    ctx.status = 404;
-    ctx.body = { error: "Result not found" };
-    return;
-  }
-  ctx.body = result;
-});
+}
 
 export default router;
