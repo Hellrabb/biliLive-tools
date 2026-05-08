@@ -1,15 +1,20 @@
 :3000 {
-    # API 请求代理到后端
-    handle_path /api* {
+    # 定义后端 API 路由匹配器
+    @backend {
+        path /common* /recorder* /config* /bili* /task* /video* /webhook* /llm* /user* /preset* /recordHistory* /files* /danma* /sync* /ai* /auto-clip* /sse*
+    }
+
+    # 代理 API 请求到后端
+    handle @backend {
         reverse_proxy localhost:18010
     }
-    
-    # 静态文件服务
+
+    # 静态文件服务（前端 SPA）
     handle {
         root * /app/public
         file_server
         encode gzip
-        
+
         # 处理前端路由
         try_files {path} /index.html
     }

@@ -52,24 +52,32 @@ const api = ref("");
 const key = ref("");
 
 const login = async () => {
-  if (!api.value || !key.value) {
+  if ((!isFullstack.value && !api.value) || !key.value) {
     notice.error({ title: "请输入API地址和密钥", duration: 1000 });
     return;
   }
-  const serverVersion = await commonApi.versionTest(api.value, key.value);
-  if (serverVersion.includes('id="app"')) {
-    notice.error({ title: "不要使用前端地址啊！！", duration: 1000 });
-    return;
-  }
-  window.localStorage.setItem("api", api.value);
-  window.localStorage.setItem("key", key.value);
-  router.push({ name: "Home" });
+  try {
+    const serverVersion = await commonApi.versionTest(api.value, key.value);
+    if (serverVersion.includes('id="app"')) {
+      notice.error({ title: "不要使用前端地址啊！！", duration: 1000 });
+      return;
+    }
+    window.localStorage.setItem("api", api.value);
+    window.localStorage.setItem("key", key.value);
+    router.push({ name: "Home" });
 
-  request.defaults.baseURL = api.value;
+    request.defaults.baseURL = api.value;
+  } catch (error) {
+    if (error === "Forbidden") {
+      notice.error({ title: "密钥错误", duration: 5000 });
+      return;
+    }
+    notice.error({ title: "无法连接，请检查配置", duration: 5000 });
+  }
 };
 
 const test = async () => {
-  if (!api.value || !key.value) {
+  if ((!isFullstack.value && !api.value) || !key.value) {
     notice.error({ title: "请输入API地址和密钥", duration: 1000 });
     return;
   }
@@ -105,7 +113,7 @@ const test = async () => {
 
 // const apiStorage = window.localStorage.getItem("api");
 // const keyStorage = window.localStorage.getItem("key");
-api.value = import.meta.env.VITE_DEFAULT_SERVER || "http://127.0.0.1:18010";
+api.value = window.isFullstack ? "" : (import.meta.env.VITE_DEFAULT_SERVER || "http://127.0.0.1:18010");
 // key.value = keyStorage || "";
 const isFullstack = ref(window.isFullstack);
 if (window.localStorage.getItem("api")) {
