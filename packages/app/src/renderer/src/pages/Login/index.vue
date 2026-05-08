@@ -1,12 +1,12 @@
 <template>
   <n-card class="login-card">
     <h3 style="text-align: center">
-      {{ isFullstack ? "请配置密钥进行登录" : "请配置API地址和密钥进行登录" }}
+      {{ isFullstack || isProxyMode ? "请配置密钥进行登录" : "请配置API地址和密钥进行登录" }}
     </h3>
 
     <n-space vertical style="text-align: center">
       <n-input
-        v-if="!isFullstack"
+        v-if="!isFullstack && !isProxyMode"
         v-model:value="api"
         placeholder="请输入API地址，如http://127.0.0.1:18010"
       />
@@ -52,21 +52,25 @@ const api = ref("");
 const key = ref("");
 
 const login = async () => {
-  if ((!isFullstack.value && !api.value) || !key.value) {
+  if ((!isFullstack.value && !isProxyMode && !api.value) || !key.value) {
     notice.error({ title: "请输入API地址和密钥", duration: 1000 });
     return;
   }
   try {
-    const serverVersion = await commonApi.versionTest(api.value, key.value);
+    const testUrl = isProxyMode ? "" : api.value;
+    const testKey = key.value;
+    const serverVersion = await commonApi.versionTest(testUrl, testKey);
     if (serverVersion.includes('id="app"')) {
       notice.error({ title: "不要使用前端地址啊！！", duration: 1000 });
       return;
     }
-    window.localStorage.setItem("api", api.value);
-    window.localStorage.setItem("key", key.value);
+    window.localStorage.setItem("api", testUrl);
+    window.localStorage.setItem("key", testKey);
     router.push({ name: "Home" });
 
-    request.defaults.baseURL = api.value;
+    if (!isProxyMode) {
+      request.defaults.baseURL = testUrl;
+    }
   } catch (error) {
     if (error === "Forbidden") {
       notice.error({ title: "密钥错误", duration: 5000 });
@@ -77,12 +81,13 @@ const login = async () => {
 };
 
 const test = async () => {
-  if ((!isFullstack.value && !api.value) || !key.value) {
+  if ((!isFullstack.value && !isProxyMode && !api.value) || !key.value) {
     notice.error({ title: "请输入API地址和密钥", duration: 1000 });
     return;
   }
   try {
-    const serverVersion = await commonApi.versionTest(api.value, key.value);
+    const testUrl = isProxyMode ? "" : api.value;
+    const serverVersion = await commonApi.versionTest(testUrl, key.value);
     if (serverVersion.includes('id="app"')) {
       notice.error({ title: "不要使用前端地址啊！！", duration: 1000 });
       return;
@@ -116,6 +121,7 @@ const test = async () => {
 api.value = window.isFullstack ? "" : (import.meta.env.VITE_DEFAULT_SERVER || "http://127.0.0.1:18010");
 // key.value = keyStorage || "";
 const isFullstack = ref(window.isFullstack);
+const isProxyMode = typeof __VITE_PROXY_MODE__ !== "undefined";
 if (window.localStorage.getItem("api")) {
   window.localStorage.removeItem("api");
   window.location.reload();

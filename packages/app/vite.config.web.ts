@@ -9,11 +9,43 @@ import { version } from "./package.json";
 
 process.env.VITE_VERSION = version;
 
+const backendProxy = {
+  target: "http://127.0.0.1:18010",
+  changeOrigin: true,
+};
+
+const backendRoutes = [
+  "/common",
+  "/recorder",
+  "/config",
+  "/bili",
+  "/task",
+  "/video",
+  "/webhook",
+  "/llm",
+  "/user",
+  "/preset",
+  "/recordHistory",
+  "/files",
+  "/danma",
+  "/sync",
+  "/ai",
+  "/auto-clip",
+  "/sse",
+  "/assets",
+];
+
 export default defineConfig({
+  define: {
+    __VITE_PROXY_MODE__: "true",
+  },
   root: resolve("src/renderer"),
   server: {
     host: "0.0.0.0",
     port: 28080,
+    proxy: Object.fromEntries(
+      backendRoutes.map((route) => [route, backendProxy]),
+    ),
   },
   resolve: {
     alias: {

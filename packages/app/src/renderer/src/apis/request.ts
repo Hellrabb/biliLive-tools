@@ -13,6 +13,10 @@ if (import.meta.hot) {
 }
 
 export async function init() {
+  if (typeof __VITE_PROXY_MODE__ !== "undefined") {
+    // web-only dev mode: 同源请求由 Vite proxy 转发，不设置 baseURL
+    return;
+  }
   if (window.isWeb) {
     const baseURL = window.localStorage.getItem("api");
     if (baseURL) {
@@ -37,9 +41,11 @@ api.interceptors.request.use(
     if (keyStorage) {
       config.headers.Authorization = keyStorage;
     }
-    const baseURL = window.localStorage.getItem("api");
-    if (baseURL) {
-      config.baseURL = baseURL;
+    if (typeof __VITE_PROXY_MODE__ === "undefined") {
+      const baseURL = window.localStorage.getItem("api");
+      if (baseURL) {
+        config.baseURL = baseURL;
+      }
     }
     return config;
   },

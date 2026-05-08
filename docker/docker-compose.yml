@@ -5,9 +5,12 @@ services:
     ports:
       # 前者按需改动
       - "3000:3000"
-  # 接口镜像
+  # 接口镜像 (本地构建以包含最新路由)
   api:
-    image: renmu1234/bililive-tools-backend
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: backend
     ports:
       - "18010:18010"
     volumes:
