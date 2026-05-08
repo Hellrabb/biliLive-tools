@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "chcp 65001 && pnpm run --filter biliLive-tools dev",
+    "dev:web": "pnpm run --filter biliLive-tools dev:web",
     "devMain": "chcp 65001 && pnpm run --filter biliLive-tools devMain",
     "build:app": "pnpm run build:base && pnpm run --filter biliLive-tools build:app",
     "build:webui": "pnpm run build:base && pnpm run --filter biliLive-tools build:webui",
