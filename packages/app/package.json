@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.config.web.ts",
     "devMain": "electron-vite dev --watch",
     "start": "electron-vite preview",
     "build": "pnpm run typecheck && electron-vite build",

@@ -12,11 +12,13 @@ services:
       - "18010:18010"
     volumes:
       # 映射的配置目录，用于持久化配置文件
-      - ./data:/app/data
+      - /DATA/Storage/video_music/live-recorder2/data:/app/data
       # 存储文件的默认目录
-      - ./video:/app/video
+      - /DATA/Storage/video_music/live-recorder2/video:/app/video
+      # 第二存储目录
+      - /DATA/Storage/video_music/live-recorder2/video2:/app/video2
       # 字体目录
-      - ./fonts:/usr/local/share/fonts
+      - /DATA/Storage/video_music/live-recorder2/fonts:/usr/local/share/fonts
     environment:
       # 登录密钥
       - BILILIVE_TOOLS_PASSKEY=your_passkey
