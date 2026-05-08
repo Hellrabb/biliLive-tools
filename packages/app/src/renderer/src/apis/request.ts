@@ -17,10 +17,10 @@ export async function init() {
     const baseURL = window.localStorage.getItem("api");
     if (baseURL) {
       api.defaults.baseURL = baseURL;
-    } else {
-      if (!import.meta.env.VITE_DEFAULT_SERVER) {
-        api.defaults.baseURL = `http://127.0.0.1:18010`;
-      }
+    } else if (import.meta.env.VITE_FULLSTACK === "true") {
+      // 全栈模式使用同源请求，不设置 baseURL，由 Caddy 反向代理到后端
+    } else if (!import.meta.env.VITE_DEFAULT_SERVER) {
+      api.defaults.baseURL = `http://127.0.0.1:18010`;
     }
   } else {
     const appConfig = await window.api.config.getAll();

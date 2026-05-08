@@ -1,9 +1,10 @@
+name: bililive-tools-test1
 services:
   # 全栈镜像 - 包含前端和后端
   fullstack:
     cpu_shares: 50
     command: []
-    container_name: bililive-tools_test
+    container_name: bililive-tools-test
     deploy:
       resources:
         limits:
@@ -26,7 +27,7 @@ services:
     group_add:
       - "110"
       - video
-    hostname: bililive-tools
+    hostname: bililive-tools-test
     # 使用本地源码构建（包含 autoClip 功能）
     build:
       context: ..
@@ -34,13 +35,14 @@ services:
       target: fullstack
       args:
         VITE_FULLSTACK: "true"
+        VITE_DEFAULT_SERVER: ""
     # image: renmu1234/bililive-tools  # 预构建镜像（不含 autoClip）
     labels:
       icon: https://icon.casaos.io/main/all/webui.png
     network_mode: bridge
     ports:
       - target: 3000
-        published: "3000"
+        published: "13000"
     privileged: true
     restart: unless-stopped
     volumes:
