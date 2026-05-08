@@ -48,29 +48,51 @@ const clearLoginInterval = () => {
 };
 const onOpen = async () => {
   text.value = "";
-  const res = await biliApi.qrcode();
-  url.value = res.url;
-  id.value = res.id;
+  try {
+    const res = await biliApi.qrcode();
+    url.value = res.url;
+    id.value = res.id;
+  } catch (e: any) {
+    const msg = e?.message || e?.toString() || "未知错误";
+    text.value = `获取二维码失败：${msg}`;
+    notice.error({
+      title: "获取二维码失败",
+      description: msg,
+      duration: 5000,
+    });
+    return;
+  }
 
   // @ts-ignore
   interval.value = setInterval(async () => {
-    const res = await biliApi.loginPoll(id.value);
-    console.log(res);
-    if (res.status === "completed") {
+    try {
+      const res = await biliApi.loginPoll(id.value);
+      console.log(res);
+      if (res.status === "completed") {
+        clearLoginInterval();
+        text.value = "登录成功，请关闭本窗口";
+        notice.success({
+          title: "登录成功",
+          duration: 1000,
+        });
+        confirm();
+      } else if (res.status === "error") {
+        clearLoginInterval();
+        notice.error({
+          title: "登录失败",
+          description: res.failReason,
+        });
+        text.value = res.failReason;
+      }
+    } catch (e: any) {
       clearLoginInterval();
-      text.value = "登录成功，请关闭本窗口";
-      notice.success({
-        title: "登录成功",
-        duration: 1000,
-      });
-      confirm();
-    } else if (res.status === "error") {
-      clearLoginInterval();
+      const msg = e?.message || e?.toString() || "未知错误";
+      text.value = `轮询失败：${msg}`;
       notice.error({
-        title: "登录失败",
-        description: res.failReason,
+        title: "登录轮询失败",
+        description: msg,
+        duration: 5000,
       });
-      text.value = res.failReason;
     }
   }, 2000);
 };
