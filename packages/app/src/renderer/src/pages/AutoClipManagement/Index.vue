@@ -48,8 +48,9 @@
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
-import { NButton, NSpace, NTag, NDataTable } from "naive-ui";
+import { NButton, NSpace, NTag, NDataTable, useMessage } from "naive-ui";
 import request from "@renderer/apis/request";
+import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 
 interface ClipItem {
   id: string;
@@ -69,6 +70,7 @@ interface ClipItem {
 }
 
 const router = useRouter();
+const message = useMessage();
 const loading = ref(false);
 const clips = ref<ClipItem[]>([]);
 const filterStatus = ref("");
@@ -188,18 +190,34 @@ async function deleteClip(dbId: string) {
   }
 }
 
-function manualAnalyze() {
-  // Open file picker dialog via Electron IPC
-  if (window.api?.openFile) {
-    window.api.openFile({ multi: false }).then((files: string[] | undefined) => {
-      if (files && files.length > 0) {
-        // After file selection, trigger auto-clip analysis
-        request.post("/auto-clip/run", {
-          videoPath: files[0],
-          danmuPath: files[0].replace(/\.[^.]+$/, ".xml"),
-        }).then(() => refreshList()).catch((e) => console.error("Manual analyze failed:", e));
-      }
+async function manualAnalyze() {
+  let files: string[] | undefined;
+
+  if (window.isWeb) {
+    files = await showDirectoryDialog({
+      type: "file",
+      multi: false,
+      exts: ["mp4", "flv", "mkv", "webm", "avi", "mov", "ts"],
     });
+  } else if (window.api?.openFile) {
+    files = await window.api.openFile({ multi: false });
+  } else {
+    message.error("文件选择不可用（当前环境不支持）");
+    return;
+  }
+
+  if (!files || files.length === 0) return;
+
+  try {
+    await request.post("/auto-clip/run", {
+      videoPath: files[0],
+      danmuPath: files[0].replace(/\.[^.]+$/, ".xml"),
+    });
+    message.success("分析完成，请查看结果");
+    await refreshList();
+  } catch (e: any) {
+    message.error(`分析失败: ${e?.response?.data?.error || e.message}`);
+    console.error("Manual analyze failed:", e);
   }
 }
 
