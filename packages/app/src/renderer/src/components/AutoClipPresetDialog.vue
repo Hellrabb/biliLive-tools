@@ -1,5 +1,5 @@
 <template>
-  <n-modal v-model:show="showModal" :mask-closable="false" style="width:900px">
+  <n-modal v-model:show="showModal" style="width:900px" title="预设编辑">
     <n-card :bordered="false" size="small" role="dialog" aria-modal="true">
       <div style="display:flex;gap:12px">
         <!-- 左侧预设列表 -->
@@ -32,6 +32,7 @@
               <n-button size="small" @click="savePreset" type="primary">保存</n-button>
               <n-button v-if="editingPreset.id !== 'default'" size="small" @click="deletePreset" type="error" ghost>删除</n-button>
               <n-button size="small" @click="copyPreset">复制</n-button>
+              <n-button size="small" @click="closeDialog">关闭</n-button>
             </div>
 
             <n-tabs v-model:value="activeTab" type="segment" animated>
@@ -254,6 +255,10 @@ function copyPreset() {
   presets.value.push(copy);
   selectedId.value = copy.id;
   editingPreset.value = cloneDeep(copy);
+}
+
+function closeDialog() {
+  visible.value = false;
 }
 
 watch(visible, (v) => {
