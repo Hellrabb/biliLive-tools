@@ -341,7 +341,7 @@ export function mergeAndDeduplicate(
   for (const w of merged) {
     let start = w[0];
     let end = w[1];
-    const dur = end - start;
+    let dur = end - start;
 
     // Drop too-short windows
     if (dur < minWindowDuration) continue;
@@ -351,6 +351,9 @@ export function mergeAndDeduplicate(
       const center = (start + end) / 2;
       start = center - maxWindowDuration / 2;
       end = center + maxWindowDuration / 2;
+      dur = end - start;
+      // Re-check after clipping: if now too short, skip
+      if (dur < minWindowDuration) continue;
     }
 
     result.push([start, end]);
