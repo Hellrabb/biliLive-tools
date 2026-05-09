@@ -3,8 +3,8 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <h2 style="margin:0">自动切片管理</h2>
       <n-space>
-        <n-button type="primary" @click="manualAnalyze">
-          + 手动分析
+        <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
+          {{ analyzing ? '分析中...' : '+ 手动分析' }}
         </n-button>
         <n-button @click="refreshList">刷新</n-button>
       </n-space>
@@ -22,7 +22,13 @@
       AI 精排服务不可用，以下评分为启发式算法估算。请检查系统设置中的 AI 配置是否正确。
     </n-alert>
 
-    <!-- 切片列表 -->
+    <n-empty v-if="!loading && filteredData.length === 0" description="暂无切片数据" style="margin:40px 0">
+      <template #extra>
+        <n-button type="primary" @click="manualAnalyze" :disabled="analyzing">手动分析第一个视频</n-button>
+      </template>
+    </n-empty>
+
+    <template v-if="!loading && filteredData.length > 0">
     <n-data-table
       :columns="columns"
       :data="filteredData"
@@ -30,6 +36,7 @@
       :pagination="{ pageSize: 20 }"
       :row-key="(r:any) => r.id"
     />
+    </template>
 
     <!-- 预览弹窗 -->
     <n-modal v-model:show="previewVisible" style="width:800px" title="切片预览">
@@ -77,6 +84,7 @@ interface ClipItem {
 const router = useRouter();
 const notice = useNotification();
 const loading = ref(false);
+const analyzing = ref(false);
 const clips = ref<ClipItem[]>([]);
 const filterStatus = ref("");
 const previewVisible = ref(false);
@@ -183,10 +191,15 @@ function openVideo(item: ClipItem) {
 async function approveClip(dbId: string) {
   try {
     await request.post(`/auto-clip/clip/${dbId}/approve`);
-    notice.success("已批准");
+    notice.info("正在导出切片...");
+    const reExportRes = await request.post(`/auto-clip/clip/${dbId}/re-export`);
+    const exportedPaths = reExportRes.data?.exportedPaths ?? [];
+    if (exportedPaths.length > 0) {
+      notice.success(`导出完成，共 ${exportedPaths.length} 个文件`);
+    }
     await refreshList();
   } catch (e: any) {
-    notice.error(`批准失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`操作失败: ${e?.response?.data?.error || e.message}`);
   }
 }
 
@@ -218,16 +231,23 @@ async function manualAnalyze() {
 
   if (!files || files.length === 0) return;
 
+  // 让用户确认/修改弹幕文件路径
+  const guessedDanmuPath = files[0].replace(/\.[^.]+$/, ".xml");
+  const danmuPath = prompt("弹幕文件路径（留空使用默认推导）:", guessedDanmuPath) || guessedDanmuPath;
+
+  analyzing.value = true;
+  notice.info("正在分析中，请稍候...");
   try {
     await request.post("/auto-clip/run", {
       videoPath: files[0],
-      danmuPath: files[0].replace(/\.[^.]+$/, ".xml"),
+      danmuPath,
     });
     notice.success("分析完成，请查看结果");
     await refreshList();
   } catch (e: any) {
     notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
-    console.error("Manual analyze failed:", e);
+  } finally {
+    analyzing.value = false;
   }
 }
 
