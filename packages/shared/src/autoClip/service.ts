@@ -171,8 +171,9 @@ export class AutoClipService {
       try {
         const videoPreset = container.resolve("videoPreset");
         const presets = await videoPreset.list();
-        if (presets.length > 0 && presets[0].config) {
-          biliupConfig = presets[0].config;
+        const biliPreset = presets.find((p: any) => p.config?.title);
+        if (biliPreset?.config) {
+          biliupConfig = biliPreset.config;
         }
       } catch {
         // fallback to default

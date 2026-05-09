@@ -173,6 +173,7 @@ export function detectDanmakuDensityPeaks(
 export function detectSCBursts(sc: SC[], config: AutoClipSignalConfig): TimeWindow[] {
   const { scMinAmount, giftBurstWindowSec } = config;
 
+  // scMinAmount <= 0 disables SC burst detection (no minimum amount threshold)
   if (sc.length === 0 || scMinAmount <= 0) return [];
 
   const sorted = [...sc].sort((a, b) => itemSec(a) - itemSec(b));
@@ -207,6 +208,7 @@ export function detectSCBursts(sc: SC[], config: AutoClipSignalConfig): TimeWind
 export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): TimeWindow[] {
   const { giftBurstThreshold, giftBurstWindowSec } = config;
 
+  // giftBurstThreshold <= 0 disables gift burst detection (no minimum count threshold)
   if (gifts.length === 0 || giftBurstThreshold <= 0) return [];
 
   const sorted = [...gifts].sort((a, b) => itemSec(a) - itemSec(b));
