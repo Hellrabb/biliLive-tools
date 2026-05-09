@@ -153,18 +153,28 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
     // 2. Parse JSON
     const parsed = JSON.parse(jsonStr);
 
-    // 3. Extract and coerce fields
-    // Default to true when field is missing (backwards compat with custom prompts)
-    // Only set to false when LLM explicitly returns false
-    const isHighlight = parsed.isHighlight === false ? false : true;
+    // 3. Extract score first (needed for isHighlight inference)
     const score = typeof parsed.score === "number" ? parsed.score : 0;
+
+    // 4. Extract isHighlight — honor explicit value, infer from score when missing
+    let isHighlight: boolean;
+    if (typeof parsed.isHighlight === "boolean") {
+      isHighlight = parsed.isHighlight;
+    } else {
+      const inferredType = typeof parsed.highlightType === "string"
+        ? parsed.highlightType.trim().toLowerCase()
+        : "";
+      isHighlight = score >= 3 && inferredType !== "not_highlight";
+    }
+
+    // 5. Extract remaining fields
     const title = typeof parsed.title === "string" ? parsed.title : "";
     const tags = Array.isArray(parsed.tags)
       ? parsed.tags.filter((t: unknown): t is string => typeof t === "string")
       : [];
     const reason = typeof parsed.reason === "string" ? parsed.reason : "";
 
-    // 4. Validate highlightType
+    // 6. Validate highlightType
     let highlightType: LLMRankResult["highlightType"] = "not_highlight";
     if (typeof parsed.highlightType === "string") {
       const rawType = parsed.highlightType.trim().toLowerCase();
