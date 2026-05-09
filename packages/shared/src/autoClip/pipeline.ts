@@ -92,6 +92,7 @@ export async function runAutoClipPipeline(
       highlightType: "hype" as const,
       reason: "Auto-detected (no LLM)",
       signalSources: c.signalSources,
+      isHighlight: true,
     }));
   }
 

@@ -395,6 +395,7 @@ export async function rankCandidates(
       highlightType: r.parsed.highlightType,
       reason: r.parsed.reason,
       signalSources: r.candidate.signalSources,
+      isHighlight: r.parsed.isHighlight,
     }));
 
   return highlights;
