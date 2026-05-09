@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { AutoClipSignalConfig } from "@biliLive-tools/types";
 import type { DanmuItem, SC, Gift } from "@biliLive-tools/types";
+import type { TimeWindow } from "../../src/autoClip/types";
 
 import {
   detectDanmakuDensityPeaks,
@@ -8,6 +9,7 @@ import {
   detectGiftBursts,
   detectBrushStorms,
   mergeAndDeduplicate,
+  mergeTimeWindows,
   detectSignals,
 } from "../../src/autoClip/signalDetector";
 
@@ -556,6 +558,27 @@ describe("brush storm downsampling", () => {
     const elapsed = Date.now() - start;
     expect(elapsed).toBeLessThan(2000);
     expect(result.length).toBeGreaterThan(0);
+  });
+
+  // ============================================================================
+  // mergeTimeWindows mutation safety
+  // ============================================================================
+
+  it("should not mutate input window tuples", () => {
+    const input: TimeWindow[] = [[10, 20], [15, 30], [100, 120]];
+    const snapshot = input.map((w) => [...w]);
+
+    mergeTimeWindows(input, 5);
+
+    for (let i = 0; i < input.length; i++) {
+      expect(input[i]).toEqual(snapshot[i]);
+    }
+  });
+
+  it("should still produce correct merged result", () => {
+    const input: TimeWindow[] = [[10, 20], [15, 30], [40, 50]];
+    const result = mergeTimeWindows(input, 5);
+    expect(result).toEqual([[10, 30], [40, 50]]);
   });
 
   it("downsampling approximates full result", () => {

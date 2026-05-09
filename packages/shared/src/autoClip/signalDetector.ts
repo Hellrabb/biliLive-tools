@@ -45,9 +45,10 @@ function lcsSimilarity(a: string, b: string): number {
 }
 
 /** Merge overlapping / adjacent TimeWindow arrays (copies input, does not mutate). */
-function mergeTimeWindows(windows: TimeWindow[], gapSec: number): TimeWindow[] {
+export function mergeTimeWindows(windows: TimeWindow[], gapSec: number): TimeWindow[] {
   if (windows.length === 0) return [];
-  const sorted = [...windows].sort((a, b) => a[0] - b[0]);
+  // Deep-copy each tuple to prevent mutation of caller's data
+  const sorted = windows.map((w) => [w[0], w[1]] as TimeWindow).sort((a, b) => a[0] - b[0]);
 
   const merged: TimeWindow[] = [sorted[0]];
   for (let i = 1; i < sorted.length; i++) {
