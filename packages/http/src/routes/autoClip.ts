@@ -70,7 +70,11 @@ router.post("/run", async (ctx) => {
     presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
   }
 
-  const sendMessage = await buildSendMessage(presetConfig);
+  const { buildSendMessage } = await import("@biliLive-tools/shared/autoClip/sendMessage.js");
+  const sendMessage = await buildSendMessage({
+    presetConfig,
+    aiConfig: appConfig.getAll().ai,
+  });
 
   try {
     const result = await runAutoClipPipeline({
@@ -166,7 +170,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
 
   try {
     const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
-    const exportedPaths = await exportClips(
+    const exportResult = await exportClips(
       result.video_path,
       highlights,
       {
@@ -180,8 +184,17 @@ router.post("/clip/:id/re-export", async (ctx) => {
       (_stage, _pct, msg) => console.log(`AutoClip re-export: ${msg}`),
     );
 
-    autoClipModel.markExported(ctx.params.id, exportedPaths);
-    ctx.body = { status: "exported", exportedPaths };
+    const exportedPaths = exportResult.success.map(s => s.path);
+    if (exportedPaths.length > 0) {
+      autoClipModel.markExported(ctx.params.id, exportedPaths);
+    }
+
+    ctx.body = {
+      status: exportedPaths.length > 0 ? "exported" : (exportResult.failed.length > 0 ? "failed" : "nothing_to_export"),
+      exportedPaths,
+      failedCount: exportResult.failed.length,
+      errors: exportResult.failed.map(f => f.error),
+    };
   } catch (error: any) {
     console.error("Re-export error:", error);
     ctx.status = 500;
@@ -199,35 +212,5 @@ router.post("/clip/:id/delete", async (ctx) => {
   autoClipModel.deleteResult(ctx.params.id);
   ctx.body = { status: "deleted" };
 });
-
-async function buildSendMessage(presetConfig: AutoClipConfig) {
-  return async (prompt: string): Promise<string> => {
-    if (presetConfig.llm.provider === "qwen") {
-      const { QwenLLM } = await import("@biliLive-tools/shared/ai/llm/qwen.js");
-      const aiConfig = appConfig.getAll().ai;
-      const model = aiConfig.models.find((m: any) => m.modelId === presetConfig.llm.modelId);
-      const vendor = aiConfig.vendors.find((v: any) => v.id === model?.vendorId);
-      const llm = new QwenLLM({
-        apiKey: vendor?.apiKey ?? "",
-        model: model?.modelName,
-        baseURL: vendor?.baseURL,
-      });
-      const result = await llm.sendMessage(prompt);
-      return result.content;
-    } else if (presetConfig.llm.provider === "ollama") {
-      const { chat } = await import("@biliLive-tools/shared/llm/ollama.js");
-      const aiConfig = appConfig.getAll().ai;
-      const model = aiConfig.models.find((m: any) => m.modelId === presetConfig.llm.modelId);
-      const vendor = aiConfig.vendors.find((v: any) => v.id === model?.vendorId);
-      const result = await chat({
-        host: vendor?.baseURL ?? "http://localhost:11434",
-        model: model?.modelName ?? "qwen2.5",
-        messages: [{ role: "user", content: prompt }],
-      });
-      return result?.message?.content ?? "";
-    }
-    throw new Error(`Unknown LLM provider: ${presetConfig.llm.provider}`);
-  };
-}
 
 export default router;
