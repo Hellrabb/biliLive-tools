@@ -618,8 +618,8 @@ export async function createRecorderManager(appConfig: AppConfig) {
             const autoClipPreset = diContainer.resolve("autoClipPreset");
             const p = await autoClipPreset.get(presetId);
             presetConfig = p?.config ?? AUTO_CLIP_DEFAULT_CONFIG;
-          } catch {
-            // fallback to default
+          } catch (e) {
+            logger.warn("AutoClip: 加载预设失败，使用默认配置", e);
           }
         }
 
