@@ -98,6 +98,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     if (filter?.status) {
       conditions.push("status = ?");
       params.push(filter.status);
+    } else {
+      conditions.push("status != 'deleted'");
     }
     if (filter?.recorderId) {
       conditions.push("recorder_id = ?");
