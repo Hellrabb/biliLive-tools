@@ -44,8 +44,14 @@ router.del("/preset/:id", async (ctx) => {
 
 // GET /auto-clip/default-config — 返回默认配置（供前端使用，确保单一事实来源）
 router.get("/default-config", async (ctx) => {
-  const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
-  ctx.body = AUTO_CLIP_DEFAULT_CONFIG;
+  try {
+    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
+    ctx.body = AUTO_CLIP_DEFAULT_CONFIG;
+  } catch (error: any) {
+    logger.error("AutoClip default-config error:", error);
+    ctx.status = 500;
+    ctx.body = { error: error.message };
+  }
 });
 
 // ===================== 手动触发 =====================
