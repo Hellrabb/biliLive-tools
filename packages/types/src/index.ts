@@ -1243,6 +1243,10 @@ export interface AutoClipEnhancementConfig {
 
 export interface AutoClipExportConfig {
   cutFormat: "mp4" | "flv";
+  /** ffmpeg 视频编码器, 默认 "libx264" */
+  encoder: string;
+  /** ffmpeg 音频编码器, 默认 "copy" */
+  audioCodec: string;
   ffmpegPresetId: string;
   burnDanmaku: boolean;
   uploadToBili: boolean;

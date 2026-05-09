@@ -126,6 +126,12 @@
                   <n-form-item label="切片格式">
                     <n-select v-model:value="editingPreset.config.export.cutFormat" :options="[{label:'mp4',value:'mp4'},{label:'flv',value:'flv'}]" style="width:120px" />
                   </n-form-item>
+                  <n-form-item label="视频编码器">
+                    <n-input v-model:value="editingPreset.config.export.encoder" style="width:200px" placeholder="libx264" />
+                  </n-form-item>
+                  <n-form-item label="音频编码器">
+                    <n-input v-model:value="editingPreset.config.export.audioCodec" style="width:200px" placeholder="copy" />
+                  </n-form-item>
                   <n-form-item label="FFmpeg 预设">
                     <n-input v-model:value="editingPreset.config.export.ffmpegPresetId" style="width:200px" />
                   </n-form-item>
@@ -205,8 +211,9 @@ async function fetchDefaultConfig() {
       },
       enhancement: { asrEnabled: false, visualEnabled: false },
       export: {
-        cutFormat: "mp4", ffmpegPresetId: "default", burnDanmaku: false,
-        uploadToBili: false, savePath: "", namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
+        cutFormat: "mp4", encoder: "libx264", audioCodec: "copy",
+        ffmpegPresetId: "default", burnDanmaku: false, uploadToBili: false,
+        savePath: "", namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
       },
     };
   }
