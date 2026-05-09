@@ -123,7 +123,12 @@ router.get("/result/:id", async (ctx) => {
     ctx.body = { error: "Result not found" };
     return;
   }
-  ctx.body = { ...result, highlights: JSON.parse(result.highlights) };
+  const { llm_fallback, ...rest } = result;
+  ctx.body = {
+    ...rest,
+    highlights: JSON.parse(result.highlights),
+    llmFallback: llm_fallback === 1,
+  };
 });
 
 // ===================== Clips 管理 =====================
@@ -132,11 +137,14 @@ router.get("/clips", async (ctx) => {
   const status = ctx.query.status as string | undefined;
   const { data, total } = autoClipModel.getResults({ status: status || undefined });
   ctx.body = {
-    data: data.map(r => ({
-      ...r,
-      highlights: JSON.parse(r.highlights),
-      llmFallback: r.llm_fallback === 1,
-    })),
+    data: data.map(r => {
+      const { llm_fallback, ...rest } = r;
+      return {
+        ...rest,
+        highlights: JSON.parse(r.highlights),
+        llmFallback: llm_fallback === 1,
+      };
+    }),
     total,
   };
 });
@@ -148,10 +156,11 @@ router.get("/clip/:id", async (ctx) => {
     ctx.body = { error: "Not found" };
     return;
   }
+  const { llm_fallback, ...rest } = result;
   ctx.body = {
-    ...result,
+    ...rest,
     highlights: JSON.parse(result.highlights),
-    llmFallback: result.llm_fallback === 1,
+    llmFallback: llm_fallback === 1,
   };
 });
 
