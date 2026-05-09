@@ -295,6 +295,9 @@ async function doExportClips(
     savePath: exportConfig.savePath || path.dirname(videoPath),
   };
 
+  // Mark as exporting so UI can show progress during long export operations
+  autoClipModel.updateStatus(resultId, "exporting");
+
   const exportResult = await exportClips(
     videoPath,
     highlights as any[],
