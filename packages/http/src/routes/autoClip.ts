@@ -9,8 +9,15 @@ import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@bili
 
 const router = new Router({ prefix: "/auto-clip" });
 
-function getAutoClipPreset() {
-  return container.resolve("autoClipPreset") as any;
+interface AutoClipPresetInstance {
+  list: () => Promise<AutoClipPresetType[]>;
+  get: (id: string) => Promise<AutoClipPresetType | undefined>;
+  save: (data: AutoClipPresetType) => Promise<boolean>;
+  delete: (id: string) => Promise<boolean>;
+}
+
+function getAutoClipPreset(): AutoClipPresetInstance {
+  return container.resolve("autoClipPreset") as AutoClipPresetInstance;
 }
 
 // ===================== 预设 CRUD =====================
@@ -69,6 +76,33 @@ router.post("/run", async (ctx) => {
     return;
   }
 
+  // 路径安全校验：禁止路径遍历和敏感系统路径
+  const dangerousPatterns = [/\.\./, /^\/etc\//, /^\/proc\//, /^\/sys\//];
+  if (dangerousPatterns.some(p => p.test(videoPath) || p.test(danmuPath))) {
+    ctx.status = 400;
+    ctx.body = { error: "Invalid path" };
+    return;
+  }
+
+  const resolvedVideo = path.resolve(videoPath);
+  const resolvedDanmu = path.resolve(danmuPath);
+
+  try {
+    const fs = await import("fs-extra");
+    if (!(await fs.pathExists(resolvedVideo))) {
+      ctx.status = 400;
+      ctx.body = { error: `Video file not found: ${resolvedVideo}` };
+      return;
+    }
+    if (!(await fs.pathExists(resolvedDanmu))) {
+      ctx.status = 400;
+      ctx.body = { error: `Danmu file not found: ${resolvedDanmu}` };
+      return;
+    }
+  } catch {
+    // fs-extra unavailable — skip file existence check (non-blocking)
+  }
+
   let presetConfig: AutoClipConfig;
   if (presetId) {
     try {
@@ -90,8 +124,8 @@ router.post("/run", async (ctx) => {
 
   try {
     const result = await runAutoClipPipeline({
-      videoPath,
-      danmuPath,
+      videoPath: resolvedVideo,
+      danmuPath: resolvedDanmu,
       presetConfig,
       sendMessage,
       onProgress: (_stage, _pct, message) => {
@@ -103,8 +137,8 @@ router.post("/run", async (ctx) => {
     try {
       autoClipModel.saveResult({
         id: result.id,
-        video_path: videoPath,
-        danmu_path: danmuPath,
+        video_path: resolvedVideo,
+        danmu_path: resolvedDanmu,
         recorder_id: null,
         preset_id: presetId || null,
         status: "pending",
@@ -289,7 +323,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
       result.video_path,
       highlights,
       effectiveConfig,
-      (_stage, _pct, msg) => console.log(`AutoClip re-export: ${msg}`),
+      (_stage, _pct, msg) => logger.info(`AutoClip re-export: ${msg}`),
     );
 
     const exportedPaths = exportResult.success.map(s => s.path);
@@ -304,7 +338,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
       errors: exportResult.failed.map(f => f.error),
     };
   } catch (error: any) {
-    console.error("Re-export error:", error);
+    logger.error("AutoClip re-export error:", error);
     ctx.status = 500;
     ctx.body = { error: error.message };
   }
