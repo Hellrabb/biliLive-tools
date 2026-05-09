@@ -5,7 +5,7 @@ import { detectSignals } from "./signalDetector.js";
 import { rankCandidates, preRankCandidates } from "./llmRanker.js";
 import logger from "../utils/log.js";
 
-import type { AutoClipConfig } from "@biliLive-tools/types";
+import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
 import type { AutoClipResult, DanmuStats, HighlightSegment } from "./types.js";
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
@@ -151,14 +151,30 @@ export async function exportClips(
     );
 
     try {
+      // Load ffmpeg preset config if specified
+      let ffmpegPresetOpts = {};
+      if (exportConfig.ffmpegPresetId) {
+        try {
+          const { container: diContainer } = await import("../index.js");
+          const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+          const preset = await ffmpegPreset.get(exportConfig.ffmpegPresetId);
+          if (preset?.config) {
+            ffmpegPresetOpts = { ...preset.config };
+          }
+        } catch {
+          // preset load failure is non-fatal, fall back to defaults
+        }
+      }
+
       // Dynamic import to avoid circular deps
       const { cut } = await import("../task/video.js");
       await cut(
         { videoFilePath: videoPath },
         outputPath,
         {
-          encoder: "libx264",
-          audioCodec: "copy",
+          ...ffmpegPresetOpts,
+          encoder: (exportConfig.encoder ?? "libx264") as VideoCodec,
+          audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],
           to: h.bestRange[1],
         },
