@@ -39,6 +39,49 @@ export { RecorderConfig };
 // 缓存直播结束通知的最后触发时间，避免频繁通知
 const endLiveNotificationCache = new Map<string, number>();
 
+async function buildSendMessageForAutoClip(
+  appConfig: AppConfig,
+  presetConfig: { llm: { enabled: boolean; provider: string; modelId: string } },
+): Promise<((prompt: string) => Promise<string>) | undefined> {
+  const llmCfg = presetConfig.llm;
+  if (!llmCfg.enabled) return undefined;
+
+  const cfg = appConfig.getAll();
+  const aiConfig = cfg?.ai;
+  if (!aiConfig) return undefined;
+
+  const model = aiConfig.models.find((m: any) => m.modelId === llmCfg.modelId);
+  const vendor = aiConfig.vendors.find((v: any) => v.id === model?.vendorId);
+
+  if (llmCfg.provider === "qwen") {
+    const { QwenLLM } = await import("../ai/llm/qwen.js");
+    const llm = new QwenLLM({
+      apiKey: vendor?.apiKey ?? "",
+      model: model?.modelName,
+      baseURL: vendor?.baseURL,
+    });
+    return async (prompt: string) => {
+      const result = await llm.sendMessage(prompt);
+      return result.content;
+    };
+  }
+
+  if (llmCfg.provider === "ollama") {
+    const { chat } = await import("../llm/ollama.js");
+    return async (prompt: string) => {
+      const result = await chat({
+        host: vendor?.baseURL ?? "http://localhost:11434",
+        model: model?.modelName ?? "qwen2.5",
+        messages: [{ role: "user", content: prompt }],
+      });
+      return result?.message?.content ?? "";
+    };
+  }
+
+  logger.warn(`AutoClip: unknown LLM provider "${llmCfg.provider}", falling back to heuristic ranking`);
+  return undefined;
+}
+
 async function sendStartLiveNotification(
   appConfig: AppConfig,
   recorder: Recorder,
@@ -582,10 +625,14 @@ export async function createRecorderManager(appConfig: AppConfig) {
 
         logger.info("AutoClip: 开始自动切片分析", { videoPath: filename, danmuPath: xmlFile });
 
+        // 构建 sendMessage 回调，将 preset 中的 provider/modelId 连接到全局 AI 配置
+        const sendMessage = await buildSendMessageForAutoClip(appConfig, presetConfig);
+
         const result = await runAutoClipPipeline({
           videoPath: filename,
           danmuPath: xmlFile,
           presetConfig,
+          sendMessage,
           onProgress: (_stage, _pct, msg) => logger.info(`AutoClip: ${msg}`),
         });
 
