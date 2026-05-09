@@ -102,6 +102,7 @@ router.post("/run", async (ctx) => {
         uploaded_at: null,
         exported_paths: null,
         bili_aids: null,
+        llm_fallback: result.llmFallback ? 1 : 0,
       });
     } catch (e) {
       logger.error("Failed to save autoClip result:", e);
@@ -131,7 +132,11 @@ router.get("/clips", async (ctx) => {
   const status = ctx.query.status as string | undefined;
   const { data, total } = autoClipModel.getResults({ status: status || undefined });
   ctx.body = {
-    data: data.map(r => ({ ...r, highlights: JSON.parse(r.highlights) })),
+    data: data.map(r => ({
+      ...r,
+      highlights: JSON.parse(r.highlights),
+      llmFallback: r.llm_fallback === 1,
+    })),
     total,
   };
 });
@@ -143,7 +148,11 @@ router.get("/clip/:id", async (ctx) => {
     ctx.body = { error: "Not found" };
     return;
   }
-  ctx.body = { ...result, highlights: JSON.parse(result.highlights) };
+  ctx.body = {
+    ...result,
+    highlights: JSON.parse(result.highlights),
+    llmFallback: result.llm_fallback === 1,
+  };
 });
 
 router.post("/clip/:id/approve", async (ctx) => {

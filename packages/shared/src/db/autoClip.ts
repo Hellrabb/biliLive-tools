@@ -16,6 +16,7 @@ export interface AutoClipResultRow {
   uploaded_at: string | null;
   exported_paths: string | null; // JSON string
   bili_aids: string | null; // JSON string
+  llm_fallback: number;     // 0 or 1
 }
 
 export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
@@ -25,6 +26,7 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     super(db, "auto_clip_results");
     this.createTable();
     this.createIndexes();
+    this.migrateAddLlmFallback();
   }
 
   createTable() {
@@ -41,7 +43,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         exported_at TEXT,
         uploaded_at TEXT,
         exported_paths TEXT,
-        bili_aids TEXT
+        bili_aids TEXT,
+        llm_fallback INTEGER NOT NULL DEFAULT 0
       ) STRICT;
     `;
     super.createTable(sql);
@@ -80,6 +83,18 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
       .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`)
       .get(indexName);
     return !!result;
+  }
+
+  private migrateAddLlmFallback() {
+    try {
+      const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
+      if (!cols.some(c => c.name === "llm_fallback")) {
+        this.db.prepare("ALTER TABLE auto_clip_results ADD COLUMN llm_fallback INTEGER NOT NULL DEFAULT 0").run();
+        logger.info("AutoClip: 已添加 llm_fallback 列");
+      }
+    } catch (error) {
+      logger.error("AutoClip: 添加 llm_fallback 列失败", error);
+    }
   }
 
   saveResult(row: AutoClipResultRow) {

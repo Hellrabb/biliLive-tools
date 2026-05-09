@@ -84,6 +84,7 @@ export class AutoClipService {
           uploaded_at: null,
           exported_paths: null,
           bili_aids: null,
+          llm_fallback: result.llmFallback ? 1 : 0,
         });
 
         logger.info(`AutoClip: 结果已保存 (status=${status})`);
