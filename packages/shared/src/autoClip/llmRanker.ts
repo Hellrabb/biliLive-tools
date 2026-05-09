@@ -228,7 +228,7 @@ export function preRankCandidates(
 ): CandidateWindow[] {
   if (candidates.length === 0) return [];
 
-  const w = weights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1, highlightThreshold: 3 };
+  const w = weights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1 };
 
   const withScore = candidates.map((c) => {
     const { brushFrequency, scTotal, danmakuDensity } = c.stats;
@@ -364,14 +364,18 @@ export async function rankCandidates(
       const parsed = parseLLMResponse(outcome.value, candidate.timeRange);
       results.push({ candidate, parsed });
     } else {
-      // LLM call failed — use heuristic fallback score
+      // LLM call failed — use heuristic fallback score with configured weights
       logger.warn(`AutoClip LLM call failed for candidate ${i}: ${outcome.reason}`);
+      const w = config.heuristicWeights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1, highlightThreshold: 3 };
       const { brushFrequency, scTotal, danmakuDensity } = candidate.stats;
-      const heuristicScore = Math.min(10, brushFrequency * 3 + scTotal / 10 + danmakuDensity);
+      const heuristicScore = Math.min(
+        10,
+        brushFrequency * w.brushFrequency + scTotal / w.scTotalDivisor + danmakuDensity * w.danmakuDensity,
+      );
       results.push({
         candidate,
         parsed: {
-          isHighlight: heuristicScore > 3,
+          isHighlight: heuristicScore >= (w.highlightThreshold ?? 3),
           score: heuristicScore,
           title: "Auto-detected",
           tags: [],
