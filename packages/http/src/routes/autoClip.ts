@@ -187,6 +187,74 @@ router.post("/clip/:id/approve", async (ctx) => {
   ctx.body = { status: "approved" };
 });
 
+// POST /auto-clip/clip/:id/approve-and-export — 原子操作：批准并导出
+router.post("/clip/:id/approve-and-export", async (ctx) => {
+  const result = autoClipModel.getResultById(ctx.params.id);
+  if (!result) {
+    ctx.status = 404;
+    ctx.body = { error: "Not found" };
+    return;
+  }
+
+  if (result.status !== "pending") {
+    ctx.status = 400;
+    ctx.body = { error: `Cannot approve-and-export: current status is '${result.status}'` };
+    return;
+  }
+
+  // 1. 批准
+  autoClipModel.updateStatus(ctx.params.id, "approved");
+
+  // 2. 导出
+  const highlights = JSON.parse(result.highlights);
+
+  try {
+    const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
+    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
+
+    let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
+    if (result.preset_id) {
+      try {
+        const preset = getAutoClipPreset();
+        const p = await preset.get(result.preset_id);
+        if (p?.config?.export) {
+          exportConfig = p.config.export;
+        }
+      } catch {
+        // fall back to default
+      }
+    }
+
+    const effectiveConfig = {
+      ...exportConfig,
+      savePath: exportConfig.savePath || path.dirname(result.video_path),
+    };
+
+    const exportResult = await exportClips(
+      result.video_path,
+      highlights,
+      effectiveConfig,
+      (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
+    );
+
+    const exportedPaths = exportResult.success.map(s => s.path);
+    if (exportedPaths.length > 0) {
+      autoClipModel.markExported(ctx.params.id, exportedPaths);
+    }
+
+    ctx.body = {
+      status: exportedPaths.length > 0 ? "exported" : (exportResult.failed.length > 0 ? "partial_failure" : "nothing_to_export"),
+      exportedPaths,
+      failedCount: exportResult.failed.length,
+      errors: exportResult.failed.map(f => f.error),
+    };
+  } catch (error: any) {
+    logger.error("AutoClip approve-and-export error:", error);
+    ctx.status = 500;
+    ctx.body = { error: error.message };
+  }
+});
+
 // POST /auto-clip/clip/:id/re-export — 重新导出切片
 router.post("/clip/:id/re-export", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);

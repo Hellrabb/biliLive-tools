@@ -190,12 +190,14 @@ function openVideo(item: ClipItem) {
 
 async function approveClip(dbId: string) {
   try {
-    await request.post(`/auto-clip/clip/${dbId}/approve`);
     notice.info("正在导出切片...");
-    const reExportRes = await request.post(`/auto-clip/clip/${dbId}/re-export`);
-    const exportedPaths = reExportRes.data?.exportedPaths ?? [];
+    const res = await request.post(`/auto-clip/clip/${dbId}/approve-and-export`);
+    const exportedPaths = res.data?.exportedPaths ?? [];
     if (exportedPaths.length > 0) {
       notice.success(`导出完成，共 ${exportedPaths.length} 个文件`);
+    }
+    if (res.data?.failedCount > 0) {
+      notice.warning(`${res.data.failedCount} 个切片导出失败`);
     }
     await refreshList();
   } catch (e: any) {
