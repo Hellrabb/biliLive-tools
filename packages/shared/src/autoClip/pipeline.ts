@@ -72,6 +72,8 @@ export async function runAutoClipPipeline(
   // 3. Layer 2: LLM ranking (or heuristic fallback)
   let highlights: HighlightSegment[];
 
+  const llmFallback = presetConfig.llm.enabled && !sendMessage;
+
   if (presetConfig.llm.enabled && sendMessage) {
     onProgress?.("rank", 60, "LLM ranking in progress...");
     highlights = await rankCandidates(candidates, presetConfig.llm, sendMessage);
@@ -82,6 +84,9 @@ export async function runAutoClipPipeline(
     );
   } else {
     // Without LLM, use pre-rank heuristic and wrap as HighlightSegment
+    if (llmFallback) {
+      logger.warn("AutoClip: LLM enabled but sendMessage unavailable — AI config may be incomplete, falling back to heuristic ranking");
+    }
     const ranked = preRankCandidates(candidates, presetConfig.llm.topK);
     highlights = ranked.map((c) => ({
       timeRange: c.timeRange,
@@ -97,7 +102,7 @@ export async function runAutoClipPipeline(
   }
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);
-  return { id, videoPath, danmuPath, highlights };
+  return { id, videoPath, danmuPath, highlights, llmFallback };
 }
 
 /**
