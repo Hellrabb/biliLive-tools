@@ -546,15 +546,20 @@ export async function createRecorderManager(appConfig: AppConfig) {
         // 检查时间窗口
         const tw = videoCutCfg.autoClipTimeWindow;
         if (tw?.enabled) {
-          const now = new Date();
-          const currentMinutes = now.getHours() * 60 + now.getMinutes();
-          const [sh, sm] = tw.start.split(":").map(Number);
-          const [eh, em] = tw.end.split(":").map(Number);
-          const startMin = sh * 60 + sm;
-          const endMin = eh * 60 + em;
-          if (currentMinutes < startMin || currentMinutes > endMin) {
-            logger.info(`AutoClip: 不在时间窗口内 (${tw.start}-${tw.end})，跳过`);
-            return;
+          const timeRegex = /^\d{1,2}:\d{2}$/;
+          if (!timeRegex.test(tw.start) || !timeRegex.test(tw.end)) {
+            logger.warn("AutoClip: 时间窗口格式无效，跳过时间检查");
+          } else {
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const [sh, sm] = tw.start.split(":").map(Number);
+            const [eh, em] = tw.end.split(":").map(Number);
+            const startMin = (sh ?? 0) * 60 + (sm ?? 0);
+            const endMin = (eh ?? 0) * 60 + (em ?? 0);
+            if (currentMinutes < startMin || currentMinutes > endMin) {
+              logger.info(`AutoClip: 不在时间窗口内 (${tw.start}-${tw.end})，跳过`);
+              return;
+            }
           }
         }
 
