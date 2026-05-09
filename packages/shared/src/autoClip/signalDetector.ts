@@ -175,29 +175,24 @@ export function detectSCBursts(sc: SC[], config: AutoClipSignalConfig): TimeWind
 
   if (sc.length === 0 || scMinAmount <= 0) return [];
 
-  // Sort by timestamp ascending
   const sorted = [...sc].sort((a, b) => itemSec(a) - itemSec(b));
 
   const rawWindows: TimeWindow[] = [];
+  let left = 0;
+  let total = 0;
 
-  for (let i = 0; i < sorted.length; i++) {
-    const anchor = itemSec(sorted[i]!);
-    let total = 0;
-    let maxTs = anchor;
-
-    for (let j = i; j < sorted.length; j++) {
-      const ts = itemSec(sorted[j]!);
-      if (ts - anchor > giftBurstWindowSec) break;
-      total += sorted[j]!.gift_price ?? 0;
-      maxTs = ts;
+  for (let right = 0; right < sorted.length; right++) {
+    const anchorSec = itemSec(sorted[right]!);
+    total += sorted[right]!.gift_price ?? 0;
+    while (left < right && anchorSec - itemSec(sorted[left]!) > giftBurstWindowSec) {
+      total -= sorted[left]!.gift_price ?? 0;
+      left++;
     }
-
     if (total >= scMinAmount) {
-      rawWindows.push([anchor, maxTs]);
+      rawWindows.push([itemSec(sorted[left]!), anchorSec]);
     }
   }
 
-  // Merge overlapping windows (0 gap because the sliding approach already overlaps)
   return mergeTimeWindows(rawWindows, 0);
 }
 
@@ -217,21 +212,16 @@ export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): T
   const sorted = [...gifts].sort((a, b) => itemSec(a) - itemSec(b));
 
   const rawWindows: TimeWindow[] = [];
+  let left = 0;
 
-  for (let i = 0; i < sorted.length; i++) {
-    const anchor = itemSec(sorted[i]!);
-    let count = 0;
-    let maxTs = anchor;
-
-    for (let j = i; j < sorted.length; j++) {
-      const ts = itemSec(sorted[j]!);
-      if (ts - anchor > giftBurstWindowSec) break;
-      count++;
-      maxTs = ts;
+  for (let right = 0; right < sorted.length; right++) {
+    const anchorSec = itemSec(sorted[right]!);
+    while (left < right && anchorSec - itemSec(sorted[left]!) > giftBurstWindowSec) {
+      left++;
     }
-
+    const count = right - left + 1;
     if (count >= giftBurstThreshold) {
-      rawWindows.push([anchor, maxTs]);
+      rawWindows.push([itemSec(sorted[left]!), anchorSec]);
     }
   }
 

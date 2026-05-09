@@ -1226,6 +1226,13 @@ export interface AutoClipLLMConfig {
   danmakuSampleMax: number;
   /** 自定义 prompt 模板 */
   promptTemplate?: string;
+  /** 启发式排序权重 (LLM 不可用时的降级排序) */
+  heuristicWeights?: {
+    brushFrequency: number;
+    scTotalDivisor: number;
+    danmakuDensity: number;
+    highlightThreshold: number;
+  };
 }
 
 export interface AutoClipEnhancementConfig {

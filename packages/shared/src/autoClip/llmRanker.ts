@@ -224,13 +224,18 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
 export function preRankCandidates(
   candidates: CandidateWindow[],
   maxCandidates: number,
+  weights?: AutoClipLLMConfig["heuristicWeights"],
 ): CandidateWindow[] {
   if (candidates.length === 0) return [];
+
+  const w = weights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1, highlightThreshold: 3 };
 
   const withScore = candidates.map((c) => {
     const { brushFrequency, scTotal, danmakuDensity } = c.stats;
     const heuristicScore =
-      brushFrequency * 3 + scTotal / 10 + danmakuDensity;
+      brushFrequency * w.brushFrequency +
+      scTotal / w.scTotalDivisor +
+      danmakuDensity * w.danmakuDensity;
     return { candidate: c, score: heuristicScore };
   });
 
@@ -245,12 +250,13 @@ export function preRankCandidates(
 
 /**
  * Convert a `CandidateWindow` into a `ClipCandidateContext` ready for prompt
- * building. Also incorporates surrounding danmaku samples from neighbouring
- * windows.
+ * building. Surrounding context is sourced from the full danmaku timeline rather
+ * than from other candidate windows' samples.
  */
 function buildCandidateContext(
   candidate: CandidateWindow,
-  allCandidates: CandidateWindow[],
+  allDanmaku: Array<{ sec: number; text: string }>,
+  contextWindowSec: number,
   maxSamples: number,
 ): ClipCandidateContext {
   const [start, end] = candidate.timeRange;
@@ -260,28 +266,24 @@ function buildCandidateContext(
     .slice(0, maxSamples)
     .map((d) => d.text);
 
-  // Collect surrounding danmaku from candidates that overlap or are adjacent
+  // Surrounding context from raw danmaku timeline (NOT from other candidates)
   const beforeTexts: string[] = [];
   const afterTexts: string[] = [];
 
-  for (const other of allCandidates) {
-    if (other === candidate) continue;
-    const [os, oe] = other.timeRange;
-
-    // Window ends before our start → "before"
-    if (oe <= start) {
-      for (const d of other.danmakuSample) {
-        if (beforeTexts.length >= MAX_SURROUNDING_ITEMS) break;
+  for (const d of allDanmaku) {
+    if (d.sec >= start - contextWindowSec && d.sec < start) {
+      if (beforeTexts.length < MAX_SURROUNDING_ITEMS) {
         beforeTexts.push(d.text);
       }
     }
-
-    // Window starts after our end → "after"
-    if (os >= end) {
-      for (const d of other.danmakuSample) {
-        if (afterTexts.length >= MAX_SURROUNDING_ITEMS) break;
+    if (d.sec > end && d.sec <= end + contextWindowSec) {
+      if (afterTexts.length < MAX_SURROUNDING_ITEMS) {
         afterTexts.push(d.text);
       }
+    }
+    // Early exit if both buffers are full
+    if (beforeTexts.length >= MAX_SURROUNDING_ITEMS && afterTexts.length >= MAX_SURROUNDING_ITEMS) {
+      break;
     }
   }
 
@@ -316,18 +318,19 @@ export async function rankCandidates(
   candidates: CandidateWindow[],
   config: AutoClipLLMConfig,
   sendMessage: (prompt: string) => Promise<string>,
+  allDanmaku: Array<{ sec: number; text: string }>,
 ): Promise<HighlightSegment[]> {
   if (candidates.length === 0) return [];
 
   // Step 1: pre-rank if needed
   let ranked = candidates;
   if (candidates.length > config.maxCandidatesPerVideo) {
-    ranked = preRankCandidates(candidates, config.maxCandidatesPerVideo);
+    ranked = preRankCandidates(candidates, config.maxCandidatesPerVideo, config.heuristicWeights);
   }
 
   // Step 2: build contexts
   const contexts = ranked.map((c) =>
-    buildCandidateContext(c, candidates, config.danmakuSampleMax),
+    buildCandidateContext(c, allDanmaku, 30, config.danmakuSampleMax),
   );
 
   // Step 3: send to LLM with concurrency limit, timeout, and error isolation
