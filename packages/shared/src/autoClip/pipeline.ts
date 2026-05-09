@@ -76,7 +76,11 @@ export async function runAutoClipPipeline(
 
   if (presetConfig.llm.enabled && sendMessage) {
     onProgress?.("rank", 60, "LLM ranking in progress...");
-    highlights = await rankCandidates(candidates, presetConfig.llm, sendMessage);
+    const allDanmaku = stats.danmu.map(d => ({
+      sec: d.timestamp ?? d.ts / 1000,
+      text: d.text ?? "",
+    }));
+    highlights = await rankCandidates(candidates, presetConfig.llm, sendMessage, allDanmaku);
     onProgress?.(
       "rank",
       80,

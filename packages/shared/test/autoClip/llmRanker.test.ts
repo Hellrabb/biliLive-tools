@@ -76,6 +76,13 @@ function makeLLMConfig(overrides: Partial<AutoClipLLMConfig> = {}): AutoClipLLMC
   };
 }
 
+const mockDanmaku = [
+  { sec: 100, text: "坐等" },
+  { sec: 110, text: "开始了" },
+  { sec: 310, text: "下一part" },
+  { sec: 320, text: "别走" },
+];
+
 // ============================================================================
 // buildLLMPrompt
 // ============================================================================
@@ -413,7 +420,7 @@ describe("rankCandidates", () => {
   it("should return empty array for empty candidates", async () => {
     const config = makeLLMConfig();
     const sendMessage = async (_prompt: string) => "{}";
-    const result = await rankCandidates([], config, sendMessage);
+    const result = await rankCandidates([], config, sendMessage, mockDanmaku);
     expect(result).toEqual([]);
   });
 
@@ -436,7 +443,7 @@ describe("rankCandidates", () => {
       });
     };
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(callCount).toBe(2);
     expect(result).toHaveLength(2);
   });
@@ -460,7 +467,7 @@ describe("rankCandidates", () => {
       });
     };
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(1);
     expect(result[0]!.score).toBe(8);
   });
@@ -489,7 +496,7 @@ describe("rankCandidates", () => {
       });
     };
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(3);
     expect(result[0]!.score).toBe(9);
     expect(result[1]!.score).toBe(6);
@@ -517,7 +524,7 @@ describe("rankCandidates", () => {
       });
     };
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(2);
   });
 
@@ -553,7 +560,7 @@ describe("rankCandidates", () => {
       });
     };
 
-    await rankCandidates(candidates, config, sendMessage);
+    await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     // Should only call LLM for the top 3 pre-ranked candidates
     expect(callCount).toBe(3);
   });
@@ -574,7 +581,7 @@ describe("rankCandidates", () => {
         bestClipEnd: 280,
       });
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(1);
     const seg = result[0]!;
     expect(seg.timeRange).toEqual([120, 300]);
@@ -612,7 +619,7 @@ describe("rankCandidates", () => {
         bestClipEnd: 9,
       });
 
-    const result = await rankCandidates(candidates, config, sendMessage);
+    const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(2);
     expect(result[0]!.signalSources).toEqual(["brushStorm"]);
     expect(result[1]!.signalSources).toEqual(["giftBurst", "danmakuDensity"]);
@@ -653,14 +660,14 @@ describe("rankCandidates error resilience", () => {
         reason: "nice",
       });
     };
-    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    const result = await rankCandidates(candidates, baseConfig, sendMessage, mockDanmaku);
     expect(result.length).toBeGreaterThanOrEqual(2);
   });
 
   it("survives when ALL LLM calls reject — all use heuristic fallback", async () => {
     const candidates = [makeMockCandidate(), makeMockCandidate()];
     const sendMessage = async () => { throw new Error("API down"); };
-    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    const result = await rankCandidates(candidates, baseConfig, sendMessage, mockDanmaku);
     expect(result.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -674,7 +681,7 @@ describe("rankCandidates error resilience", () => {
       highlightType: "not_highlight",
       reason: "meh",
     });
-    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    const result = await rankCandidates(candidates, baseConfig, sendMessage, mockDanmaku);
     expect(result.length).toBe(0);
   });
 
@@ -695,7 +702,7 @@ describe("rankCandidates error resilience", () => {
       });
     };
     const cfg = { ...baseConfig, maxCandidatesPerVideo: 10 };
-    await rankCandidates(candidates, cfg, sendMessage);
+    await rankCandidates(candidates, cfg, sendMessage, mockDanmaku);
     expect(maxConcurrent).toBeLessThanOrEqual(3);
   });
 });
