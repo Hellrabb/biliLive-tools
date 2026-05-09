@@ -356,6 +356,19 @@ describe("mergeAndDeduplicate", () => {
     expect(w[1]).toBe(65);
   });
 
+  it("drops window when clipping produces a window below minWindowDuration", () => {
+    const config = defaultConfig({
+      maxWindowDuration: 30,
+      minWindowDuration: 60,
+      mergeGapSec: 5,
+    });
+    // Original dur=400 > maxWindow(30), clipped to 30s at center
+    // 30 < minWindow(60), should be dropped
+    const windows: [number, number][] = [[0, 400]];
+    const result = mergeAndDeduplicate(windows, config);
+    expect(result).toEqual([]);
+  });
+
   it("handles empty input", () => {
     const result = mergeAndDeduplicate([], defaultConfig());
     expect(result).toEqual([]);
