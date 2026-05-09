@@ -117,11 +117,11 @@ const columns = [
         }, () => "打开视频"),
         row.status === "pending" ? h(NButton, {
           size: "small", type: "primary",
-          onClick: () => approveClip(row.id),
+          onClick: () => approveClip(row.dbId),
         }, () => "确认导出") : null,
         h(NButton, {
           size: "small", type: "error", ghost: true,
-          onClick: () => deleteClip(row.id),
+          onClick: () => deleteClip(row.dbId),
         }, () => "删除"),
       ]);
     },
@@ -175,18 +175,20 @@ function openVideo(item: ClipItem) {
 async function approveClip(dbId: string) {
   try {
     await request.post(`/auto-clip/clip/${dbId}/approve`);
+    notice.success("已批准");
     await refreshList();
-  } catch (e) {
-    console.error("Approve failed:", e);
+  } catch (e: any) {
+    notice.error(`批准失败: ${e?.response?.data?.error || e.message}`);
   }
 }
 
 async function deleteClip(dbId: string) {
   try {
     await request.post(`/auto-clip/clip/${dbId}/delete`);
+    notice.success("已删除");
     await refreshList();
-  } catch (e) {
-    console.error("Delete failed:", e);
+  } catch (e: any) {
+    notice.error(`删除失败: ${e?.response?.data?.error || e.message}`);
   }
 }
 
