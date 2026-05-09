@@ -186,22 +186,31 @@ const editingPreset = ref<AutoClipPresetType | null>(null);
 const activeTab = ref("signal");
 const confirm = useConfirm();
 
-const defaultConfig: AutoClipConfig = {
-  signal: {
-    danmakuDensityThreshold: 2.5, scMinAmount: 30, giftBurstThreshold: 10,
-    giftBurstWindowSec: 30, windowPadding: [30, 30], minWindowDuration: 60,
-    maxWindowDuration: 300, bucketSec: 10, mergeGapSec: 30, brushSimilarityThreshold: 0.8,
-  },
-  llm: {
-    enabled: true, provider: "qwen", modelId: "", maxTokens: 1000,
-    topK: 5, maxCandidatesPerVideo: 15, danmakuSampleMax: 200,
-  },
-  enhancement: { asrEnabled: false, visualEnabled: false },
-  export: {
-    cutFormat: "mp4", ffmpegPresetId: "default", burnDanmaku: false,
-    uploadToBili: false, savePath: "", namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
-  },
-};
+const defaultConfig = ref<AutoClipConfig | null>(null);
+
+async function fetchDefaultConfig() {
+  try {
+    defaultConfig.value = await autoClipPresetApi.getDefaultConfig();
+  } catch {
+    // Network unavailable fallback — single defensive copy
+    defaultConfig.value = {
+      signal: {
+        danmakuDensityThreshold: 2.5, scMinAmount: 30, giftBurstThreshold: 10,
+        giftBurstWindowSec: 30, windowPadding: [30, 30], minWindowDuration: 60,
+        maxWindowDuration: 300, bucketSec: 10, mergeGapSec: 30, brushSimilarityThreshold: 0.8,
+      },
+      llm: {
+        enabled: true, provider: "qwen", modelId: "", maxTokens: 1000,
+        topK: 5, maxCandidatesPerVideo: 15, danmakuSampleMax: 200,
+      },
+      enhancement: { asrEnabled: false, visualEnabled: false },
+      export: {
+        cutFormat: "mp4", ffmpegPresetId: "default", burnDanmaku: false,
+        uploadToBili: false, savePath: "", namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
+      },
+    };
+  }
+}
 
 async function loadPresets() {
   try {
@@ -219,10 +228,11 @@ function selectPreset(id: string) {
 }
 
 function createPreset() {
+  if (!defaultConfig.value) return;
   const newPreset: AutoClipPresetType = {
     id: uuidv4(),
     name: "新建预设",
-    config: cloneDeep(defaultConfig),
+    config: cloneDeep(defaultConfig.value),
   };
   presets.value.push(newPreset);
   selectedId.value = newPreset.id;
@@ -261,7 +271,10 @@ function closeDialog() {
   visible.value = false;
 }
 
-watch(visible, (v) => {
-  if (v) loadPresets();
+watch(visible, async (v) => {
+  if (v) {
+    await fetchDefaultConfig();
+    await loadPresets();
+  }
 });
 </script>

@@ -1,5 +1,5 @@
 import request from "../request";
-import type { AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
+import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
 
 const list = async (): Promise<AutoClipPresetType[]> => {
   const res = await request.get("/auto-clip/presets");
@@ -22,5 +22,10 @@ const remove = async (id: string) => {
   return request.delete(`/auto-clip/preset/${id}`);
 };
 
-const autoClipPresetApi = { list, get, save, remove };
+const getDefaultConfig = async (): Promise<AutoClipConfig> => {
+  const res = await request.get("/auto-clip/default-config");
+  return res.data;
+};
+
+const autoClipPresetApi = { list, get, save, remove, getDefaultConfig };
 export default autoClipPresetApi;
