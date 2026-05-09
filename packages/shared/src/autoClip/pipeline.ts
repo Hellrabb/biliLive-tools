@@ -105,24 +105,31 @@ export async function runAutoClipPipeline(
   return { id, videoPath, danmuPath, highlights, llmFallback };
 }
 
+export interface ExportClipsResult {
+  success: Array<{ path: string; highlight: HighlightSegment }>;
+  failed: Array<{ highlight: HighlightSegment; error: string }>;
+}
+
 /**
  * Export highlight clips to video files using the existing ffmpeg cut pipeline.
  *
  * Uses dynamic import for `task/video.js` to avoid circular dependencies
- * at module-load time.
+ * at module-load time. Returns structured result with per-clip success/failure
+ * tracking so callers can distinguish partial success from total failure.
  */
 export async function exportClips(
   videoPath: string,
   highlights: AutoClipResult["highlights"],
   exportConfig: AutoClipConfig["export"],
   onProgress?: ProgressCallback,
-): Promise<string[]> {
-  const outputFiles: string[] = [];
+): Promise<ExportClipsResult> {
+  const success: ExportClipsResult["success"] = [];
+  const failed: ExportClipsResult["failed"] = [];
 
   const savePath = exportConfig.savePath || path.dirname(videoPath);
 
   for (let i = 0; i < highlights.length; i++) {
-    const h = highlights[i];
+    const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
     const outputName = exportConfig.namingTemplate
       .replace("{{title}}", safeTitle)
@@ -153,13 +160,14 @@ export async function exportClips(
         },
         { saveType: 2, savePath },
       );
-      outputFiles.push(outputPath);
+      success.push({ path: outputPath, highlight: h });
     } catch (error) {
       logger.error(`AutoClip export error for highlight ${i}:`, error);
+      failed.push({ highlight: h, error: String(error) });
     }
   }
 
-  return outputFiles;
+  return { success, failed };
 }
 
 // ---------------------------------------------------------------------------
