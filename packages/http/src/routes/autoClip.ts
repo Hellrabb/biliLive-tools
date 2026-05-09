@@ -170,17 +170,31 @@ router.post("/clip/:id/re-export", async (ctx) => {
 
   try {
     const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
+    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
+
+    // Load export config from the original preset, fall back to defaults
+    let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
+    if (result.preset_id) {
+      try {
+        const preset = getAutoClipPreset();
+        const p = await preset.get(result.preset_id);
+        if (p?.config?.export) {
+          exportConfig = p.config.export;
+        }
+      } catch {
+        // fall back to default export config
+      }
+    }
+
+    const effectiveConfig = {
+      ...exportConfig,
+      savePath: exportConfig.savePath || path.dirname(result.video_path),
+    };
+
     const exportResult = await exportClips(
       result.video_path,
       highlights,
-      {
-        cutFormat: "mp4",
-        ffmpegPresetId: "default",
-        burnDanmaku: false,
-        uploadToBili: false,
-        savePath: path.dirname(result.video_path),
-        namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
-      },
+      effectiveConfig,
       (_stage, _pct, msg) => console.log(`AutoClip re-export: ${msg}`),
     );
 
