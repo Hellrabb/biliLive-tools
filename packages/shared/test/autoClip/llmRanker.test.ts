@@ -288,6 +288,7 @@ describe("parseLLMResponse", () => {
   });
 
   it("should handle missing fields with defaults", () => {
+    // With explicit isHighlight:true, score:5
     const raw = JSON.stringify({ isHighlight: true, score: 5 });
     const result = parseLLMResponse(raw, [120, 300]);
     expect(result.isHighlight).toBe(true);
@@ -296,6 +297,30 @@ describe("parseLLMResponse", () => {
     expect(result.tags).toEqual([]);
     expect(result.highlightType).toBe("not_highlight");
     expect(result.reason).toBe("");
+  });
+
+  it("should infer isHighlight from score when field is missing", () => {
+    // score=0, no isHighlight → infer false
+    const raw = JSON.stringify({ score: 0, title: "meh" });
+    const result = parseLLMResponse(raw, [120, 300]);
+    expect(result.isHighlight).toBe(false);
+  });
+
+  it("should infer isHighlight true when score >= 3 and no explicit isHighlight", () => {
+    const raw = JSON.stringify({ score: 5, title: "good" });
+    const result = parseLLMResponse(raw, [120, 300]);
+    expect(result.isHighlight).toBe(true);
+  });
+
+  it("should infer isHighlight false when highlightType is not_highlight", () => {
+    const raw = JSON.stringify({
+      score: 5,
+      title: "test",
+      highlightType: "not_highlight",
+    });
+    // isHighlight missing, score=5, but type is not_highlight → false
+    const result = parseLLMResponse(raw, [120, 300]);
+    expect(result.isHighlight).toBe(false);
   });
 
   it("should filter non-string tags", () => {
