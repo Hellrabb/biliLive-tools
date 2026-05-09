@@ -3,3 +3,4 @@ export * from "./signalDetector.js";
 export * from "./llmRanker.js";
 export * from "./pipeline.js";
 export * from "./sendMessage.js";
+export * from "./service.js";

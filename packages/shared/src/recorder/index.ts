@@ -533,7 +533,6 @@ export async function createRecorderManager(appConfig: AppConfig) {
     try {
       const xmlFile = replaceExtName(filename, ".xml");
       if (xmlFile && (await fs.pathExists(xmlFile))) {
-        // 读取 autoClip 配置
         const cfg = appConfig.getAll();
         const videoCutCfg = cfg?.videoCut ?? {};
         const autoClipEnabled = videoCutCfg.autoClipEnabled ?? false;
@@ -568,37 +567,22 @@ export async function createRecorderManager(appConfig: AppConfig) {
           danmuPath: xmlFile,
         });
 
-        // 加载 preset 配置
-        const { runAutoClipPipeline } = await import("../autoClip/pipeline.js");
-        const { AUTO_CLIP_DEFAULT_CONFIG } = await import("../presets/autoClipPreset.js");
+        const { AutoClipService } = await import("../autoClip/service.js");
 
-        let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
-        const presetId = videoCutCfg.autoClipPresetId;
-        if (presetId && presetId !== "") {
-          try {
+        const service = new AutoClipService({
+          getAppConfig: () => appConfig.getAll(),
+          getPreset: async (id: string) => {
             const { container: diContainer } = await import("../index.js");
             const autoClipPreset = diContainer.resolve("autoClipPreset");
-            const p = await autoClipPreset.get(presetId);
-            presetConfig = p?.config ?? AUTO_CLIP_DEFAULT_CONFIG;
-          } catch (e) {
-            logger.warn("AutoClip: 加载预设失败，使用默认配置", e);
-          }
-        }
-
-        logger.info("AutoClip: 开始自动切片分析", { videoPath: filename, danmuPath: xmlFile });
-
-        // 构建 sendMessage 回调，将 preset 中的 provider/modelId 连接到全局 AI 配置
-        const { buildSendMessage } = await import("../autoClip/sendMessage.js");
-        const sendMessage = await buildSendMessage({
-          presetConfig,
-          aiConfig: appConfig.getAll().ai,
+            return autoClipPreset.get(id);
+          },
         });
 
-        const result = await runAutoClipPipeline({
+        const result = await service.analyzeAndSave({
           videoPath: filename,
           danmuPath: xmlFile,
-          presetConfig,
-          sendMessage,
+          presetId: videoCutCfg.autoClipPresetId,
+          recorderId: String(recorder?.channelId ?? ""),
           onProgress: (_stage, _pct, msg) => logger.info(`AutoClip: ${msg}`),
         });
 
@@ -608,120 +592,6 @@ export async function createRecorderManager(appConfig: AppConfig) {
           logger.info(`AutoClip: 检测到 ${result.highlights.length} 个高光片段`);
           for (const h of result.highlights) {
             logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
-          }
-
-          // 持久化到数据库
-          const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
-          const autoExport = videoCutCfg.autoClipExport ?? false;
-          const autoUpload = videoCutCfg.autoClipUpload ?? false;
-
-          try {
-            const { autoClipModel } = await import("../db/index.js");
-
-            // Use the recorder's channelId as recorder_id
-            const recorderId = recorder?.channelId ?? "";
-            const status = reviewMode ? "pending" : "approved";
-
-            autoClipModel.saveResult({
-              id: result.id,
-              video_path: filename,
-              danmu_path: xmlFile,
-              recorder_id: String(recorderId),
-              preset_id: presetId || null,
-              status,
-              highlights: JSON.stringify(result.highlights),
-              created_at: new Date().toISOString(),
-              exported_at: null,
-              uploaded_at: null,
-              exported_paths: null,
-              bili_aids: null,
-            } satisfies import("../db/autoClip.js").AutoClipResultRow);
-
-            logger.info(`AutoClip: 结果已保存 (status=${status})`);
-
-            // 非审核模式：自动导出
-            if (!reviewMode && autoExport && result.highlights.length > 0) {
-              const { exportClips } = await import("../autoClip/pipeline.js");
-              logger.info(`AutoClip: 开始自动导出 ${result.highlights.length} 个切片...`);
-
-              const exportConfig = presetConfig.export;
-              const savePath = exportConfig.savePath || path.dirname(filename);
-              const effectiveConfig = { ...exportConfig, savePath };
-
-              const exportResult = await exportClips(
-                filename,
-                result.highlights,
-                effectiveConfig,
-                (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
-              );
-
-              const exportedPaths = exportResult.success.map(s => s.path);
-              if (exportedPaths.length > 0) {
-                autoClipModel.markExported(result.id, exportedPaths);
-                logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
-                if (exportResult.failed.length > 0) {
-                  logger.warn(`AutoClip: ${exportResult.failed.length} 个切片导出失败`);
-                }
-
-                // 自动上传B站 (Phase 2 Task 11)
-                if (autoUpload) {
-                  try {
-                    const biliApi = (await import("../task/bili.js")).default;
-                    const { DEFAULT_BILIUP_CONFIG } = await import("../presets/videoPreset.js");
-                    const { container: diContainer } = await import("../index.js");
-
-                    const cfg = appConfig.getAll();
-                    const uid = cfg?.uid;
-
-                    if (!uid) {
-                      logger.warn("AutoClip: 未配置默认B站UID，跳过自动上传");
-                    } else {
-                      // 获取B站上传预设配置，优先使用第一个预设，否则使用默认配置
-                      let biliupConfig = DEFAULT_BILIUP_CONFIG;
-                      try {
-                        const videoPreset = diContainer.resolve("videoPreset");
-                        const presets = await videoPreset.list();
-                        if (presets.length > 0 && presets[0].config) {
-                          biliupConfig = presets[0].config;
-                        }
-                      } catch {
-                        // fallback to default
-                      }
-
-                      for (let i = 0; i < exportedPaths.length; i++) {
-                        const expPath = exportedPaths[i];
-                        const highlight = result.highlights[i];
-                        const title = highlight?.title || path.parse(expPath).name;
-
-                        await biliApi.addMedia(
-                          [{ path: expPath, title }],
-                          { ...biliupConfig, title },
-                          uid,
-                        );
-                      }
-
-                      autoClipModel.markUploaded(result.id, []);
-                      logger.info(`AutoClip: 已添加 ${exportedPaths.length} 个B站上传任务到队列`);
-                    }
-                  } catch (uploadError) {
-                    logger.error("AutoClip: 自动上传B站失败", uploadError);
-                  }
-                }
-
-                // 发送通知
-                try {
-                  const { sendNotify } = await import("../notify.js");
-                  await sendNotify(
-                    "autoClip 切片完成",
-                    `录制 ${path.basename(filename)} 自动切片完成，共 ${exportedPaths.length} 个高光片段`,
-                  );
-                } catch {
-                  // notification may not be configured
-                }
-              }
-            }
-          } catch (dbError) {
-            logger.error("AutoClip: 持久化失败", dbError);
           }
         }
       }
