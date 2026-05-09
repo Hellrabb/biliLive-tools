@@ -67,6 +67,7 @@ export interface HighlightSegment {
   highlightType: LLMRankResult["highlightType"];
   reason: string;
   signalSources: string[];
+  isHighlight: boolean;
 }
 
 /** AutoClip pipeline 最终结果 */
