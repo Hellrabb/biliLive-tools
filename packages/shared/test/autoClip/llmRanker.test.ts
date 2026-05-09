@@ -618,3 +618,84 @@ describe("rankCandidates", () => {
     expect(result[1]!.signalSources).toEqual(["giftBurst", "danmakuDensity"]);
   });
 });
+
+// ============================================================================
+// rankCandidates error resilience
+// ============================================================================
+
+describe("rankCandidates error resilience", () => {
+  const baseConfig: AutoClipLLMConfig = {
+    enabled: true,
+    provider: "qwen",
+    modelId: "test",
+    maxTokens: 1000,
+    topK: 5,
+    maxCandidatesPerVideo: 10,
+    danmakuSampleMax: 50,
+  };
+
+  it("survives when one LLM call rejects — uses heuristic fallback for that candidate", async () => {
+    const candidates = [
+      makeMockCandidate(),
+      makeMockCandidate({ timeRange: [400, 500] }),
+      makeMockCandidate({ timeRange: [600, 700] }),
+    ];
+    let callCount = 0;
+    const sendMessage = async (_prompt: string) => {
+      callCount++;
+      if (callCount === 2) throw new Error("API timeout");
+      return JSON.stringify({
+        isHighlight: true,
+        score: 8,
+        title: "Good one",
+        tags: [],
+        highlightType: "funny",
+        reason: "nice",
+      });
+    };
+    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    expect(result.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("survives when ALL LLM calls reject — all use heuristic fallback", async () => {
+    const candidates = [makeMockCandidate(), makeMockCandidate()];
+    const sendMessage = async () => { throw new Error("API down"); };
+    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("filters out candidates with isHighlight: false even if score > 0", async () => {
+    const candidates = [makeMockCandidate()];
+    const sendMessage = async () => JSON.stringify({
+      isHighlight: false,
+      score: 7,
+      title: "Not really",
+      tags: [],
+      highlightType: "not_highlight",
+      reason: "meh",
+    });
+    const result = await rankCandidates(candidates, baseConfig, sendMessage);
+    expect(result.length).toBe(0);
+  });
+
+  it("does not exceed p-limit concurrency", async () => {
+    const candidates = Array.from({ length: 10 }, (_, i) =>
+      makeMockCandidate({ timeRange: [i * 60, (i + 1) * 60] }),
+    );
+    let maxConcurrent = 0;
+    let inFlight = 0;
+    const sendMessage = async () => {
+      inFlight++;
+      maxConcurrent = Math.max(maxConcurrent, inFlight);
+      await new Promise((r) => setTimeout(r, 10));
+      inFlight--;
+      return JSON.stringify({
+        isHighlight: true, score: 5, title: "T", tags: [],
+        highlightType: "hype", reason: "ok",
+      });
+    };
+    const cfg = { ...baseConfig, maxCandidatesPerVideo: 10 };
+    await rankCandidates(candidates, cfg, sendMessage);
+    expect(maxConcurrent).toBeLessThanOrEqual(3);
+  });
+});

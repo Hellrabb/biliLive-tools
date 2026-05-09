@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import type { AutoClipLLMConfig } from "@biliLive-tools/types";
 import type {
   CandidateWindow,
@@ -6,6 +7,7 @@ import type {
   HighlightSegment,
   TimeWindow,
 } from "./types.js";
+import logger from "../utils/log.js";
 
 // ---------------------------------------------------------------------------
 // Default prompt template
@@ -49,6 +51,9 @@ const VALID_HIGHLIGHT_TYPES = new Set([
   "troll",
   "not_highlight",
 ]);
+
+const LLM_CONCURRENCY = 3;
+const LLM_REQUEST_TIMEOUT_MS = 30_000;
 
 const MAX_SURROUNDING_ITEMS = 10;
 
@@ -149,7 +154,9 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
     const parsed = JSON.parse(jsonStr);
 
     // 3. Extract and coerce fields
-    const isHighlight = Boolean(parsed.isHighlight);
+    // Default to true when field is missing (backwards compat with custom prompts)
+    // Only set to false when LLM explicitly returns false
+    const isHighlight = parsed.isHighlight === false ? false : true;
     const score = typeof parsed.score === "number" ? parsed.score : 0;
     const title = typeof parsed.title === "string" ? parsed.title : "";
     const tags = Array.isArray(parsed.tags)
@@ -168,11 +175,13 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
 
     // 5. Extract and clamp bestClipStart / bestClipEnd
     let bestClipStart =
-      typeof parsed.bestClipStart === "number"
+      typeof parsed.bestClipStart === "number" && Number.isFinite(parsed.bestClipStart)
         ? parsed.bestClipStart
         : window[0];
     let bestClipEnd =
-      typeof parsed.bestClipEnd === "number" ? parsed.bestClipEnd : window[1];
+      typeof parsed.bestClipEnd === "number" && Number.isFinite(parsed.bestClipEnd)
+        ? parsed.bestClipEnd
+        : window[1];
 
     // Clamp to window bounds
     bestClipStart = Math.max(window[0], Math.min(window[1], bestClipStart));
@@ -321,27 +330,60 @@ export async function rankCandidates(
     buildCandidateContext(c, candidates, config.danmakuSampleMax),
   );
 
-  // Step 3: send to LLM in parallel
+  // Step 3: send to LLM with concurrency limit, timeout, and error isolation
+  const limit = pLimit(LLM_CONCURRENCY);
+  const sendWithTimeout = (prompt: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("LLM request timeout")), LLM_REQUEST_TIMEOUT_MS);
+      sendMessage(prompt)
+        .then((res) => { clearTimeout(timer); resolve(res); })
+        .catch((err) => { clearTimeout(timer); reject(err); });
+    });
+  };
+
   const prompts = contexts.map((ctx) =>
     buildLLMPrompt(ctx, config.promptTemplate),
   );
-  const rawResponses = await Promise.all(
-    prompts.map((prompt) => sendMessage(prompt)),
+
+  const rawResults = await Promise.allSettled(
+    prompts.map((prompt) => limit(() => sendWithTimeout(prompt))),
   );
 
-  // Step 4: parse responses
+  // Step 4: parse responses — fulfilled → parse, rejected → heuristic fallback
   const results: Array<{
     candidate: CandidateWindow;
     parsed: LLMRankResult;
   }> = [];
   for (let i = 0; i < ranked.length; i++) {
-    const parsed = parseLLMResponse(rawResponses[i]!, ranked[i]!.timeRange);
-    results.push({ candidate: ranked[i]!, parsed });
+    const candidate = ranked[i]!;
+    const outcome = rawResults[i]!;
+    if (outcome.status === "fulfilled") {
+      const parsed = parseLLMResponse(outcome.value, candidate.timeRange);
+      results.push({ candidate, parsed });
+    } else {
+      // LLM call failed — use heuristic fallback score
+      logger.warn(`AutoClip LLM call failed for candidate ${i}: ${outcome.reason}`);
+      const { brushFrequency, scTotal, danmakuDensity } = candidate.stats;
+      const heuristicScore = Math.min(10, brushFrequency * 3 + scTotal / 10 + danmakuDensity);
+      results.push({
+        candidate,
+        parsed: {
+          isHighlight: heuristicScore > 3,
+          score: heuristicScore,
+          title: "Auto-detected",
+          tags: [],
+          highlightType: "hype",
+          reason: "LLM unavailable, heuristic fallback",
+          bestClipStart: candidate.timeRange[0],
+          bestClipEnd: candidate.timeRange[1],
+        },
+      });
+    }
   }
 
-  // Step 5-7: filter, sort, slice, convert
+  // Step 5-7: filter by isHighlight AND score, sort, slice, convert
   const highlights: HighlightSegment[] = results
-    .filter((r) => r.parsed.score > 0)
+    .filter((r) => r.parsed.isHighlight && r.parsed.score > 0)
     .sort((a, b) => b.parsed.score - a.parsed.score)
     .slice(0, config.topK)
     .map((r) => ({
