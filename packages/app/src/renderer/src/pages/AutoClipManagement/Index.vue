@@ -53,6 +53,23 @@
         </n-space>
       </n-card>
     </n-modal>
+
+    <!-- 弹幕路径确认弹窗 -->
+    <n-modal v-model:show="showDanmuDialog" style="width:500px" title="确认弹幕文件路径">
+      <n-card :bordered="false" size="small">
+        <n-form label-placement="left" :label-width="120">
+          <n-form-item label="弹幕文件路径">
+            <n-input v-model:value="danmuInputPath" placeholder="输入弹幕 XML 文件路径" />
+          </n-form-item>
+        </n-form>
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="showDanmuDialog = false">取消</n-button>
+            <n-button type="primary" @click="confirmManualAnalyze">开始分析</n-button>
+          </n-space>
+        </template>
+      </n-card>
+    </n-modal>
   </div>
 </template>
 
@@ -215,13 +232,43 @@ async function deleteClip(dbId: string) {
   }
 }
 
+// Dialog state
+const showDanmuDialog = ref(false);
+const danmuInputPath = ref("");
+const pendingVideoPath = ref("");
+
+function triggerManualAnalyze(filePath: string) {
+  const guessed = filePath.replace(/\.[^.]+$/, ".xml");
+  danmuInputPath.value = guessed;
+  pendingVideoPath.value = filePath;
+  showDanmuDialog.value = true;
+}
+
+async function confirmManualAnalyze() {
+  showDanmuDialog.value = false;
+  const videoPath = pendingVideoPath.value;
+  const danmuPath = danmuInputPath.value || videoPath.replace(/\.[^.]+$/, ".xml");
+
+  analyzing.value = true;
+  notice.info("正在分析中，请稍候...");
+  try {
+    await request.post("/auto-clip/run", { videoPath, danmuPath });
+    notice.success("分析完成，请查看结果");
+    await refreshList();
+  } catch (e: any) {
+    notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
+  } finally {
+    analyzing.value = false;
+  }
+}
+
+// Replace manualAnalyze to use trigger function instead of prompt()
 async function manualAnalyze() {
   let files: string[] | undefined;
 
   if (window.isWeb) {
     files = await showDirectoryDialog({
-      type: "file",
-      multi: false,
+      type: "file", multi: false,
       exts: ["mp4", "flv", "mkv", "webm", "avi", "mov", "ts"],
     });
   } else if (window.api?.openFile) {
@@ -232,25 +279,7 @@ async function manualAnalyze() {
   }
 
   if (!files || files.length === 0) return;
-
-  // 让用户确认/修改弹幕文件路径
-  const guessedDanmuPath = files[0].replace(/\.[^.]+$/, ".xml");
-  const danmuPath = prompt("弹幕文件路径（留空使用默认推导）:", guessedDanmuPath) || guessedDanmuPath;
-
-  analyzing.value = true;
-  notice.info("正在分析中，请稍候...");
-  try {
-    await request.post("/auto-clip/run", {
-      videoPath: files[0],
-      danmuPath,
-    });
-    notice.success("分析完成，请查看结果");
-    await refreshList();
-  } catch (e: any) {
-    notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
-  } finally {
-    analyzing.value = false;
-  }
+  triggerManualAnalyze(files[0]);
 }
 
 onMounted(() => {
