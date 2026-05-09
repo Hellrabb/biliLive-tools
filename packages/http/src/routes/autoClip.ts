@@ -208,46 +208,13 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
 
   try {
     const highlights = JSON.parse(result.highlights);
-
-    const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
-    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
-
-    let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
-    if (result.preset_id) {
-      try {
-        const preset = getAutoClipPreset();
-        const p = await preset.get(result.preset_id);
-        if (p?.config?.export) {
-          exportConfig = p.config.export;
-        }
-      } catch {
-        // fall back to default
-      }
-    }
-
-    const effectiveConfig = {
-      ...exportConfig,
-      savePath: exportConfig.savePath || path.dirname(result.video_path),
-    };
-
-    const exportResult = await exportClips(
+    ctx.body = await doExportClips(
+      ctx.params.id,
       result.video_path,
       highlights,
-      effectiveConfig,
-      (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
+      result.preset_id,
+      "AutoClip export",
     );
-
-    const exportedPaths = exportResult.success.map(s => s.path);
-    if (exportedPaths.length > 0) {
-      autoClipModel.markExported(ctx.params.id, exportedPaths);
-    }
-
-    ctx.body = {
-      status: exportedPaths.length > 0 ? "exported" : "failed",
-      exportedPaths,
-      failedCount: exportResult.failed.length,
-      errors: exportResult.failed.map(f => f.error),
-    };
   } catch (error: any) {
     logger.error("AutoClip approve-and-export error:", error);
     ctx.status = 500;
@@ -264,49 +231,15 @@ router.post("/clip/:id/re-export", async (ctx) => {
     return;
   }
 
-  const highlights = JSON.parse(result.highlights);
-
   try {
-    const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
-    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
-
-    // Load export config from the original preset, fall back to defaults
-    let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
-    if (result.preset_id) {
-      try {
-        const preset = getAutoClipPreset();
-        const p = await preset.get(result.preset_id);
-        if (p?.config?.export) {
-          exportConfig = p.config.export;
-        }
-      } catch {
-        // fall back to default export config
-      }
-    }
-
-    const effectiveConfig = {
-      ...exportConfig,
-      savePath: exportConfig.savePath || path.dirname(result.video_path),
-    };
-
-    const exportResult = await exportClips(
+    const highlights = JSON.parse(result.highlights);
+    ctx.body = await doExportClips(
+      ctx.params.id,
       result.video_path,
       highlights,
-      effectiveConfig,
-      (_stage, _pct, msg) => logger.info(`AutoClip re-export: ${msg}`),
+      result.preset_id,
+      "AutoClip re-export",
     );
-
-    const exportedPaths = exportResult.success.map(s => s.path);
-    if (exportedPaths.length > 0) {
-      autoClipModel.markExported(ctx.params.id, exportedPaths);
-    }
-
-    ctx.body = {
-      status: exportedPaths.length > 0 ? "exported" : (exportResult.failed.length > 0 ? "failed" : "nothing_to_export"),
-      exportedPaths,
-      failedCount: exportResult.failed.length,
-      errors: exportResult.failed.map(f => f.error),
-    };
   } catch (error: any) {
     logger.error("AutoClip re-export error:", error);
     ctx.status = 500;
@@ -324,5 +257,62 @@ router.post("/clip/:id/delete", async (ctx) => {
   autoClipModel.deleteResult(ctx.params.id);
   ctx.body = { status: "deleted" };
 });
+
+// ---------------------------------------------------------------------------
+// Shared export helper — used by approve-and-export and re-export
+// ---------------------------------------------------------------------------
+
+async function doExportClips(
+  resultId: string,
+  videoPath: string,
+  highlights: unknown[],
+  presetId: string | null,
+  logPrefix: string,
+): Promise<{
+  status: string;
+  exportedPaths: string[];
+  failedCount: number;
+  errors: string[];
+}> {
+  const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
+  const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
+
+  let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
+  if (presetId) {
+    try {
+      const preset = getAutoClipPreset();
+      const p = await preset.get(presetId);
+      if (p?.config?.export) {
+        exportConfig = p.config.export;
+      }
+    } catch {
+      // fall back to default export config
+    }
+  }
+
+  const effectiveConfig = {
+    ...exportConfig,
+    savePath: exportConfig.savePath || path.dirname(videoPath),
+  };
+
+  const exportResult = await exportClips(
+    videoPath,
+    highlights as any[],
+    effectiveConfig,
+    (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
+  );
+
+  const exportedPaths = exportResult.success.map((s: any) => s.path);
+  if (exportedPaths.length > 0) {
+    autoClipModel.markExported(resultId, exportedPaths);
+  }
+
+  return {
+    status: exportedPaths.length > 0 ? "exported" : "failed",
+    exportedPaths,
+    failedCount: exportResult.failed.length,
+    errors: exportResult.failed.map((f: any) => f.error),
+  };
+}
 
 export default router;
