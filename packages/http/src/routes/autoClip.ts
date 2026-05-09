@@ -19,6 +19,73 @@ function getAutoClipPreset(): AutoClipPresetInstance {
   return container.resolve("autoClipPreset") as AutoClipPresetInstance;
 }
 
+// ---------------------------------------------------------------------------
+// Preset validation
+// ---------------------------------------------------------------------------
+
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+function validatePresetConfig(config: unknown): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (!config || typeof config !== "object") {
+    return [{ field: "config", message: "config must be an object" }];
+  }
+
+  const c = config as Record<string, unknown>;
+
+  // signal
+  const signal = c.signal as Record<string, unknown> | undefined;
+  if (!signal || typeof signal !== "object") {
+    errors.push({ field: "config.signal", message: "signal config is required" });
+  } else {
+    const numFields = [
+      "danmakuDensityThreshold", "scMinAmount", "giftBurstThreshold",
+      "giftBurstWindowSec", "minWindowDuration", "maxWindowDuration",
+      "bucketSec", "mergeGapSec", "brushSimilarityThreshold",
+    ] as const;
+    for (const f of numFields) {
+      if (typeof signal[f] !== "number" || !Number.isFinite(signal[f])) {
+        errors.push({ field: `config.signal.${f}`, message: `${f} must be a finite number` });
+      }
+    }
+    // validate windowPadding is a 2-element number array
+    if (!Array.isArray(signal.windowPadding) || signal.windowPadding.length !== 2 ||
+        typeof signal.windowPadding[0] !== "number" || typeof signal.windowPadding[1] !== "number") {
+      errors.push({ field: "config.signal.windowPadding", message: "windowPadding must be [number, number]" });
+    }
+  }
+
+  // llm
+  const llm = c.llm as Record<string, unknown> | undefined;
+  if (!llm || typeof llm !== "object") {
+    errors.push({ field: "config.llm", message: "llm config is required" });
+  } else {
+    if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled must be boolean" });
+    if (typeof llm.provider !== "string" || !["qwen", "ollama"].includes(llm.provider as string)) {
+      errors.push({ field: "config.llm.provider", message: 'provider must be "qwen" or "ollama"' });
+    }
+    if (typeof llm.topK !== "number" || !Number.isFinite(llm.topK) || (llm.topK as number) < 1) {
+      errors.push({ field: "config.llm.topK", message: "topK must be >= 1" });
+    }
+    if (typeof llm.maxCandidatesPerVideo !== "number" || !Number.isFinite(llm.maxCandidatesPerVideo) || (llm.maxCandidatesPerVideo as number) < 1) {
+      errors.push({ field: "config.llm.maxCandidatesPerVideo", message: "maxCandidatesPerVideo must be >= 1" });
+    }
+  }
+
+  // export (optional: only validate if present)
+  const exp = c.export as Record<string, unknown> | undefined;
+  if (exp && typeof exp === "object") {
+    if (typeof exp.cutFormat !== "string" || !["mp4", "flv"].includes(exp.cutFormat as string)) {
+      errors.push({ field: "config.export.cutFormat", message: 'cutFormat must be "mp4" or "flv"' });
+    }
+  }
+
+  return errors;
+}
+
 // ===================== 预设 CRUD =====================
 
 router.get("/presets", async (ctx) => {
@@ -34,12 +101,28 @@ router.get("/preset/:id", async (ctx) => {
 router.post("/preset", async (ctx) => {
   const preset = getAutoClipPreset();
   const data = ctx.request.body as AutoClipPresetType;
+
+  const errors = validatePresetConfig(data.config);
+  if (errors.length > 0) {
+    ctx.status = 400;
+    ctx.body = { error: "Invalid preset config", details: errors };
+    return;
+  }
+
   ctx.body = await preset.save(data);
 });
 
 router.put("/preset/:id", async (ctx) => {
   const preset = getAutoClipPreset();
   const data = ctx.request.body as AutoClipPresetType;
+
+  const errors = validatePresetConfig(data.config);
+  if (errors.length > 0) {
+    ctx.status = 400;
+    ctx.body = { error: "Invalid preset config", details: errors };
+    return;
+  }
+
   ctx.body = await preset.save({ ...data, id: ctx.params.id });
 });
 
