@@ -113,6 +113,8 @@ export async function exportClips(
 ): Promise<string[]> {
   const outputFiles: string[] = [];
 
+  const savePath = exportConfig.savePath || path.dirname(videoPath);
+
   for (let i = 0; i < highlights.length; i++) {
     const h = highlights[i];
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
@@ -121,7 +123,7 @@ export async function exportClips(
       .replace("{{index}}", String(i + 1))
       .replace("{{highlight_name}}", safeTitle);
     const outputPath = path.join(
-      exportConfig.savePath,
+      savePath,
       `${outputName}.${exportConfig.cutFormat}`,
     );
 
@@ -143,7 +145,7 @@ export async function exportClips(
           ss: h.bestRange[0],
           to: h.bestRange[1],
         },
-        { saveType: 2, savePath: exportConfig.savePath },
+        { saveType: 2, savePath },
       );
       outputFiles.push(outputPath);
     } catch (error) {
@@ -159,11 +161,11 @@ export async function exportClips(
 // ---------------------------------------------------------------------------
 
 async function getVideoDuration(videoPath: string): Promise<number> {
-  try {
-    const { readVideoMeta } = await import("../task/video.js");
-    const meta = await readVideoMeta(videoPath);
-    return meta?.format?.duration ?? 600;
-  } catch {
-    return 600;
+  const { readVideoMeta } = await import("../task/video.js");
+  const meta = await readVideoMeta(videoPath);
+  const duration = meta?.format?.duration;
+  if (!duration || duration <= 0) {
+    throw new Error(`Cannot determine video duration for: ${videoPath}`);
   }
+  return duration;
 }

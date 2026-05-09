@@ -1,3 +1,4 @@
+import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { runAutoClipPipeline } from "@biliLive-tools/shared/autoClip/pipeline.js";
@@ -173,7 +174,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
         ffmpegPresetId: "default",
         burnDanmaku: false,
         uploadToBili: false,
-        savePath: "",
+        savePath: path.dirname(result.video_path),
         namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
       },
       (_stage, _pct, msg) => console.log(`AutoClip re-export: ${msg}`),
