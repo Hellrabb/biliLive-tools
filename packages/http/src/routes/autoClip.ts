@@ -198,17 +198,13 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
 
   if (result.status !== "pending") {
     ctx.status = 400;
-    ctx.body = { error: `Cannot approve-and-export: current status is '${result.status}'` };
+    ctx.body = { error: `Cannot export: current status is '${result.status}'` };
     return;
   }
 
-  // 1. 批准
-  autoClipModel.updateStatus(ctx.params.id, "approved");
-
-  // 2. 导出
-  const highlights = JSON.parse(result.highlights);
-
   try {
+    const highlights = JSON.parse(result.highlights);
+
     const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
     const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
 
@@ -243,7 +239,7 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
     }
 
     ctx.body = {
-      status: exportedPaths.length > 0 ? "exported" : (exportResult.failed.length > 0 ? "partial_failure" : "nothing_to_export"),
+      status: exportedPaths.length > 0 ? "exported" : "failed",
       exportedPaths,
       failedCount: exportResult.failed.length,
       errors: exportResult.failed.map(f => f.error),
