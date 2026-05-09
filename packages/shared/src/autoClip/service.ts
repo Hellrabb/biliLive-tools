@@ -33,9 +33,11 @@ export class AutoClipService {
     danmuPath: string;
     presetId?: string;
     recorderId?: string;
+    /** HTTP 手动触发时设为 true，跳过自动导出/上传 */
+    skipAutoExport?: boolean;
     onProgress?: ProgressCallback;
   }): Promise<AutoClipResult> {
-    const { videoPath, danmuPath, presetId, recorderId, onProgress } = params;
+    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress } = params;
 
     // 1. Load preset config
     let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
@@ -89,7 +91,7 @@ export class AutoClipService {
 
         logger.info(`AutoClip: 结果已保存 (status=${status})`);
 
-        if (!reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
+        if (!skipAutoExport && !reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
           await this.autoExportAndUpload(
             result.id,
             videoPath,

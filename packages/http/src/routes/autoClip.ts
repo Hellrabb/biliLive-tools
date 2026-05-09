@@ -1,11 +1,10 @@
 import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
-import { runAutoClipPipeline } from "@biliLive-tools/shared/autoClip/pipeline.js";
 import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
 import { container, appConfig } from "../index.js";
 
-import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
+import type { AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 
 const router = new Router({ prefix: "/auto-clip" });
 
@@ -76,7 +75,7 @@ router.post("/run", async (ctx) => {
     return;
   }
 
-  // 路径安全校验：禁止路径遍历和敏感系统路径
+  // 路径安全校验：禁止路径遍历和敏感系统路径（HTTP 层职责）
   const dangerousPatterns = [/\.\./, /^\/etc\//, /^\/proc\//, /^\/sys\//];
   if (dangerousPatterns.some(p => p.test(videoPath) || p.test(danmuPath))) {
     ctx.status = 400;
@@ -103,56 +102,27 @@ router.post("/run", async (ctx) => {
     // fs-extra unavailable — skip file existence check (non-blocking)
   }
 
-  let presetConfig: AutoClipConfig;
-  if (presetId) {
-    try {
-      const preset = getAutoClipPreset();
-      const p = await preset.get(presetId);
-      presetConfig = p?.config ?? (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
-    } catch {
-      presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
-    }
-  } else {
-    presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
-  }
-
-  const { buildSendMessage } = await import("@biliLive-tools/shared/autoClip/sendMessage.js");
-  const sendMessage = await buildSendMessage({
-    presetConfig,
-    aiConfig: appConfig.getAll().ai,
-  });
-
   try {
-    const result = await runAutoClipPipeline({
+    const { AutoClipService } = await import("@biliLive-tools/shared/autoClip/service.js");
+
+    const service = new AutoClipService({
+      getAppConfig: () => appConfig.getAll(),
+      getPreset: async (id: string) => {
+        const preset = getAutoClipPreset();
+        return preset.get(id);
+      },
+    });
+
+    const result = await service.analyzeAndSave({
       videoPath: resolvedVideo,
       danmuPath: resolvedDanmu,
-      presetConfig,
-      sendMessage,
+      presetId,
+      skipAutoExport: true,
       onProgress: (_stage, _pct, message) => {
         logger.info(`[AutoClip] ${message}`);
       },
     });
 
-    // Save to DB
-    try {
-      autoClipModel.saveResult({
-        id: result.id,
-        video_path: resolvedVideo,
-        danmu_path: resolvedDanmu,
-        recorder_id: null,
-        preset_id: presetId || null,
-        status: "pending",
-        highlights: JSON.stringify(result.highlights),
-        created_at: new Date().toISOString(),
-        exported_at: null,
-        uploaded_at: null,
-        exported_paths: null,
-        bili_aids: null,
-        llm_fallback: result.llmFallback ? 1 : 0,
-      });
-    } catch (e) {
-      logger.error("Failed to save autoClip result:", e);
-    }
     ctx.body = result;
   } catch (error: any) {
     logger.error("AutoClip run error:", error);
