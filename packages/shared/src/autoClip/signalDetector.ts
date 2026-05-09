@@ -44,17 +44,15 @@ function lcsSimilarity(a: string, b: string): number {
   return maxLen / Math.min(m, n);
 }
 
-/** Merge overlapping / adjacent TimeWindow arrays (in-place, sorted). */
+/** Merge overlapping / adjacent TimeWindow arrays (copies input, does not mutate). */
 function mergeTimeWindows(windows: TimeWindow[], gapSec: number): TimeWindow[] {
   if (windows.length === 0) return [];
+  const sorted = [...windows].sort((a, b) => a[0] - b[0]);
 
-  // sort by start
-  windows.sort((a, b) => a[0] - b[0]);
-
-  const merged: TimeWindow[] = [windows[0]];
-  for (let i = 1; i < windows.length; i++) {
+  const merged: TimeWindow[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
     const last = merged[merged.length - 1];
-    const cur = windows[i];
+    const cur = sorted[i];
     if (cur[0] <= last[1] + gapSec) {
       // overlap or within gap → merge
       last[1] = Math.max(last[1], cur[1]);
@@ -245,6 +243,10 @@ export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): T
 
 /** Sliding window size for brush storm detection (seconds). */
 const BRUSH_WINDOW_SEC = 10;
+/** Max items per sliding window for pair-wise LCS to prevent O(n²) blowup. */
+const MAX_BRUSH_SAMPLE = 80;
+/** Max danmaku texts for brush-frequency pair-wise LCS in detectSignals. */
+const MAX_BRUSH_FREQ_SAMPLE = 150;
 
 /**
  * Detect time windows where a high proportion of danmaku text pairs share
@@ -288,12 +290,21 @@ export function detectBrushStorms(
     const n = windowItems.length;
     if (n < 2) continue;
 
-    // Compute pair-wise LCS similarity
+    // Downsample to cap O(n²) cost
+    let samples = windowItems;
+    if (n > MAX_BRUSH_SAMPLE) {
+      const step = Math.floor(n / MAX_BRUSH_SAMPLE);
+      samples = windowItems.filter((_, idx) => idx % step === 0);
+    }
+
+    const sn = samples.length;
+    if (sn < 2) continue;
+
     let totalPairs = 0;
     let similarPairs = 0;
-    for (let a = 0; a < n; a++) {
-      for (let b = a + 1; b < n; b++) {
-        const sim = lcsSimilarity(windowItems[a]!.text!, windowItems[b]!.text!);
+    for (let a = 0; a < sn; a++) {
+      for (let b = a + 1; b < sn; b++) {
+        const sim = lcsSimilarity(samples[a]!.text!, samples[b]!.text!);
         totalPairs++;
         if (sim >= brushSimilarityThreshold) similarPairs++;
       }
@@ -452,17 +463,22 @@ export function detectSignals(
     const scTotal = windowSc.reduce((sum, s) => sum + (s.gift_price ?? 0), 0);
     const giftCount = windowGift.length;
 
-    // Brush frequency: proportion of danmaku text pairs that are similar
+    // Brush frequency: proportion of danmaku text pairs that are similar (downsampled)
     let brushFrequency = 0;
     const texts = windowDanmu
       .filter((d) => d.text && d.text.trim().length > 0)
       .map((d) => d.text!);
-    if (texts.length >= 2) {
+    let sampledTexts = texts;
+    if (texts.length > MAX_BRUSH_FREQ_SAMPLE) {
+      const step = Math.floor(texts.length / MAX_BRUSH_FREQ_SAMPLE);
+      sampledTexts = texts.filter((_, idx) => idx % step === 0);
+    }
+    if (sampledTexts.length >= 2) {
       let totalPairs = 0;
       let similarPairs = 0;
-      for (let a = 0; a < texts.length; a++) {
-        for (let b = a + 1; b < texts.length; b++) {
-          if (lcsSimilarity(texts[a]!, texts[b]!) >= config.brushSimilarityThreshold) {
+      for (let a = 0; a < sampledTexts.length; a++) {
+        for (let b = a + 1; b < sampledTexts.length; b++) {
+          if (lcsSimilarity(sampledTexts[a]!, sampledTexts[b]!) >= config.brushSimilarityThreshold) {
             similarPairs++;
           }
           totalPairs++;

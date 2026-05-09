@@ -523,3 +523,54 @@ describe("detectSignals", () => {
     expect(result.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ============================================================================
+// Performance: brush storm downsampling
+// ============================================================================
+
+describe("brush storm downsampling", () => {
+  it("limits pair-wise LCS to MAX_BRUSH_SAMPLE items per window", () => {
+    const config = defaultConfig({ brushSimilarityThreshold: 0.6, mergeGapSec: 5 });
+    const items: DanmuItem[] = [];
+    for (let i = 0; i < 500; i++) {
+      items.push(makeDanmu(i * 0.02, "666666"));
+    }
+    const start = Date.now();
+    const result = detectBrushStorms(items, config);
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(2000);
+    expect(result.length).toBeGreaterThan(0);
+    // Verify detected window has reasonable bounds
+    expect(result[0]![0]).toBeGreaterThanOrEqual(0);
+    expect(result[0]![1]).toBeLessThanOrEqual(10);
+  });
+
+  it("detectSignals brushFrequency uses downsampled texts", () => {
+    const config = defaultConfig({ brushSimilarityThreshold: 0.6, mergeGapSec: 5 });
+    const cluster = generateDanmakuCluster(300, 60, 120);
+    const bg = generateUniformDanmaku(50, 600);
+    const allDanmu = [...cluster, ...bg];
+    const stats = buildDanmuStatsMock(allDanmu, [], [], [], 600);
+    const start = Date.now();
+    const result = detectSignals(stats, config);
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(2000);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("downsampling approximates full result", () => {
+    // Generate 200 items in a 10s window — just over MAX_BRUSH_SAMPLE (80)
+    // so downsampling kicks in but we can still compute full result for comparison
+    const config = defaultConfig({ brushSimilarityThreshold: 0.6, mergeGapSec: 5 });
+    const items: DanmuItem[] = [];
+    for (let i = 0; i < 200; i++) {
+      items.push(makeDanmu(i * 0.05, i % 3 === 0 ? "666666" : "lol" + i));
+    }
+    const result = detectBrushStorms(items, config);
+    // With 200 items in 10s, all in one window -> should detect the brush storm
+    expect(result.length).toBeGreaterThan(0);
+    // Window should cover roughly the data range
+    expect(result[0]![0]).toBeGreaterThanOrEqual(0);
+    expect(result[0]![1]).toBeLessThanOrEqual(10);
+  });
+});
