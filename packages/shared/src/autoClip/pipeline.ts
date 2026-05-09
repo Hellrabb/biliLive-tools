@@ -161,8 +161,8 @@ export async function exportClips(
           if (preset?.config) {
             ffmpegPresetOpts = { ...preset.config };
           }
-        } catch {
-          // preset load failure is non-fatal, fall back to defaults
+        } catch (err) {
+          logger.warn(`AutoClip: failed to load ffmpeg preset "${exportConfig.ffmpegPresetId}", using defaults`, err);
         }
       }
 
