@@ -78,6 +78,8 @@ export interface AutoClipResult {
   highlights: HighlightSegment[];
   skipped?: boolean;
   skippedReason?: string;
+  /** true if LLM was enabled in config but unavailable — results are heuristic only */
+  llmFallback?: boolean;
 }
 
 /** 弹幕统计 (parseDanmu 内部结构, 用于信号检测) */

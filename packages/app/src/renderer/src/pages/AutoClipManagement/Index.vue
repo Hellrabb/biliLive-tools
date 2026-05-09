@@ -18,6 +18,10 @@
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
     </n-radio-group>
 
+    <n-alert v-if="hasLlmFallback" type="warning" style="margin-bottom:12px" closable>
+      AI 精排服务不可用，以下评分为启发式算法估算。请检查系统设置中的 AI 配置是否正确。
+    </n-alert>
+
     <!-- 切片列表 -->
     <n-data-table
       :columns="columns"
@@ -48,7 +52,7 @@
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
-import { NButton, NSpace, NTag, NDataTable, useNotification } from "naive-ui";
+import { NButton, NSpace, NTag, NAlert, NDataTable, useNotification } from "naive-ui";
 import request from "@renderer/apis/request";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 
@@ -67,6 +71,7 @@ interface ClipItem {
   created_at: string;
   recorder_id: string;
   preset_id: string;
+  llmFallback?: boolean;
 }
 
 const router = useRouter();
@@ -84,6 +89,8 @@ const counts = computed(() => {
   const uploaded = clips.value.filter(c => c.status === "uploaded").length;
   return { all, pending, exported, uploaded };
 });
+
+const hasLlmFallback = computed(() => clips.value.some(c => c.llmFallback));
 
 const filteredData = computed(() => {
   if (!filterStatus.value) return clips.value;
@@ -151,6 +158,7 @@ async function refreshList() {
         created_at: r.created_at,
         recorder_id: r.recorder_id,
         preset_id: r.preset_id,
+        llmFallback: r.llmFallback ?? false,
       }));
     });
   } catch (e) {
