@@ -151,7 +151,15 @@ router.get("/result/:id", async (ctx) => {
 
 router.get("/clips", async (ctx) => {
   const status = ctx.query.status as string | undefined;
-  const { data, total } = autoClipModel.getResults({ status: status || undefined });
+  const limit = ctx.query.limit ? parseInt(ctx.query.limit as string, 10) : 50;
+  const offset = ctx.query.offset ? parseInt(ctx.query.offset as string, 10) : 0;
+
+  const { data, total } = autoClipModel.getResults({
+    status: status || undefined,
+    limit: Math.min(limit, 200),
+    offset,
+  });
+
   ctx.body = {
     data: data.map(r => {
       const { llm_fallback, ...rest } = r;
@@ -162,6 +170,8 @@ router.get("/clips", async (ctx) => {
       };
     }),
     total,
+    limit: Math.min(limit, 200),
+    offset,
   };
 });
 

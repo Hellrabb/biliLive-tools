@@ -234,7 +234,7 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
 export function preRankCandidates(
   candidates: CandidateWindow[],
   maxCandidates: number,
-  weights?: AutoClipLLMConfig["heuristicWeights"],
+  weights?: { brushFrequency: number; scTotalDivisor: number; danmakuDensity: number },
 ): CandidateWindow[] {
   if (candidates.length === 0) return [];
 
