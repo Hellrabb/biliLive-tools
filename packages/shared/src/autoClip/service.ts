@@ -173,12 +173,16 @@ export class AutoClipService {
       try {
         const videoPreset = container.resolve("videoPreset");
         const presets = await videoPreset.list();
-        const biliPreset = presets.find((p: any) => p.config?.title);
-        if (biliPreset?.config) {
-          biliupConfig = biliPreset.config;
+
+        // Look for a preset explicitly named for autoClip, otherwise use safe default
+        const autoClipBiliPreset = presets.find(
+          (p: any) => p.name?.includes("autoClip") || p.name?.includes("自动切片")
+        );
+        if (autoClipBiliPreset?.config) {
+          biliupConfig = autoClipBiliPreset.config;
         }
       } catch {
-        // fallback to default
+        // fallback to DEFAULT_BILIUP_CONFIG
       }
 
       for (let i = 0; i < exportedPaths.length; i++) {
