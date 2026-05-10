@@ -391,23 +391,42 @@ async function doExportClips(
   // Mark as exporting so UI can show progress during long export operations
   autoClipModel.updateStatus(resultId, "exporting");
 
-  const exportResult = await exportClips(
-    videoPath,
-    highlights as any[],
-    effectiveConfig,
-    (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
-  );
+  let exportedPaths: string[] = [];
+  let failedCount = 0;
+  let errors: string[] = [];
 
-  const exportedPaths = exportResult.success.map((s: any) => s.path);
-  if (exportedPaths.length > 0) {
-    autoClipModel.markExported(resultId, exportedPaths);
+  try {
+    const exportResult = await exportClips(
+      videoPath,
+      highlights as any[],
+      effectiveConfig,
+      (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
+    );
+
+    exportedPaths = exportResult.success.map((s: any) => s.path);
+    failedCount = exportResult.failed.length;
+    errors = exportResult.failed.map((f: any) => f.error);
+
+    if (exportedPaths.length > 0) {
+      autoClipModel.markExported(resultId, exportedPaths);
+    }
+  } catch (err: any) {
+    logger.error(`${logPrefix}: exportClips threw:`, err);
+    // Roll back status so the user can retry
+    autoClipModel.updateStatus(resultId, "pending");
+    return {
+      status: "failed",
+      exportedPaths: [],
+      failedCount: highlights.length,
+      errors: [err.message || String(err)],
+    };
   }
 
   return {
     status: exportedPaths.length > 0 ? "exported" : "failed",
     exportedPaths,
-    failedCount: exportResult.failed.length,
-    errors: exportResult.failed.map((f: any) => f.error),
+    failedCount,
+    errors,
   };
 }
 
