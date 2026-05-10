@@ -22,14 +22,23 @@ export async function buildSendMessage(
   if (!llmCfg.enabled) return undefined;
 
   const model = aiConfig.models.find((m) => m.modelId === llmCfg.modelId);
-  const vendor = aiConfig.vendors.find((v) => v.id === model?.vendorId);
+  if (!model) {
+    logger.warn(`AutoClip: model "${llmCfg.modelId}" not found in AI config, LLM ranking disabled`);
+    return undefined;
+  }
+
+  const vendor = aiConfig.vendors.find((v) => v.id === model.vendorId);
+  if (!vendor) {
+    logger.warn(`AutoClip: vendor "${model.vendorId}" not found for model "${llmCfg.modelId}", LLM ranking disabled`);
+    return undefined;
+  }
 
   if (llmCfg.provider === "qwen") {
     const { QwenLLM } = await import("../ai/llm/qwen.js");
     const llm = new QwenLLM({
-      apiKey: vendor?.apiKey ?? "",
-      model: model?.modelName,
-      baseURL: vendor?.baseURL,
+      apiKey: vendor.apiKey ?? "",
+      model: model.modelName,
+      baseURL: vendor.baseURL,
     });
     return async (prompt: string, signal?: AbortSignal) => {
       const result = await llm.sendMessage(prompt, undefined, { signal });
@@ -39,10 +48,11 @@ export async function buildSendMessage(
 
   if (llmCfg.provider === "ollama") {
     const { chat } = await import("../llm/ollama.js");
+    const host = vendor.baseURL || "http://localhost:11434";
     return async (prompt: string, signal?: AbortSignal) => {
       const result = await chat({
-        host: vendor?.baseURL ?? "http://localhost:11434",
-        model: model?.modelName ?? "qwen2.5",
+        host,
+        model: model.modelName ?? "qwen2.5",
         messages: [{ role: "user", content: prompt }],
         signal,
       });
