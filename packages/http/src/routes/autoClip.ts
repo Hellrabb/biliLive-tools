@@ -280,6 +280,11 @@ router.post("/clip/:id/approve", async (ctx) => {
     ctx.body = { error: "Not found" };
     return;
   }
+  if (result.status !== "pending") {
+    ctx.status = 400;
+    ctx.body = { error: `Cannot approve: current status is '${result.status}'` };
+    return;
+  }
   autoClipModel.updateStatus(ctx.params.id, "approved");
   ctx.body = { status: "approved" };
 });
