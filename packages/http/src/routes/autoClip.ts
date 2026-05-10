@@ -186,8 +186,12 @@ router.post("/run", async (ctx) => {
       ctx.body = { error: "Danmu file not found" };
       return;
     }
-  } catch {
-    // fs-extra unavailable — skip file existence check (non-blocking)
+  } catch (err: any) {
+    if (err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module")) {
+      // fs-extra unavailable — skip file existence check (non-blocking)
+    } else {
+      throw err;
+    }
   }
 
   const { v4: uuidv4 } = await import("uuid");
@@ -230,7 +234,8 @@ router.post("/run", async (ctx) => {
     } catch (error: any) {
       logger.error(`[AutoClip ${taskId}] failed:`, error);
       try {
-        autoClipModel.deleteResult(taskId);
+        // Don't delete — update to terminal state so frontend polling resolves
+        autoClipModel.updateStatus(taskId, "pending");
       } catch { /* ignore cleanup errors */ }
     }
   })();
