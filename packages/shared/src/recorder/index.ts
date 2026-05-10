@@ -33,6 +33,7 @@ import type {
   AppConfig as AppConfigType,
 } from "@biliLive-tools/types";
 import type { Recorder } from "@bililive-tools/manager";
+import type { AutoClipService } from "../autoClip/service.js";
 
 export { RecorderConfig };
 
@@ -567,16 +568,8 @@ export async function createRecorderManager(appConfig: AppConfig) {
           danmuPath: xmlFile,
         });
 
-        const { AutoClipService } = await import("../autoClip/service.js");
-
-        const service = new AutoClipService({
-          getAppConfig: () => appConfig.getAll(),
-          getPreset: async (id: string) => {
-            const { container: diContainer } = await import("../index.js");
-            const autoClipPreset = diContainer.resolve("autoClipPreset");
-            return autoClipPreset.get(id);
-          },
-        });
+        const { container: diContainer } = await import("../index.js");
+        const service: AutoClipService = diContainer.resolve("autoClipService");
 
         const result = await service.analyzeAndSave({
           videoPath: filename,

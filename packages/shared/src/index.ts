@@ -1,6 +1,6 @@
 import dns from "node:dns";
 import fs from "fs-extra";
-import { createContainer, asValue, asClass } from "awilix";
+import { createContainer, asValue, asClass, asFunction } from "awilix";
 import { default as checkDiskSpace } from "check-disk-space";
 
 export * from "./presets/index.js";
@@ -8,6 +8,7 @@ export * from "./autoClip/index.js";
 import { taskQueue, TaskQueue } from "./task/task.js";
 import { appConfig, AppConfig } from "./config.js";
 import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset, AutoClipPreset } from "./presets/index.js";
+import { AutoClipService } from "./autoClip/service.js";
 import { setFfmpegPath } from "./task/video.js";
 import logger, { initLogger, setLogLevel } from "./utils/log.js";
 import { migrateBiliUser, checkAccountLoop } from "./task/bili.js";
@@ -34,6 +35,7 @@ export interface GlobalContainer {
   ffmpegPreset: FFmpegPreset;
   subtitleStylePreset: SubtitleStylePreset;
   autoClipPreset: AutoClipPreset;
+  autoClipService: AutoClipService;
   recorderManager: Awaited<ReturnType<typeof createRecorderManager>>;
 }
 
@@ -68,6 +70,12 @@ const init = async (config: GlobalConfig) => {
     ffmpegPreset: asClass(FFmpegPreset).singleton(),
     subtitleStylePreset: asClass(SubtitleStylePreset).singleton(),
     autoClipPreset: asClass(AutoClipPreset).singleton(),
+    autoClipService: asFunction((cradle) => {
+      return new AutoClipService({
+        getAppConfig: () => cradle.appConfig.getAll(),
+        getPreset: (id: string) => cradle.autoClipPreset.get(id),
+      });
+    }).singleton(),
   });
   const recorderManager = await createRecorderManager(appConfig);
   container.register({
