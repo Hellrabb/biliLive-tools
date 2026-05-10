@@ -219,6 +219,34 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
 }
 
 // ---------------------------------------------------------------------------
+// Heuristic scoring (shared between pre-rank and LLM fallback)
+// ---------------------------------------------------------------------------
+
+interface HeuristicWeights {
+  brushFrequency: number;
+  scTotalDivisor: number;
+  danmakuDensity: number;
+}
+
+const DEFAULT_HEURISTIC_WEIGHTS: HeuristicWeights = {
+  brushFrequency: 3,
+  scTotalDivisor: 10,
+  danmakuDensity: 1,
+};
+
+function computeHeuristicScore(
+  stats: { brushFrequency: number; scTotal: number; danmakuDensity: number },
+  weights?: Partial<HeuristicWeights>,
+): number {
+  const w = { ...DEFAULT_HEURISTIC_WEIGHTS, ...weights };
+  return (
+    stats.brushFrequency * w.brushFrequency +
+    stats.scTotal / w.scTotalDivisor +
+    stats.danmakuDensity * w.danmakuDensity
+  );
+}
+
+// ---------------------------------------------------------------------------
 // preRankCandidates
 // ---------------------------------------------------------------------------
 
@@ -226,7 +254,7 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
  * Pre-rank candidates by heuristics so we can trim the list before sending to
  * the LLM (which is expensive).
  *
- * Score formula: `brushFrequency * 3 + scTotal / 10 + danmakuDensity`
+ * Score formula: `brushFrequency * w.brushFrequency + scTotal / w.scTotalDivisor + danmakuDensity * w.danmakuDensity`
  *
  * Candidates are sorted by this score in descending order, then sliced to
  * `maxCandidates`.
@@ -234,23 +262,14 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
 export function preRankCandidates(
   candidates: CandidateWindow[],
   maxCandidates: number,
-  weights?: { brushFrequency: number; scTotalDivisor: number; danmakuDensity: number },
+  weights?: Partial<HeuristicWeights>,
 ): CandidateWindow[] {
   if (candidates.length === 0) return [];
-
-  const w = weights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1 };
-
-  const withScore = candidates.map((c) => {
-    const { brushFrequency, scTotal, danmakuDensity } = c.stats;
-    const heuristicScore =
-      brushFrequency * w.brushFrequency +
-      scTotal / w.scTotalDivisor +
-      danmakuDensity * w.danmakuDensity;
-    return { candidate: c, score: heuristicScore };
-  });
-
+  const withScore = candidates.map((c) => ({
+    candidate: c,
+    score: computeHeuristicScore(c.stats, weights),
+  }));
   withScore.sort((a, b) => b.score - a.score);
-
   return withScore.slice(0, maxCandidates).map((x) => x.candidate);
 }
 
@@ -387,16 +406,13 @@ export async function rankCandidates(
     } else {
       // LLM call failed — use heuristic fallback score with configured weights
       logger.warn(`AutoClip LLM call failed for candidate ${i}: ${outcome.reason}`);
-      const w = config.heuristicWeights ?? { brushFrequency: 3, scTotalDivisor: 10, danmakuDensity: 1, highlightThreshold: 3 };
-      const { brushFrequency, scTotal, danmakuDensity } = candidate.stats;
-      const heuristicScore = Math.min(
-        10,
-        brushFrequency * w.brushFrequency + scTotal / w.scTotalDivisor + danmakuDensity * w.danmakuDensity,
-      );
+      const heuristicWeights = config.heuristicWeights ?? {};
+      const heuristicScore = Math.min(10, computeHeuristicScore(candidate.stats, heuristicWeights));
+      const highlightThreshold = config.heuristicWeights?.highlightThreshold ?? 3;
       results.push({
         candidate,
         parsed: {
-          isHighlight: heuristicScore >= (w.highlightThreshold ?? 3),
+          isHighlight: heuristicScore >= highlightThreshold,
           score: heuristicScore,
           title: "Auto-detected",
           tags: [],
