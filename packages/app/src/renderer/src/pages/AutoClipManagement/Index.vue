@@ -126,13 +126,7 @@ const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 
-const counts = computed(() => {
-  const all = clips.value.length;
-  const pending = clips.value.filter(c => c.status === "pending").length;
-  const exported = clips.value.filter(c => c.status === "exported").length;
-  const uploaded = clips.value.filter(c => c.status === "uploaded").length;
-  return { all, pending, exported, uploaded };
-});
+const counts = ref({ all: 0, pending: 0, exported: 0, uploaded: 0 });
 
 const columns = [
   { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
@@ -176,15 +170,23 @@ async function refreshList() {
   loading.value = true;
   try {
     const offset = (currentPage.value - 1) * pageSize.value;
-    const res = await request.get("/auto-clip/clips", {
-      params: {
-        status: filterStatus.value || undefined,
-        limit: pageSize.value,
-        offset,
-      },
-    });
-    const raw = res.data?.data ?? [];
-    totalCount.value = res.data?.total ?? raw.length;
+    const [clipsRes, countsRes] = await Promise.all([
+      request.get("/auto-clip/clips", {
+        params: {
+          status: filterStatus.value || undefined,
+          limit: pageSize.value,
+          offset,
+        },
+      }),
+      request.get("/auto-clip/clips/counts"),
+    ]);
+
+    // Update global counts
+    const c = countsRes.data;
+    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
+
+    const raw = clipsRes.data?.data ?? [];
+    totalCount.value = clipsRes.data?.total ?? raw.length;
     clips.value = raw.map((r: any) => {
       const highlights = r.highlights || [];
       const first = highlights[0] ?? {};

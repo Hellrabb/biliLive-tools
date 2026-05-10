@@ -27,5 +27,12 @@ const getDefaultConfig = async (): Promise<AutoClipConfig> => {
   return res.data;
 };
 
-const autoClipPresetApi = { list, get, save, remove, getDefaultConfig };
+const getCounts = async (): Promise<{
+  all: number; pending: number; approved: number; exporting: number; exported: number; uploaded: number;
+}> => {
+  const res = await request.get("/auto-clip/clips/counts");
+  return res.data;
+};
+
+const autoClipPresetApi = { list, get, save, remove, getDefaultConfig, getCounts };
 export default autoClipPresetApi;
