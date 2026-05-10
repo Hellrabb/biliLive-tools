@@ -190,25 +190,32 @@ router.post("/run", async (ctx) => {
     // fs-extra unavailable — skip file existence check (non-blocking)
   }
 
-  try {
-    const service: AutoClipService = container.resolve("autoClipService");
+  const { v4: uuidv4 } = await import("uuid");
+  const taskId = uuidv4();
 
-    const result = await service.analyzeAndSave({
-      videoPath: resolvedVideo,
-      danmuPath: resolvedDanmu,
-      presetId,
-      skipAutoExport: true,
-      onProgress: (_stage, _pct, message) => {
-        logger.info(`[AutoClip] ${message}`);
-      },
-    });
+  // Fire-and-forget: return taskId immediately, execute pipeline in background
+  (async () => {
+    try {
+      const service: AutoClipService = container.resolve("autoClipService");
 
-    ctx.body = result;
-  } catch (error: any) {
-    logger.error("AutoClip run error:", error);
-    ctx.status = 500;
-    ctx.body = { error: error.message };
-  }
+      await service.analyzeAndSave({
+        videoPath: resolvedVideo,
+        danmuPath: resolvedDanmu,
+        presetId,
+        skipAutoExport: true,
+        id: taskId,
+        onProgress: (_stage, _pct, message) => {
+          logger.info(`[AutoClip ${taskId}] ${message}`);
+        },
+      });
+
+      logger.info(`[AutoClip ${taskId}] completed`);
+    } catch (error: any) {
+      logger.error(`[AutoClip ${taskId}] failed:`, error);
+    }
+  })();
+
+  ctx.body = { taskId, status: "processing" };
 });
 
 router.get("/result/:id", async (ctx) => {

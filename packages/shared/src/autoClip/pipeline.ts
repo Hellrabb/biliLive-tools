@@ -16,6 +16,8 @@ export interface PipelineParams {
   presetConfig: AutoClipConfig;
   onProgress?: ProgressCallback;
   sendMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
+  /** External result ID for async mode polling. Auto-generated if not provided. */
+  id?: string;
 }
 
 /**
@@ -29,7 +31,7 @@ export async function runAutoClipPipeline(
   params: PipelineParams,
 ): Promise<AutoClipResult> {
   const { videoPath, danmuPath, presetConfig, onProgress, sendMessage } = params;
-  const id = uuidv4();
+  const id = params.id ?? uuidv4();
 
   onProgress?.("parse", 0, "Parsing danmaku...");
 
