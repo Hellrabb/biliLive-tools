@@ -26,7 +26,7 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     super(db, "auto_clip_results");
     this.createTable();
     this.createIndexes();
-    this.migrateAddLlmFallback();
+    this.runMigrations();
   }
 
   createTable() {
@@ -78,23 +78,52 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     }
   }
 
+  private runMigrations() {
+    // Ensure migration tracking table exists
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS auto_clip_schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
+    const applied = new Set(
+      (this.db.prepare("SELECT version FROM auto_clip_schema_migrations").all() as Array<{ version: number }>)
+        .map(r => r.version)
+    );
+
+    const migrations: Array<{ version: number; name: string; sql: string }> = [
+      {
+        version: 1,
+        name: "add_llm_fallback",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN llm_fallback INTEGER NOT NULL DEFAULT 0`,
+      },
+    ];
+
+    for (const m of migrations) {
+      if (!applied.has(m.version)) {
+        try {
+          // Check if column already exists (idempotent for DBs that ran the old ad-hoc migration)
+          const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
+          if (cols.some(c => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
+            // Column already exists from old ad-hoc migration, just record version
+          } else {
+            this.db.exec(m.sql);
+          }
+          this.db.prepare("INSERT INTO auto_clip_schema_migrations (version) VALUES (?)").run(m.version);
+          logger.info(`AutoClip: applied migration v${m.version} — ${m.name}`);
+        } catch (error) {
+          logger.error(`AutoClip: migration v${m.version} (${m.name}) failed`, error);
+        }
+      }
+    }
+  }
+
   private checkIndexExists(indexName: string): boolean {
     const result = this.db
       .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`)
       .get(indexName);
     return !!result;
-  }
-
-  private migrateAddLlmFallback() {
-    try {
-      const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
-      if (!cols.some(c => c.name === "llm_fallback")) {
-        this.db.prepare("ALTER TABLE auto_clip_results ADD COLUMN llm_fallback INTEGER NOT NULL DEFAULT 0").run();
-        logger.info("AutoClip: 已添加 llm_fallback 列");
-      }
-    } catch (error) {
-      logger.error("AutoClip: 添加 llm_fallback 列失败", error);
-    }
   }
 
   saveResult(row: AutoClipResultRow) {
