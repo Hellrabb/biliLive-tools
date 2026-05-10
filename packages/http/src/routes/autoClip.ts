@@ -2,7 +2,8 @@ import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
-import { container, appConfig } from "../index.js";
+import { container } from "../index.js";
+import type { AutoClipService } from "@biliLive-tools/shared/autoClip/service.js";
 
 import type { AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 
@@ -190,15 +191,7 @@ router.post("/run", async (ctx) => {
   }
 
   try {
-    const { AutoClipService } = await import("@biliLive-tools/shared/autoClip/service.js");
-
-    const service = new AutoClipService({
-      getAppConfig: () => appConfig.getAll(),
-      getPreset: async (id: string) => {
-        const preset = getAutoClipPreset();
-        return preset.get(id);
-      },
-    });
+    const service: AutoClipService = container.resolve("autoClipService");
 
     const result = await service.analyzeAndSave({
       videoPath: resolvedVideo,
