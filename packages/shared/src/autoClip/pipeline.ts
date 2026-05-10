@@ -132,10 +132,27 @@ export async function exportClips(
 
   const savePath = exportConfig.savePath || path.dirname(videoPath);
 
+  // Resolve ffmpeg preset ONCE before the loop
+  let ffmpegPresetOpts = {};
+  if (exportConfig.ffmpegPresetId) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+      const preset = await ffmpegPreset.get(exportConfig.ffmpegPresetId);
+      if (preset?.config) {
+        ffmpegPresetOpts = { ...preset.config };
+      }
+    } catch (err) {
+      logger.warn(`AutoClip: failed to load ffmpeg preset "${exportConfig.ffmpegPresetId}", using defaults`, err);
+    }
+  }
+
+  // Dynamic import for cut once
+  const { cut } = await import("../task/video.js");
+
   for (let i = 0; i < highlights.length; i++) {
     const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
-    // Escape $ to prevent special replacement patterns in String.replace
     const escapeReplaceValue = (v: string) => v.replace(/\$/g, "$$$$");
     const outputName = exportConfig.namingTemplate
       .replace(/\{\{title\}\}/g, escapeReplaceValue(safeTitle))
@@ -153,23 +170,6 @@ export async function exportClips(
     );
 
     try {
-      // Load ffmpeg preset config if specified
-      let ffmpegPresetOpts = {};
-      if (exportConfig.ffmpegPresetId) {
-        try {
-          const { container: diContainer } = await import("../index.js");
-          const ffmpegPreset = diContainer.resolve("ffmpegPreset");
-          const preset = await ffmpegPreset.get(exportConfig.ffmpegPresetId);
-          if (preset?.config) {
-            ffmpegPresetOpts = { ...preset.config };
-          }
-        } catch (err) {
-          logger.warn(`AutoClip: failed to load ffmpeg preset "${exportConfig.ffmpegPresetId}", using defaults`, err);
-        }
-      }
-
-      // Dynamic import to avoid circular deps
-      const { cut } = await import("../task/video.js");
       await cut(
         { videoFilePath: videoPath },
         outputPath,
