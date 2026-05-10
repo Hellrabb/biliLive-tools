@@ -158,27 +158,31 @@ router.post("/run", async (ctx) => {
     return;
   }
 
-  // 路径安全校验：禁止路径遍历和敏感系统路径（HTTP 层职责）
-  const dangerousPatterns = [/\.\./, /^\/etc\//, /^\/proc\//, /^\/sys\//];
-  if (dangerousPatterns.some(p => p.test(videoPath) || p.test(danmuPath))) {
+  // Resolve paths FIRST, then check — prevents relative-path bypass
+  const resolvedVideo = path.resolve(videoPath);
+  const resolvedDanmu = path.resolve(danmuPath);
+
+  const dangerousPatterns = [
+    /\.\./,
+    /^\/etc\//, /^\/proc\//, /^\/sys\//, /^\/dev\//,
+    /\x00/, // null byte injection
+  ];
+  if (dangerousPatterns.some(p => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
     ctx.status = 400;
     ctx.body = { error: "Invalid path" };
     return;
   }
 
-  const resolvedVideo = path.resolve(videoPath);
-  const resolvedDanmu = path.resolve(danmuPath);
-
   try {
     const fs = await import("fs-extra");
     if (!(await fs.pathExists(resolvedVideo))) {
       ctx.status = 400;
-      ctx.body = { error: `Video file not found: ${resolvedVideo}` };
+      ctx.body = { error: "Video file not found" };
       return;
     }
     if (!(await fs.pathExists(resolvedDanmu))) {
       ctx.status = 400;
-      ctx.body = { error: `Danmu file not found: ${resolvedDanmu}` };
+      ctx.body = { error: "Danmu file not found" };
       return;
     }
   } catch {
