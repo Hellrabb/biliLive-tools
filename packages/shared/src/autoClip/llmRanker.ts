@@ -226,12 +226,14 @@ interface HeuristicWeights {
   brushFrequency: number;
   scTotalDivisor: number;
   danmakuDensity: number;
+  highlightThreshold: number;
 }
 
 const DEFAULT_HEURISTIC_WEIGHTS: HeuristicWeights = {
   brushFrequency: 3,
   scTotalDivisor: 10,
   danmakuDensity: 1,
+  highlightThreshold: 3,
 };
 
 function computeHeuristicScore(

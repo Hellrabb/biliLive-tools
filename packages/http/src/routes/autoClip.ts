@@ -263,8 +263,10 @@ router.get("/result/:id", async (ctx) => {
 
 router.get("/clips", async (ctx) => {
   const status = ctx.query.status as string | undefined;
-  const limit = ctx.query.limit ? parseInt(ctx.query.limit as string, 10) : 50;
-  const offset = ctx.query.offset ? parseInt(ctx.query.offset as string, 10) : 0;
+  const rawLimit = parseInt(ctx.query.limit as string, 10);
+  const rawOffset = parseInt(ctx.query.offset as string, 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(rawLimit, 200) : 50;
+  const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
 
   const { data, total } = autoClipModel.getResults({
     status: status || undefined,

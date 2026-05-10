@@ -151,7 +151,7 @@
               </n-tab-pane>
 
               <!-- Tab 4: 增强 -->
-              <n-tab-pane name="enhancement" tab="增强">
+              <n-tab-pane v-if="false" name="enhancement" tab="增强">
                 <n-form label-placement="left" :label-width="170" size="small">
                   <n-form-item label="ASR 语音识别增强">
                     <n-switch :value="false" disabled />
