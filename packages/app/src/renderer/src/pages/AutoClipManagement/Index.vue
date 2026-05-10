@@ -276,16 +276,21 @@ async function confirmManualAnalyze() {
     }
 
     // Poll for results — max 90 attempts, 2s interval = ~3 minutes
+    let consecutive404s = 0;
     for (let attempt = 0; attempt < 90; attempt++) {
       await new Promise((r) => setTimeout(r, 2000));
       try {
         const resultRes = await request.get(`/auto-clip/result/${taskId}`);
+        consecutive404s = 0;
         if (resultRes.data) {
           if (resultRes.data.status === "analyzing") {
-            // Still analyzing, continue polling
             continue;
           }
-          // Has actual results
+          if (resultRes.data.status === "failed") {
+            notice.error("分析失败，请稍后重试");
+            await refreshList();
+            return;
+          }
           if (resultRes.data.highlights?.length > 0) {
             notice.success("分析完成，请查看结果");
           } else {
@@ -295,7 +300,12 @@ async function confirmManualAnalyze() {
           return;
         }
       } catch {
-        // 404 means still processing, continue polling
+        consecutive404s++;
+        // If 404 persists for 5 consecutive polls (10s), the row likely disappeared
+        if (consecutive404s >= 5) {
+          notice.error("分析失败：任务丢失，请重试");
+          return;
+        }
       }
     }
     notice.warning("分析超时，请稍后刷新查看结果");
