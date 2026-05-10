@@ -73,6 +73,10 @@ export interface ChatOptions {
     };
   };
   responseFormat?: { type: "json_object" } | any;
+  /**
+   * AbortSignal for cancelling the request
+   */
+  signal?: AbortSignal;
 }
 
 export interface ChatMessage {
@@ -126,6 +130,7 @@ export class QwenLLM {
       stop: options.stop,
       presence_penalty: options.presencePenalty,
       response_format: options.responseFormat,
+      signal: options.signal,
       // 阿里云特有参数
       ...(options.enableSearch !== undefined && {
         enable_search: options.enableSearch,

@@ -7,9 +7,20 @@ export function getModelList(host: string) {
   return ollama.list();
 }
 
-export function chat(params: { host?: string; model: string; messages: any[]; options?: any }) {
+export function chat(params: {
+  host?: string;
+  model: string;
+  messages: any[];
+  options?: any;
+  signal?: AbortSignal;
+}) {
   const host = params.host ?? "http://localhost:11434";
-  const ollama = new Ollama({ host: host });
+  const ollama = new Ollama({
+    host,
+    fetch: params.signal
+      ? ((url: string, init?: RequestInit) => fetch(url, { ...init, signal: params.signal }))
+      : undefined,
+  });
   return ollama.chat({
     model: params.model,
     messages: params.messages,
