@@ -69,43 +69,45 @@ export class AutoClipService {
       id,
     });
 
-    // 4. Persist to DB
-    if (!result.skipped && result.highlights.length > 0) {
-      const videoCutCfg = appConfig.videoCut ?? {};
-      const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
-      const status = reviewMode ? "pending" : "approved";
+    // 4. Persist to DB — always upsert to overwrite any /run placeholder
+    const videoCutCfg = appConfig.videoCut ?? {};
+    const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
+    const status = reviewMode ? "pending" : "approved";
 
-      try {
-        autoClipModel.upsertResult({
-          id: result.id,
-          video_path: videoPath,
-          danmu_path: danmuPath,
-          recorder_id: recorderId || null,
-          preset_id: presetId || null,
-          status,
-          highlights: JSON.stringify(result.highlights),
-          created_at: new Date().toISOString(),
-          exported_at: null,
-          uploaded_at: null,
-          exported_paths: null,
-          bili_aids: null,
-          llm_fallback: result.llmFallback ? 1 : 0,
-        });
+    try {
+      autoClipModel.upsertResult({
+        id: result.id,
+        video_path: videoPath,
+        danmu_path: danmuPath,
+        recorder_id: recorderId || null,
+        preset_id: presetId || null,
+        status,
+        highlights: JSON.stringify(result.highlights),
+        created_at: new Date().toISOString(),
+        exported_at: null,
+        uploaded_at: null,
+        exported_paths: null,
+        bili_aids: null,
+        llm_fallback: result.llmFallback ? 1 : 0,
+      });
 
-        logger.info(`AutoClip: 结果已保存 (status=${status})`);
-
-        if (!skipAutoExport && !reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
-          await this.autoExportAndUpload(
-            result.id,
-            videoPath,
-            result.highlights,
-            presetConfig,
-            appConfig,
-          );
-        }
-      } catch (dbError) {
-        logger.error("AutoClip: 持久化失败", dbError);
+      if (result.skipped) {
+        logger.info(`AutoClip: 结果已保存 (skipped, status=${status})`);
+      } else {
+        logger.info(`AutoClip: 结果已保存 (${result.highlights.length} highlights, status=${status})`);
       }
+
+      if (!result.skipped && !skipAutoExport && !reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
+        await this.autoExportAndUpload(
+          result.id,
+          videoPath,
+          result.highlights,
+          presetConfig,
+          appConfig,
+        );
+      }
+    } catch (dbError) {
+      logger.error("AutoClip: 持久化失败", dbError);
     }
 
     return result;
