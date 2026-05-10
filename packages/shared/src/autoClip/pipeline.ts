@@ -15,7 +15,7 @@ export interface PipelineParams {
   danmuPath: string;
   presetConfig: AutoClipConfig;
   onProgress?: ProgressCallback;
-  sendMessage?: (prompt: string) => Promise<string>;
+  sendMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
 }
 
 /**

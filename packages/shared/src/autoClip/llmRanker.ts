@@ -327,7 +327,7 @@ function buildCandidateContext(
 export async function rankCandidates(
   candidates: CandidateWindow[],
   config: AutoClipLLMConfig,
-  sendMessage: (prompt: string) => Promise<string>,
+  sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   allDanmaku: Array<{ sec: number; text: string }>,
 ): Promise<HighlightSegment[]> {
   if (candidates.length === 0) return [];
@@ -346,11 +346,22 @@ export async function rankCandidates(
   // Step 3: send to LLM with concurrency limit, timeout, and error isolation
   const limit = pLimit(LLM_CONCURRENCY);
   const sendWithTimeout = (prompt: string): Promise<string> => {
+    const controller = new AbortController();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("LLM request timeout")), LLM_REQUEST_TIMEOUT_MS);
-      sendMessage(prompt)
+      const timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error("LLM request timeout"));
+      }, LLM_REQUEST_TIMEOUT_MS);
+      sendMessage(prompt, controller.signal)
         .then((res) => { clearTimeout(timer); resolve(res); })
-        .catch((err) => { clearTimeout(timer); reject(err); });
+        .catch((err) => {
+          clearTimeout(timer);
+          if (err?.name === "AbortError") {
+            reject(new Error("LLM request timeout"));
+          } else {
+            reject(err);
+          }
+        });
     });
   };
 

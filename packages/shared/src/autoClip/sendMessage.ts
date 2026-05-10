@@ -15,7 +15,7 @@ export interface SendMessageOptions {
  */
 export async function buildSendMessage(
   opts: SendMessageOptions,
-): Promise<((prompt: string) => Promise<string>) | undefined> {
+): Promise<((prompt: string, signal?: AbortSignal) => Promise<string>) | undefined> {
   const { presetConfig, aiConfig } = opts;
   const llmCfg = presetConfig.llm;
 
@@ -31,19 +31,20 @@ export async function buildSendMessage(
       model: model?.modelName,
       baseURL: vendor?.baseURL,
     });
-    return async (prompt: string) => {
-      const result = await llm.sendMessage(prompt);
+    return async (prompt: string, signal?: AbortSignal) => {
+      const result = await llm.sendMessage(prompt, undefined, { signal });
       return result.content;
     };
   }
 
   if (llmCfg.provider === "ollama") {
     const { chat } = await import("../llm/ollama.js");
-    return async (prompt: string) => {
+    return async (prompt: string, signal?: AbortSignal) => {
       const result = await chat({
         host: vendor?.baseURL ?? "http://localhost:11434",
         model: model?.modelName ?? "qwen2.5",
         messages: [{ role: "user", content: prompt }],
+        signal,
       });
       return result?.message?.content ?? "";
     };
