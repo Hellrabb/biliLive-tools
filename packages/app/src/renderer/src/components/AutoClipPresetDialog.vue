@@ -149,20 +149,6 @@
                   </n-form-item>
                 </n-form>
               </n-tab-pane>
-
-              <!-- Tab 4: 增强 -->
-              <n-tab-pane v-if="false" name="enhancement" tab="增强">
-                <n-form label-placement="left" :label-width="170" size="small">
-                  <n-form-item label="ASR 语音识别增强">
-                    <n-switch :value="false" disabled />
-                    <span style="color:#999;margin-left:8px;font-size:12px">即将上线</span>
-                  </n-form-item>
-                  <n-form-item label="视觉关键帧分析">
-                    <n-switch :value="false" disabled />
-                    <span style="color:#999;margin-left:8px;font-size:12px">即将上线</span>
-                  </n-form-item>
-                </n-form>
-              </n-tab-pane>
             </n-tabs>
           </template>
         </div>
