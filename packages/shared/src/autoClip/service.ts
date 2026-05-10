@@ -36,8 +36,10 @@ export class AutoClipService {
     /** HTTP 手动触发时设为 true，跳过自动导出/上传 */
     skipAutoExport?: boolean;
     onProgress?: ProgressCallback;
+    /** External result ID for async mode polling. Auto-generated if not provided. */
+    id?: string;
   }): Promise<AutoClipResult> {
-    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress } = params;
+    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id } = params;
 
     // 1. Load preset config
     let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
@@ -64,6 +66,7 @@ export class AutoClipService {
       presetConfig,
       sendMessage,
       onProgress,
+      id,
     });
 
     // 4. Persist to DB

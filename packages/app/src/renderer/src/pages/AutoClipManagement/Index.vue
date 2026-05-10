@@ -265,8 +265,29 @@ async function confirmManualAnalyze() {
   analyzing.value = true;
   notice.info("正在分析中，请稍候...");
   try {
-    await request.post("/auto-clip/run", { videoPath, danmuPath });
-    notice.success("分析完成，请查看结果");
+    const res = await request.post("/auto-clip/run", { videoPath, danmuPath });
+    const taskId = res.data?.taskId;
+
+    if (!taskId) {
+      notice.error("启动分析失败: 未返回 taskId");
+      return;
+    }
+
+    // Poll for results — max 60 attempts, 2s interval = ~2 minutes
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const resultRes = await request.get(`/auto-clip/result/${taskId}`);
+        if (resultRes.data && resultRes.data.id) {
+          notice.success("分析完成，请查看结果");
+          await refreshList();
+          return;
+        }
+      } catch {
+        // 404 means still processing, continue polling
+      }
+    }
+    notice.warning("分析超时，请稍后刷新查看结果");
     await refreshList();
   } catch (e: any) {
     notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
