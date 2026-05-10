@@ -18,19 +18,27 @@
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
     </n-radio-group>
 
-    <n-empty v-if="!loading && filteredData.length === 0" description="暂无切片数据" style="margin:40px 0">
+    <n-empty v-if="!loading && clips.length === 0" description="暂无切片数据" style="margin:40px 0">
       <template #extra>
         <n-button type="primary" @click="manualAnalyze" :disabled="analyzing">手动分析第一个视频</n-button>
       </template>
     </n-empty>
 
-    <template v-if="!loading && filteredData.length > 0">
+    <template v-if="!loading && clips.length > 0">
     <n-data-table
       :columns="columns"
-      :data="filteredData"
+      :data="clips"
       :loading="loading"
-      :pagination="{ pageSize: 20 }"
-      :row-key="(r:any) => r.id"
+      :pagination="{
+        page: currentPage,
+        pageSize: pageSize,
+        itemCount: totalCount,
+        showSizePicker: true,
+        pageSizes: [10, 20, 50],
+        onUpdatePage: (p: number) => { currentPage = p; refreshList(); },
+        onUpdatePageSize: (s: number) => { pageSize = s; currentPage = 1; refreshList(); },
+      }"
+      :row-key="(r:ClipRow) => r.id"
     />
     </template>
 
@@ -111,6 +119,9 @@ const loading = ref(false);
 const analyzing = ref(false);
 const clips = ref<ClipRow[]>([]);
 const filterStatus = ref("");
+const currentPage = ref(1);
+const pageSize = ref(20);
+const totalCount = ref(0);
 const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
@@ -121,11 +132,6 @@ const counts = computed(() => {
   const exported = clips.value.filter(c => c.status === "exported").length;
   const uploaded = clips.value.filter(c => c.status === "uploaded").length;
   return { all, pending, exported, uploaded };
-});
-
-const filteredData = computed(() => {
-  if (!filterStatus.value) return clips.value;
-  return clips.value.filter(c => c.status === filterStatus.value);
 });
 
 const columns = [
@@ -169,8 +175,16 @@ const columns = [
 async function refreshList() {
   loading.value = true;
   try {
-    const res = await request.get("/auto-clip/clips", { params: { status: filterStatus.value || undefined } });
-    const raw = res.data?.data ?? res.data ?? [];
+    const offset = (currentPage.value - 1) * pageSize.value;
+    const res = await request.get("/auto-clip/clips", {
+      params: {
+        status: filterStatus.value || undefined,
+        limit: pageSize.value,
+        offset,
+      },
+    });
+    const raw = res.data?.data ?? [];
+    totalCount.value = res.data?.total ?? raw.length;
     clips.value = raw.map((r: any) => {
       const highlights = r.highlights || [];
       const first = highlights[0] ?? {};
@@ -280,6 +294,11 @@ async function manualAnalyze() {
   if (!files || files.length === 0) return;
   triggerManualAnalyze(files[0]);
 }
+
+watch(filterStatus, () => {
+  currentPage.value = 1;
+  refreshList();
+});
 
 onMounted(() => {
   refreshList();
