@@ -272,6 +272,10 @@ router.get("/clips", async (ctx) => {
   };
 });
 
+router.get("/clips/counts", async (ctx) => {
+  ctx.body = autoClipModel.getStatusCounts();
+});
+
 router.get("/clip/:id", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {

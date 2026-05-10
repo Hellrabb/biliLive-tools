@@ -186,4 +186,19 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
   deleteResult(id: string) {
     return this.db.prepare("UPDATE auto_clip_results SET status = 'deleted' WHERE id = ?").run(id);
   }
+
+  getStatusCounts(): { all: number; pending: number; approved: number; exporting: number; exported: number; uploaded: number } {
+    const rows = this.db
+      .prepare("SELECT status, COUNT(*) as count FROM auto_clip_results WHERE status != 'deleted' GROUP BY status")
+      .all() as Array<{ status: string; count: number }>;
+
+    const counts = { all: 0, pending: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 };
+    for (const row of rows) {
+      if (row.status in counts) {
+        (counts as any)[row.status] = row.count;
+      }
+      counts.all += row.count;
+    }
+    return counts;
+  }
 }
