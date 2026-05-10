@@ -140,7 +140,7 @@ router.get("/default-config", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip default-config error:", error);
     ctx.status = 500;
-    ctx.body = { error: error.message };
+    ctx.body = { error: "Internal server error" };
   }
 });
 
@@ -320,7 +320,7 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip approve-and-export error:", error);
     ctx.status = 500;
-    ctx.body = { error: error.message };
+    ctx.body = { error: "Internal server error" };
   }
 });
 
@@ -345,7 +345,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip re-export error:", error);
     ctx.status = 500;
-    ctx.body = { error: error.message };
+    ctx.body = { error: "Internal server error" };
   }
 });
 

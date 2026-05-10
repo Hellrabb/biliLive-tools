@@ -36,7 +36,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     burnDanmaku: false,
     uploadToBili: false,
     savePath: "",
-    namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
+    namingTemplate: "{{title}}_{{index}}",
   },
 };
 
