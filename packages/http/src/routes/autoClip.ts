@@ -410,6 +410,15 @@ router.post("/clip/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
+function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string } {
+  if (!h || typeof h !== "object") return false;
+  const obj = h as Record<string, unknown>;
+  if (!Array.isArray(obj.bestRange) || obj.bestRange.length !== 2) return false;
+  if (typeof obj.bestRange[0] !== "number" || typeof obj.bestRange[1] !== "number") return false;
+  if (!Number.isFinite(obj.bestRange[0]) || !Number.isFinite(obj.bestRange[1])) return false;
+  return true;
+}
+
 async function doExportClips(
   resultId: string,
   videoPath: string,
@@ -451,9 +460,25 @@ async function doExportClips(
   let errors: string[] = [];
 
   try {
+    // Validate highlights shape before passing to exportClips
+    const validHighlights = highlights.filter(isHighlightSegment);
+    const skipped = highlights.length - validHighlights.length;
+    if (skipped > 0) {
+      logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
+    }
+    if (validHighlights.length === 0) {
+      autoClipModel.updateStatus(resultId, "pending");
+      return {
+        status: "failed",
+        exportedPaths: [],
+        failedCount: highlights.length,
+        errors: ["All highlights have invalid shape — cannot export"],
+      };
+    }
+
     const exportResult = await exportClips(
       videoPath,
-      highlights as any[],
+      validHighlights as any[],
       effectiveConfig,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
     );
