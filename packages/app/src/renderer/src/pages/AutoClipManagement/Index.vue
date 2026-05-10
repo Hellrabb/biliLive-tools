@@ -135,7 +135,7 @@ const columns = [
   {
     title: "状态", key: "status", width: 80,
     render: (r: any) => {
-      const map: Record<string, string> = { pending: "待审核", approved: "已批准", analyzing: "分析中", exporting: "导出中", exported: "已完成", uploaded: "已上传" };
+      const map: Record<string, string> = { pending: "待审核", approved: "已批准", analyzing: "分析中", exporting: "导出中", exported: "已完成", uploaded: "已上传", failed: "失败" };
       return map[r.status] || r.status;
     },
   },
