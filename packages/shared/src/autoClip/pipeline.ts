@@ -33,6 +33,8 @@ export async function runAutoClipPipeline(
   const { videoPath, danmuPath, presetConfig, onProgress, sendMessage } = params;
   const id = params.id ?? uuidv4();
 
+  const llmFallback = presetConfig.llm.enabled && !sendMessage;
+
   onProgress?.("parse", 0, "Parsing danmaku...");
 
   // 1. Parse danmaku
@@ -66,6 +68,7 @@ export async function runAutoClipPipeline(
       highlights: [],
       skipped: true,
       skippedReason: "no_signal",
+      ...(llmFallback ? { llmFallback } : {}),
     };
   }
 
@@ -73,8 +76,6 @@ export async function runAutoClipPipeline(
 
   // 3. Layer 2: LLM ranking (or heuristic fallback)
   let highlights: HighlightSegment[];
-
-  const llmFallback = presetConfig.llm.enabled && !sendMessage;
 
   if (presetConfig.llm.enabled && sendMessage) {
     onProgress?.("rank", 60, "LLM ranking in progress...");
