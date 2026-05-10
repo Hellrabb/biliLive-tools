@@ -18,10 +18,6 @@
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
     </n-radio-group>
 
-    <n-alert v-if="hasLlmFallback" type="warning" style="margin-bottom:12px" closable>
-      AI 精排服务不可用，以下评分为启发式算法估算。请检查系统设置中的 AI 配置是否正确。
-    </n-alert>
-
     <n-empty v-if="!loading && filteredData.length === 0" description="暂无切片数据" style="margin:40px 0">
       <template #extra>
         <n-button type="primary" @click="manualAnalyze" :disabled="analyzing">手动分析第一个视频</n-button>
@@ -39,18 +35,26 @@
     </template>
 
     <!-- 预览弹窗 -->
-    <n-modal v-model:show="previewVisible" style="width:800px" title="切片预览">
+    <n-modal v-model:show="previewVisible" style="width:800px" title="切片详情">
       <n-card v-if="previewItem" :bordered="false">
-        <n-descriptions label-placement="left" :column="2">
-          <n-descriptions-item label="标题">{{ previewItem.title }}</n-descriptions-item>
-          <n-descriptions-item label="评分">{{ previewItem.score }}</n-descriptions-item>
-          <n-descriptions-item label="时间段">{{ previewItem.timeRange }}</n-descriptions-item>
-          <n-descriptions-item label="类型">{{ previewItem.highlightType }}</n-descriptions-item>
-          <n-descriptions-item label="原因" :span="2">{{ previewItem.reason }}</n-descriptions-item>
+        <n-descriptions label-placement="left" :column="2" style="margin-bottom:12px">
+          <n-descriptions-item label="状态">{{ previewItem.status }}</n-descriptions-item>
+          <n-descriptions-item label="切片数">{{ previewItem.highlightCount }}</n-descriptions-item>
+          <n-descriptions-item label="视频">{{ previewItem.video_path }}</n-descriptions-item>
         </n-descriptions>
-        <n-space style="margin-top:12px">
-          <n-tag v-for="tag in previewItem.tags" :key="tag" size="small">{{ tag }}</n-tag>
-        </n-space>
+        <n-divider>高光片段 ({{ previewItem.highlightCount }})</n-divider>
+        <n-card v-for="(h, idx) in previewItem.highlights" :key="idx" size="small" style="margin-bottom:8px">
+          <n-descriptions label-placement="left" :column="2" size="small">
+            <n-descriptions-item label="标题">{{ h.title || 'Untitled' }}</n-descriptions-item>
+            <n-descriptions-item label="评分">{{ h.score }}</n-descriptions-item>
+            <n-descriptions-item label="时间段">{{ h.bestRange?.[0] ?? '?' }}s - {{ h.bestRange?.[1] ?? '?' }}s</n-descriptions-item>
+            <n-descriptions-item label="类型">{{ h.highlightType }}</n-descriptions-item>
+            <n-descriptions-item label="原因" :span="2">{{ h.reason }}</n-descriptions-item>
+          </n-descriptions>
+          <n-space style="margin-top:4px">
+            <n-tag v-for="tag in (h.tags || [])" :key="tag" size="small">{{ tag }}</n-tag>
+          </n-space>
+        </n-card>
       </n-card>
     </n-modal>
 
@@ -76,36 +80,40 @@
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
-import { NButton, NSpace, NTag, NAlert, NDataTable, useNotification } from "naive-ui";
+import { NButton, NSpace, NTag, NDivider, NDataTable, useNotification } from "naive-ui";
 import request from "@renderer/apis/request";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 
-interface ClipItem {
+interface ClipRow {
   id: string;
-  title: string;
-  score: number;
-  timeRange: string;
-  tags: string[];
-  highlightType: string;
-  reason: string;
   video_path: string;
-  startTime: number;
-  endTime: number;
   status: string;
   created_at: string;
   recorder_id: string;
   preset_id: string;
-  llmFallback?: boolean;
+  llmFallback: boolean;
+  highlights: Array<{
+    title: string;
+    score: number;
+    bestRange: [number, number];
+    tags: string[];
+    highlightType: string;
+    reason: string;
+  }>;
+  previewTitle: string;
+  previewScore: number;
+  highlightCount: number;
 }
 
 const router = useRouter();
 const notice = useNotification();
 const loading = ref(false);
 const analyzing = ref(false);
-const clips = ref<ClipItem[]>([]);
+const clips = ref<ClipRow[]>([]);
 const filterStatus = ref("");
 const previewVisible = ref(false);
-const previewItem = ref<ClipItem | null>(null);
+const previewItem = ref<ClipRow | null>(null);
+const exportingId = ref<string | null>(null);
 
 const counts = computed(() => {
   const all = clips.value.length;
@@ -115,46 +123,44 @@ const counts = computed(() => {
   return { all, pending, exported, uploaded };
 });
 
-const hasLlmFallback = computed(() => clips.value.some(c => c.llmFallback));
-
 const filteredData = computed(() => {
   if (!filterStatus.value) return clips.value;
   return clips.value.filter(c => c.status === filterStatus.value);
 });
 
 const columns = [
-  { title: "标题", key: "title", width: 200, ellipsis: { tooltip: true } },
-  { title: "评分", key: "score", width: 60, render: (r: any) => r.score?.toFixed(1) },
-  { title: "时间段", key: "timeRange", width: 140 },
-  {
-    title: "标签", key: "tags", width: 200,
-    render: (r: any) => r.tags?.map((t: string) => h(NTag, { size: "small", style: { marginRight: "4px" } }, () => t)),
-  },
+  { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
+  { title: "评分", key: "previewScore", width: 60, render: (r: any) => r.previewScore?.toFixed(1) },
+  { title: "片段数", key: "highlightCount", width: 70 },
   {
     title: "状态", key: "status", width: 80,
     render: (r: any) => {
-      const map: Record<string, string> = { pending: "待审核", approved: "已批准", exported: "已完成", uploaded: "已上传" };
+      const map: Record<string, string> = { pending: "待审核", approved: "已批准", exporting: "导出中", exported: "已完成", uploaded: "已上传" };
       return map[r.status] || r.status;
     },
   },
+  {
+    title: "LLM", key: "llmFallback", width: 55,
+    render: (r: any) => r.llmFallback ? h(NTag, { type: "warning", size: "small" }, () => "启发") : null,
+  },
   { title: "时间", key: "created_at", width: 160, render: (r: any) => r.created_at?.slice(0, 16).replace("T", " ") },
   {
-    title: "操作", key: "actions", width: 260,
-    render: (row: any) => {
+    title: "操作", key: "actions", width: 300,
+    render: (row: ClipRow) => {
       return h(NSpace, {}, () => [
         h(NButton, { size: "small", onClick: () => previewClip(row) }, () => "预览"),
-        h(NButton, {
-          size: "small", type: "info",
-          onClick: () => openVideo(row),
-        }, () => "打开视频"),
+        h(NButton, { size: "small", type: "info", onClick: () => {
+          const first = row.highlights[0];
+          if (!first) return;
+          router.push({ path: "/videoPlayer", query: { source: row.video_path, start: String(first.bestRange?.[0] ?? 0), end: String(first.bestRange?.[1] ?? 0) } });
+        } }, () => "打开视频"),
         row.status === "pending" ? h(NButton, {
           size: "small", type: "primary",
-          onClick: () => approveClip(row.dbId),
+          disabled: exportingId.value !== null,
+          loading: exportingId.value === row.id,
+          onClick: () => approveClip(row),
         }, () => "确认导出") : null,
-        h(NButton, {
-          size: "small", type: "error", ghost: true,
-          onClick: () => deleteClip(row.dbId),
-        }, () => "删除"),
+        h(NButton, { size: "small", type: "error", ghost: true, onClick: () => deleteClip(row) }, () => "删除"),
       ]);
     },
   },
@@ -165,26 +171,22 @@ async function refreshList() {
   try {
     const res = await request.get("/auto-clip/clips", { params: { status: filterStatus.value || undefined } });
     const raw = res.data?.data ?? res.data ?? [];
-    clips.value = raw.flatMap((r: any) => {
+    clips.value = raw.map((r: any) => {
       const highlights = r.highlights || [];
-      return highlights.map((h: any, i: number) => ({
-        id: `${r.id}_${i}`,
-        dbId: r.id,
-        title: h.title || "Untitled",
-        score: h.score ?? 0,
-        timeRange: `${h.bestRange?.[0] ?? "?"}s - ${h.bestRange?.[1] ?? "?"}s`,
-        tags: h.tags || [],
-        highlightType: h.highlightType || "",
-        reason: h.reason || "",
+      const first = highlights[0] ?? {};
+      return {
+        id: r.id,
         video_path: r.video_path,
-        startTime: h.bestRange?.[0] ?? 0,
-        endTime: h.bestRange?.[1] ?? 0,
         status: r.status,
         created_at: r.created_at,
         recorder_id: r.recorder_id,
         preset_id: r.preset_id,
         llmFallback: r.llmFallback ?? false,
-      }));
+        highlights,
+        previewTitle: first.title || "Untitled",
+        previewScore: first.score ?? 0,
+        highlightCount: highlights.length,
+      } as ClipRow;
     });
   } catch (e) {
     console.error("Failed to load clips:", e);
@@ -193,22 +195,17 @@ async function refreshList() {
   }
 }
 
-function previewClip(item: ClipItem) {
+function previewClip(item: ClipRow) {
   previewItem.value = item;
   previewVisible.value = true;
 }
 
-function openVideo(item: ClipItem) {
-  router.push({
-    path: "/videoPlayer",
-    query: { source: item.video_path, start: String(item.startTime), end: String(item.endTime) },
-  });
-}
-
-async function approveClip(dbId: string) {
+async function approveClip(row: ClipRow) {
+  if (exportingId.value) return;
+  exportingId.value = row.id;
   try {
-    notice.info("正在导出切片...");
-    const res = await request.post(`/auto-clip/clip/${dbId}/approve-and-export`);
+    notice.info(`正在导出 ${row.highlightCount} 个切片...`);
+    const res = await request.post(`/auto-clip/clip/${row.id}/approve-and-export`);
     const exportedPaths = res.data?.exportedPaths ?? [];
     if (exportedPaths.length > 0) {
       notice.success(`导出完成，共 ${exportedPaths.length} 个文件`);
@@ -219,12 +216,14 @@ async function approveClip(dbId: string) {
     await refreshList();
   } catch (e: any) {
     notice.error(`操作失败: ${e?.response?.data?.error || e.message}`);
+  } finally {
+    exportingId.value = null;
   }
 }
 
-async function deleteClip(dbId: string) {
+async function deleteClip(row: ClipRow) {
   try {
-    await request.post(`/auto-clip/clip/${dbId}/delete`);
+    await request.post(`/auto-clip/clip/${row.id}/delete`);
     notice.success("已删除");
     await refreshList();
   } catch (e: any) {
