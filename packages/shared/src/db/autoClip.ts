@@ -136,7 +136,9 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
       return this.db.prepare(
         `UPDATE auto_clip_results
          SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
-             status = ?, highlights = ?, llm_fallback = ?
+             status = ?, highlights = ?, llm_fallback = ?,
+             exported_at = NULL, uploaded_at = NULL,
+             exported_paths = NULL, bili_aids = NULL
          WHERE id = ?`
       ).run(
         row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
