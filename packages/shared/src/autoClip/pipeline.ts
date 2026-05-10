@@ -158,8 +158,7 @@ export async function exportClips(
     const escapeReplaceValue = (v: string) => v.replace(/\$/g, "$$$$");
     const outputName = exportConfig.namingTemplate
       .replace(/\{\{title\}\}/g, escapeReplaceValue(safeTitle))
-      .replace(/\{\{index\}\}/g, String(i + 1))
-      .replace(/\{\{highlight_name\}\}/g, escapeReplaceValue(safeTitle));
+      .replace(/\{\{index\}\}/g, String(i + 1));
     const outputPath = path.join(
       savePath,
       `${outputName}.${exportConfig.cutFormat}`,
