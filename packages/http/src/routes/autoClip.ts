@@ -418,6 +418,8 @@ async function doExportClips(
 
     if (exportedPaths.length > 0) {
       autoClipModel.markExported(resultId, exportedPaths);
+    } else {
+      autoClipModel.updateStatus(resultId, "pending");
     }
   } catch (err: any) {
     logger.error(`${logPrefix}: exportClips threw:`, err);
