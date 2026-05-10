@@ -227,11 +227,16 @@ router.get("/result/:id", async (ctx) => {
     return;
   }
   const { llm_fallback, ...rest } = result;
-  ctx.body = {
-    ...rest,
-    highlights: JSON.parse(result.highlights),
-    llmFallback: llm_fallback === 1,
-  };
+  try {
+    ctx.body = {
+      ...rest,
+      highlights: JSON.parse(result.highlights),
+      llmFallback: llm_fallback === 1,
+    };
+  } catch {
+    ctx.status = 500;
+    ctx.body = { error: "Data corruption: highlights JSON is invalid" };
+  }
 });
 
 // ===================== Clips 管理 =====================
@@ -248,14 +253,19 @@ router.get("/clips", async (ctx) => {
   });
 
   ctx.body = {
-    data: data.map(r => {
+    data: data.reduce((acc: any[], r) => {
       const { llm_fallback, ...rest } = r;
-      return {
-        ...rest,
-        highlights: JSON.parse(r.highlights),
-        llmFallback: llm_fallback === 1,
-      };
-    }),
+      try {
+        acc.push({
+          ...rest,
+          highlights: JSON.parse(r.highlights),
+          llmFallback: llm_fallback === 1,
+        });
+      } catch {
+        logger.warn(`AutoClip: skipping row ${r.id} — invalid highlights JSON`);
+      }
+      return acc;
+    }, []),
     total,
     limit: Math.min(limit, 200),
     offset,
@@ -270,11 +280,16 @@ router.get("/clip/:id", async (ctx) => {
     return;
   }
   const { llm_fallback, ...rest } = result;
-  ctx.body = {
-    ...rest,
-    highlights: JSON.parse(result.highlights),
-    llmFallback: llm_fallback === 1,
-  };
+  try {
+    ctx.body = {
+      ...rest,
+      highlights: JSON.parse(result.highlights),
+      llmFallback: llm_fallback === 1,
+    };
+  } catch {
+    ctx.status = 500;
+    ctx.body = { error: "Data corruption: highlights JSON is invalid" };
+  }
 });
 
 router.post("/clip/:id/approve", async (ctx) => {
