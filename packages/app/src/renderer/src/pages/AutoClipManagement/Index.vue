@@ -14,6 +14,7 @@
     <n-radio-group v-model:value="filterStatus" name="status-filter" style="margin-bottom:16px">
       <n-radio-button value="">全部 ({{ counts.all }})</n-radio-button>
       <n-radio-button value="pending">待审核 ({{ counts.pending }})</n-radio-button>
+      <n-radio-button value="exporting">导出中 ({{ counts.exporting }})</n-radio-button>
       <n-radio-button value="exported">已完成 ({{ counts.exported }})</n-radio-button>
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
     </n-radio-group>
@@ -126,7 +127,7 @@ const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 
-const counts = ref({ all: 0, pending: 0, exported: 0, uploaded: 0 });
+const counts = ref({ all: 0, pending: 0, exporting: 0, exported: 0, uploaded: 0 });
 
 const columns = [
   { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
@@ -183,7 +184,7 @@ async function refreshList() {
 
     // Update global counts
     const c = countsRes.data;
-    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
+    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
 
     const raw = clipsRes.data?.data ?? [];
     totalCount.value = clipsRes.data?.total ?? raw.length;
