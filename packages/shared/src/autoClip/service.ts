@@ -76,7 +76,7 @@ export class AutoClipService {
       const status = reviewMode ? "pending" : "approved";
 
       try {
-        autoClipModel.saveResult({
+        autoClipModel.upsertResult({
           id: result.id,
           video_path: videoPath,
           danmu_path: danmuPath,

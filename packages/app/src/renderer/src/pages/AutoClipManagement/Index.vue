@@ -135,7 +135,7 @@ const columns = [
   {
     title: "状态", key: "status", width: 80,
     render: (r: any) => {
-      const map: Record<string, string> = { pending: "待审核", approved: "已批准", exporting: "导出中", exported: "已完成", uploaded: "已上传" };
+      const map: Record<string, string> = { pending: "待审核", approved: "已批准", analyzing: "分析中", exporting: "导出中", exported: "已完成", uploaded: "已上传" };
       return map[r.status] || r.status;
     },
   },
@@ -275,13 +275,22 @@ async function confirmManualAnalyze() {
       return;
     }
 
-    // Poll for results — max 60 attempts, 2s interval = ~2 minutes
-    for (let attempt = 0; attempt < 60; attempt++) {
+    // Poll for results — max 90 attempts, 2s interval = ~3 minutes
+    for (let attempt = 0; attempt < 90; attempt++) {
       await new Promise((r) => setTimeout(r, 2000));
       try {
         const resultRes = await request.get(`/auto-clip/result/${taskId}`);
-        if (resultRes.data && resultRes.data.id) {
-          notice.success("分析完成，请查看结果");
+        if (resultRes.data) {
+          if (resultRes.data.status === "analyzing") {
+            // Still analyzing, continue polling
+            continue;
+          }
+          // Has actual results
+          if (resultRes.data.highlights?.length > 0) {
+            notice.success("分析完成，请查看结果");
+          } else {
+            notice.info("分析完成，未检测到高光片段");
+          }
           await refreshList();
           return;
         }
