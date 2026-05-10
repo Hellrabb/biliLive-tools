@@ -272,9 +272,11 @@ export function detectBrushStorms(
 
     // Collect items in this window
     const windowItems = [sorted[i]!];
+    let lastIdx = i;
     for (let j = i + 1; j < sorted.length; j++) {
       if (itemSec(sorted[j]!) <= windowEnd) {
         windowItems.push(sorted[j]!);
+        lastIdx = j;
       } else {
         break;
       }
@@ -308,6 +310,8 @@ export function detectBrushStorms(
       const start = anchor;
       const end = itemSec(windowItems[windowItems.length - 1]!);
       rawWindows.push([start, end]);
+      // Skip anchors inside this storm — they'd produce subset results
+      i = lastIdx;
     }
   }
 
