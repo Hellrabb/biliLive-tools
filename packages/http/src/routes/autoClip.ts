@@ -193,6 +193,23 @@ router.post("/run", async (ctx) => {
   const { v4: uuidv4 } = await import("uuid");
   const taskId = uuidv4();
 
+  // Write placeholder so frontend polling immediately sees status
+  autoClipModel.saveResult({
+    id: taskId,
+    video_path: resolvedVideo,
+    danmu_path: resolvedDanmu,
+    recorder_id: null,
+    preset_id: presetId || null,
+    status: "analyzing" as any,
+    highlights: "[]",
+    created_at: new Date().toISOString(),
+    exported_at: null,
+    uploaded_at: null,
+    exported_paths: null,
+    bili_aids: null,
+    llm_fallback: 0,
+  });
+
   // Fire-and-forget: return taskId immediately, execute pipeline in background
   (async () => {
     try {
@@ -212,6 +229,9 @@ router.post("/run", async (ctx) => {
       logger.info(`[AutoClip ${taskId}] completed`);
     } catch (error: any) {
       logger.error(`[AutoClip ${taskId}] failed:`, error);
+      try {
+        autoClipModel.deleteResult(taskId);
+      } catch { /* ignore cleanup errors */ }
     }
   })();
 

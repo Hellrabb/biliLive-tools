@@ -130,6 +130,23 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     return this.insert(row);
   }
 
+  upsertResult(row: AutoClipResultRow) {
+    const existing = this.getResultById(row.id);
+    if (existing) {
+      return this.db.prepare(
+        `UPDATE auto_clip_results
+         SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
+             status = ?, highlights = ?, llm_fallback = ?
+         WHERE id = ?`
+      ).run(
+        row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
+        row.status, row.highlights, row.llm_fallback,
+        row.id,
+      );
+    }
+    return this.insert(row);
+  }
+
   getResults(filter?: {
     status?: string;
     recorderId?: string;
