@@ -362,6 +362,7 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
     ctx.body = await doExportClips(
       ctx.params.id,
       result.video_path,
+      result.danmu_path,
       highlights,
       result.preset_id,
       "AutoClip export",
@@ -387,6 +388,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
     ctx.body = await doExportClips(
       ctx.params.id,
       result.video_path,
+      result.danmu_path,
       highlights,
       result.preset_id,
       "AutoClip re-export",
@@ -425,6 +427,7 @@ function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; tit
 async function doExportClips(
   resultId: string,
   videoPath: string,
+  danmuPath: string,
   highlights: unknown[],
   presetId: string | null,
   logPrefix: string,
@@ -485,6 +488,7 @@ async function doExportClips(
 
     const exportResult = await exportClips(
       videoPath,
+      danmuPath,
       validHighlights as any[],
       effectiveConfig,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),

@@ -126,6 +126,7 @@ export interface ExportClipsResult {
  */
 export async function exportClips(
   videoPath: string,
+  danmuPath: string,
   highlights: AutoClipResult["highlights"],
   exportConfig: AutoClipConfig["export"],
   onProgress?: ProgressCallback,
@@ -137,17 +138,47 @@ export async function exportClips(
   const savePath = exportConfig.savePath || path.dirname(videoPath);
 
   // Resolve ffmpeg preset ONCE before the loop
-  let ffmpegPresetOpts = {};
+  let ffmpegPresetOpts: Partial<Record<string, unknown>> = {};
   if (exportConfig.ffmpegPresetId) {
     try {
       const { container: diContainer } = await import("../index.js");
       const ffmpegPreset = diContainer.resolve("ffmpegPreset");
       const preset = await ffmpegPreset.get(exportConfig.ffmpegPresetId);
       if (preset?.config) {
-        ffmpegPresetOpts = { ...preset.config };
+        ffmpegPresetOpts = preset.config as unknown as Partial<Record<string, unknown>>;
       }
     } catch (err) {
       logger.warn(`AutoClip: failed to load ffmpeg preset "${exportConfig.ffmpegPresetId}", using defaults`, err);
+    }
+  }
+
+  // --- Danmaku burning setup ---
+  let assPath: string | undefined;
+  if (exportConfig.burnDanmaku && danmuPath) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const danmuPreset = diContainer.resolve("danmuPreset");
+      const danmuPresetId = exportConfig.danmuPresetId || "default";
+      const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
+      const danmuConfig = danmuPresetRecord?.config ?? danmuPreset.defaultConfig;
+
+      const { convertXml2Ass } = await import("../task/danmu.js");
+      const { v4: uuid } = await import("uuid");
+      const task = await convertXml2Ass(
+        { input: danmuPath, output: uuid() },
+        danmuConfig as any,
+        { temp: true, saveRadio: 2, savePath: "", override: true },
+      );
+      // Wait for task completion (promisify event-based task)
+      await new Promise<void>((resolve, reject) => {
+        task.on("task-end", () => resolve());
+        task.on("task-error", ({ error }: { error: string }) => reject(new Error(error)));
+        task.on("task-cancel", () => reject(new Error("Danmaku conversion cancelled")));
+      });
+      assPath = task.output;
+      logger.info(`AutoClip: danmaku ASS generated at ${assPath}`);
+    } catch (err) {
+      logger.warn("AutoClip: danmaku ASS generation failed, exporting without danmaku", err);
     }
   }
 
@@ -188,11 +219,15 @@ export async function exportClips(
 
     try {
       await cut(
-        { videoFilePath: videoPath },
+        { videoFilePath: videoPath, assFilePath: assPath },
         outputPath,
         {
           ...ffmpegPresetOpts,
-          encoder: (exportConfig.encoder ?? "libx264") as VideoCodec,
+          // Use ffmpeg preset's encoder when preset is configured,
+          // otherwise fall back to autoclip's export.encoder
+          encoder: ((Object.keys(ffmpegPresetOpts).length > 0
+            ? ffmpegPresetOpts.encoder
+            : undefined) ?? exportConfig.encoder ?? "libx264") as VideoCodec,
           audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],
           to: h.bestRange[1],
