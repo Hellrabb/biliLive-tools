@@ -416,7 +416,7 @@ router.post("/clip/:id/delete", async (ctx) => {
 // ---------------------------------------------------------------------------
 
 async function resolveExportPresets(
-  presetId: string | null,
+  _presetId: string | null,
   exportCfg: { ffmpegPresetId?: string; burnDanmaku?: boolean; danmuPresetId?: string },
 ): Promise<{ ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> }> {
   const result: { ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> } = {};
