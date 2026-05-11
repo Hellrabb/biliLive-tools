@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
-import type { DanmakuFilterRule } from "@biliLive-tools/types";
+import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
 
 export interface DetectSuspiciousOptions {
@@ -137,25 +137,26 @@ export function applyFilter(
 
   const compiled: Array<{ id: string; pattern: string; test: (text: string) => boolean }> = [];
   for (const rule of activeRules) {
-    let test: (text: string) => boolean;
+    let matchFn: (text: string) => boolean;
     switch (rule.mode) {
       case "exact":
-        test = (text: string) => text.trim() === rule.pattern;
+        matchFn = (text: string) => text.trim() === rule.pattern;
         break;
       case "contains":
-        test = (text: string) => text.includes(rule.pattern);
+        matchFn = (text: string) => text.includes(rule.pattern);
         break;
-      case "regex":
+      case "regex": {
         try {
           const re = new RegExp(rule.pattern);
-          test = (text: string) => re.test(text);
+          matchFn = (text: string) => re.test(text);
         } catch {
           logger.warn(`AutoClip: invalid regex pattern in filter rule ${rule.id}: ${rule.pattern}`);
           continue;
         }
         break;
+      }
     }
-    compiled.push({ id: rule.id, pattern: rule.pattern, test });
+    compiled.push({ id: rule.id, pattern: rule.pattern, test: matchFn });
   }
 
   const filtered: Array<{ text: string }> = [];

@@ -6,7 +6,7 @@ import { rankCandidates, preRankCandidates } from "./llmRanker.js";
 import { detectSuspicious, applyFilter, llmReviewPatterns } from "./danmakuFilter.js";
 import logger from "../utils/log.js";
 
-import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
+import type { AutoClipConfig, DanmuItem, VideoCodec, audioCodec } from "@biliLive-tools/types";
 import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern } from "./types.js";
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
@@ -64,7 +64,7 @@ export async function runAutoClipPipeline(
     const totalBefore = stats.danmu.length;
 
     if (filterConfig.autoDetectEnabled) {
-      suspiciousPatterns = detectSuspicious(stats.danmu);
+      suspiciousPatterns = detectSuspicious(stats.danmu as Array<{ text: string }>);
       if (suspiciousPatterns.length > 0) {
         onProgress?.("filter", 25, `Detected ${suspiciousPatterns.length} suspicious danmaku patterns`);
 
@@ -103,8 +103,8 @@ export async function runAutoClipPipeline(
     }
 
     if (filterConfig.rules.length > 0) {
-      const result = applyFilter(stats.danmu, filterConfig);
-      stats.danmu = result.filtered as typeof stats.danmu;
+      const result = applyFilter(stats.danmu as Array<{ text: string }>, filterConfig);
+      stats.danmu = result.filtered as DanmuItem[];
       onProgress?.(
         "filter",
         30,
