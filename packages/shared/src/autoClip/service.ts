@@ -4,6 +4,7 @@ import { runAutoClipPipeline, exportClips, resolveExportPresets } from "./pipeli
 import { buildSendMessage, buildSendMultimodalMessage } from "./sendMessage.js";
 import { AUTO_CLIP_DEFAULT_CONFIG } from "../presets/autoClipPreset.js";
 import { autoClipModel } from "../db/index.js";
+import { cloneDeep } from "lodash-es";
 
 import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 import type { AutoClipResult, HighlightSegment } from "./types.js";
@@ -45,11 +46,11 @@ export class AutoClipService {
     const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id, outputName } = params;
 
     // 1. Load preset config — explicit presetId takes priority
-    let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
+    let presetConfig = cloneDeep(AUTO_CLIP_DEFAULT_CONFIG);
     if (presetId && presetId !== "") {
       try {
         const p = await this.deps.getPreset(presetId);
-        presetConfig = p?.config ?? AUTO_CLIP_DEFAULT_CONFIG;
+        presetConfig = p?.config ? cloneDeep(p.config) : cloneDeep(AUTO_CLIP_DEFAULT_CONFIG);
       } catch (e) {
         logger.warn("AutoClip: 加载预设失败，使用默认配置", e);
       }
@@ -61,7 +62,7 @@ export class AutoClipService {
       try {
         const p = await this.deps.getPreset(appConfig.videoCut.autoClipPresetId);
         if (p?.config) {
-          presetConfig = p.config;
+          presetConfig = cloneDeep(p.config);
           logger.info("AutoClip: using global autoClip preset for manual analysis");
         }
       } catch (e) {
