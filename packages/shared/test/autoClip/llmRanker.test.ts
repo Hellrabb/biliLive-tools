@@ -170,7 +170,7 @@ describe("parseLLMResponse", () => {
     const raw = JSON.stringify({
       isHighlight: true,
       score: 8,
-      title: "主播神操作",
+      title: "主播完成了一次极限反杀，弹幕瞬间沸腾",
       tags: ["操作", "高能"],
       highlightType: "impressive",
       reason: "弹幕爆发+SC大额打赏",
@@ -180,7 +180,7 @@ describe("parseLLMResponse", () => {
     const result = parseLLMResponse(raw, [120, 300]);
     expect(result.isHighlight).toBe(true);
     expect(result.score).toBe(8);
-    expect(result.title).toBe("主播神操作");
+    expect(result.title).toBe("主播完成了一次极限反杀，弹幕瞬间沸腾");
     expect(result.bestClipStart).toBe(125);
     expect(result.bestClipEnd).toBe(295);
   });

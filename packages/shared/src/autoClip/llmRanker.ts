@@ -31,7 +31,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 {
   "isHighlight": true/false,
   "score": 0-10,
-  "title": "clip title (max 15 chars)",
+  "title": "neutral content summary — 1 sentence factually describing what happened based on danmaku context (no stylistic flourishes, no length limit)",
   "tags": ["tag1", "tag2"],
   "highlightType": "funny/impressive/touching/hype/troll/not_highlight",
   "reason": "brief reason (max 20 chars)",
