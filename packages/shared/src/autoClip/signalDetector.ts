@@ -242,11 +242,22 @@ export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): T
 // Signal D: Brush storms (content similarity)
 // ---------------------------------------------------------------------------
 
-/** Sliding window size for brush storm detection (seconds). */
+/**
+ * Brush storm detection complexity management:
+ *
+ * Worst case: 2h stream ≈ 720 sliding windows × C(80,2) ≈ 2.3M LCS ops.
+ * Each LCS is O(m*n) where m,n are danmaku text lengths (typical < 30 chars).
+ * Total ≈ 70M char comparisons — < 1s on modern CPU.
+ *
+ * BRUSH_WINDOW_SEC=10: fine-grained enough to catch short brushing bursts
+ * MAX_BRUSH_SAMPLE=80: caps pair-wise comparisons to ~3160 per window
+ * MAX_BRUSH_FREQ_SAMPLE=150: same cap for the aggregate brushFrequency stat
+ *
+ * If performance becomes an issue, consider shingling (Jaccard on n-grams)
+ * instead of LCS for the pair-wise similarity step.
+ */
 const BRUSH_WINDOW_SEC = 10;
-/** Max items per sliding window for pair-wise LCS to prevent O(n²) blowup. */
 const MAX_BRUSH_SAMPLE = 80;
-/** Max danmaku texts for brush-frequency pair-wise LCS in detectSignals. */
 const MAX_BRUSH_FREQ_SAMPLE = 150;
 
 /**

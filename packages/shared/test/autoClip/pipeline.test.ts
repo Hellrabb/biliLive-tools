@@ -192,4 +192,56 @@ describe("exportClips", () => {
     const cutOptions = mockCutFn.mock.calls[0][3];
     expect(cutOptions.override).toBe(true);
   });
+
+  it("returns empty arrays for empty highlights", async () => {
+    const result = await exportClips(
+      "/nonexistent/video.mp4",
+      "/nonexistent/danmu.xml",
+      [],
+      exportConfig,
+      {},
+    );
+    expect(result.success).toEqual([]);
+    expect(result.failed).toEqual([]);
+  });
+
+  it("catches per-clip errors in failed array when cut rejects", async () => {
+    mockCutFn.mockRejectedValueOnce(new Error("FFmpeg not found"));
+
+    const badHighlights = [{
+      timeRange: [0, 60] as [number, number],
+      bestRange: [10, 50] as [number, number],
+      score: 8,
+      title: "Test Highlight",
+      tags: ["funny"],
+      highlightType: "funny" as const,
+      reason: "test",
+      signalSources: ["danmakuDensity"],
+      isHighlight: true,
+    }];
+
+    const result = await exportClips(
+      "/nonexistent/video.mp4",
+      "/nonexistent/danmu.xml",
+      badHighlights as any,
+      { ...exportConfig, savePath: "" },
+      {},
+    );
+    expect(result.failed.length).toBe(1);
+    expect(result.failed[0]!.highlight.title).toBe("Test Highlight");
+    expect(result.success.length).toBe(0);
+  });
+
+  it("accepts namingPrefix without throwing", async () => {
+    const result = await exportClips(
+      "/nonexistent/video.mp4",
+      "/nonexistent/danmu.xml",
+      highlights as any,
+      exportConfig,
+      {},
+      undefined,
+      "my_prefix",
+    );
+    expect(result.success.length).toBe(1);
+  });
 });
