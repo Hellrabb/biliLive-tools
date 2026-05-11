@@ -415,6 +415,36 @@ router.post("/clip/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
+async function resolveExportPresets(
+  presetId: string | null,
+  exportCfg: { ffmpegPresetId?: string; burnDanmaku?: boolean; danmuPresetId?: string },
+): Promise<{ ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> }> {
+  const result: { ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> } = {};
+
+  if (exportCfg.ffmpegPresetId) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+      const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
+      if (preset?.config) {
+        result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
+      }
+    } catch { /* use empty */ }
+  }
+
+  if (exportCfg.burnDanmaku) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const danmuPreset = diContainer.resolve("danmuPreset");
+      const danmuPresetId = exportCfg.danmuPresetId || "default";
+      const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
+      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
+    } catch { /* use empty */ }
+  }
+
+  return result;
+}
+
 function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string } {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
@@ -458,6 +488,8 @@ async function doExportClips(
     savePath: exportConfig.savePath || path.dirname(videoPath),
   };
 
+  const presetCtx = await resolveExportPresets(presetId, exportConfig);
+
   // Mark as exporting so UI can show progress during long export operations
   autoClipModel.updateStatus(resultId, "exporting");
 
@@ -491,6 +523,7 @@ async function doExportClips(
       danmuPath,
       validHighlights as any[],
       effectiveConfig,
+      presetCtx,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
       namingPrefix,
     );

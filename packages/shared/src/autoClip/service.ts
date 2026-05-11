@@ -148,6 +148,7 @@ export class AutoClipService {
     const exportCfg = presetConfig.export;
     const savePath = exportCfg.savePath || path.dirname(videoPath);
 
+    const presetCtx = await this.resolveExportPresets(exportCfg);
     logger.info(`AutoClip: 开始自动导出 ${highlights.length} 个切片...`);
 
     const exportResult = await exportClips(
@@ -155,6 +156,7 @@ export class AutoClipService {
       danmuPath,
       highlights,
       { ...exportCfg, savePath },
+      presetCtx,
       (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
     );
 
@@ -230,5 +232,35 @@ export class AutoClipService {
     } catch (uploadError) {
       logger.error("AutoClip: 自动上传B站失败", uploadError);
     }
+  }
+
+  private async resolveExportPresets(exportCfg: AutoClipConfig["export"]): Promise<{
+    ffmpegConfig?: Record<string, unknown>;
+    danmuConfig?: Record<string, unknown>;
+  }> {
+    const result: { ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> } = {};
+
+    if (exportCfg.ffmpegPresetId) {
+      try {
+        const { container: diContainer } = await import("../index.js");
+        const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+        const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
+        if (preset?.config) {
+          result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
+        }
+      } catch { /* use empty */ }
+    }
+
+    if (exportCfg.burnDanmaku) {
+      try {
+        const { container: diContainer } = await import("../index.js");
+        const danmuPreset = diContainer.resolve("danmuPreset");
+        const danmuPresetId = exportCfg.danmuPresetId || "default";
+        const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
+        result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
+      } catch { /* use empty */ }
+    }
+
+    return result;
   }
 }

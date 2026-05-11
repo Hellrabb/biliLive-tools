@@ -117,6 +117,12 @@ export interface ExportClipsResult {
   failed: Array<{ highlight: HighlightSegment; error: string }>;
 }
 
+/** Resolved preset configs — callers resolve from DI container and pass in */
+export interface ExportPresetContext {
+  ffmpegConfig?: Record<string, unknown>;
+  danmuConfig?: Record<string, unknown>;
+}
+
 /**
  * Export highlight clips to video files using the existing ffmpeg cut pipeline.
  *
@@ -129,6 +135,7 @@ export async function exportClips(
   danmuPath: string,
   highlights: AutoClipResult["highlights"],
   exportConfig: AutoClipConfig["export"],
+  presetCtx: ExportPresetContext,
   onProgress?: ProgressCallback,
   namingPrefix?: string,
 ): Promise<ExportClipsResult> {
@@ -137,36 +144,19 @@ export async function exportClips(
 
   const savePath = exportConfig.savePath || path.dirname(videoPath);
 
-  // Resolve ffmpeg preset ONCE before the loop
-  let ffmpegPresetOpts: Partial<Record<string, unknown>> = {};
-  if (exportConfig.ffmpegPresetId) {
-    try {
-      const { container: diContainer } = await import("../index.js");
-      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
-      const preset = await ffmpegPreset.get(exportConfig.ffmpegPresetId);
-      if (preset?.config) {
-        ffmpegPresetOpts = preset.config as unknown as Partial<Record<string, unknown>>;
-      }
-    } catch (err) {
-      logger.warn(`AutoClip: failed to load ffmpeg preset "${exportConfig.ffmpegPresetId}", using defaults`, err);
-    }
-  }
+  // Use caller-resolved ffmpeg preset config
+  const ffmpegPresetOpts: Partial<Record<string, unknown>> =
+    (presetCtx.ffmpegConfig as Partial<Record<string, unknown>>) ?? {};
 
   // --- Danmaku burning setup ---
   let assPath: string | undefined;
-  if (exportConfig.burnDanmaku && danmuPath) {
+  if (exportConfig.burnDanmaku && danmuPath && presetCtx.danmuConfig) {
     try {
-      const { container: diContainer } = await import("../index.js");
-      const danmuPreset = diContainer.resolve("danmuPreset");
-      const danmuPresetId = exportConfig.danmuPresetId || "default";
-      const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
-      const danmuConfig = danmuPresetRecord?.config ?? danmuPreset.defaultConfig;
-
       const { convertXml2Ass } = await import("../task/danmu.js");
       const { v4: uuid } = await import("uuid");
       const task = await convertXml2Ass(
         { input: danmuPath, output: uuid() },
-        danmuConfig as any,
+        presetCtx.danmuConfig as any,
         { temp: true, saveRadio: 2, savePath: "", override: true },
       );
       // Wait for task completion (promisify event-based task)
