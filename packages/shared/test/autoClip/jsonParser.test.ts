@@ -69,3 +69,35 @@ describe("extractJSONString", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("extractAndParseJSON edge cases", () => {
+  it("multiple top-level JSON blocks extracts only the first", () => {
+    const result = extractAndParseJSON('{"a":1} 中间文本 {"b":2}');
+    expect(result).toEqual({ a: 1 });
+  });
+
+  it("handles nested JSON correctly", () => {
+    const result = extractAndParseJSON('{"outer":{"inner":[1,2,3]},"key":"val"}');
+    expect(result).toEqual({ outer: { inner: [1, 2, 3] }, key: "val" });
+  });
+
+  it("handles escaped quotes inside strings", () => {
+    const result = extractAndParseJSON('{"text":"he said \\"hello\\""}');
+    expect(result).toEqual({ text: 'he said "hello"' });
+  });
+
+  it("handles escaped backslashes", () => {
+    const result = extractAndParseJSON('{"path":"C:\\\\Users\\\\test"}');
+    expect(result).toEqual({ path: "C:\\Users\\test" });
+  });
+
+  it("returns null for unbalanced braces", () => {
+    expect(extractAndParseJSON('{"a":1')).toBeNull();
+  });
+
+  it("extracts only code fence content when multiple JSON blocks exist outside", () => {
+    const raw = '```json\n{"a":1}\n```\n还有 {"b":2}';
+    const result = extractAndParseJSON(raw);
+    expect(result).toEqual({ a: 1 });
+  });
+});
