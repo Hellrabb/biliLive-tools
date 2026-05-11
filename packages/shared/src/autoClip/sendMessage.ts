@@ -5,7 +5,7 @@ export interface SendMessageOptions {
   presetConfig: AutoClipConfig;
   aiConfig: {
     models: Array<{ modelId: string; modelName?: string; vendorId?: string }>;
-    vendors: Array<{ id: string; apiKey?: string; baseURL?: string }>;
+    vendors: Array<{ id: string; apiKey?: string; baseURL?: string; provider?: string }>;
   };
 }
 
@@ -74,7 +74,7 @@ export interface BuildMultimodalOptions {
   llmConfig: AutoClipLLMConfig;
   aiConfig: {
     models: Array<{ modelId: string; modelName?: string; vendorId?: string }>;
-    vendors: Array<{ id: string; apiKey?: string; baseURL?: string }>;
+    vendors: Array<{ id: string; apiKey?: string; baseURL?: string; provider?: string }>;
   };
 }
 

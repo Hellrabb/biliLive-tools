@@ -9,7 +9,7 @@ import { generateStyledTitles } from "./titleStyler.js";
 import logger from "../utils/log.js";
 
 import type { AutoClipConfig, DanmuItem, VideoCodec, audioCodec } from "@biliLive-tools/types";
-import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern } from "./types.js";
+import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern, TitleStyleConfig } from "./types.js";
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
 
@@ -21,6 +21,7 @@ export interface PipelineParams {
   sendMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
   sendMultimodalMessage?: (prompt: string, images: string[], signal?: AbortSignal) => Promise<string>;
   recognizeASR?: (audioPath: string) => Promise<{ text: string }>;
+  ffmpegPath?: string;
   id?: string;
 }
 
@@ -88,7 +89,6 @@ export async function runAutoClipPipeline(
         } else {
           onProgress?.("filter", 25, `Suspicious patterns detected (LLM unavailable, using statistical fallback)`);
           const now = Date.now();
-          const { v4: uuidv4 } = await import("uuid");
           for (const p of suspiciousPatterns) {
             if (p.count >= 10 && p.similarity >= 0.9) {
               filterConfig.rules.push({
@@ -169,6 +169,16 @@ export async function runAutoClipPipeline(
     }));
   }
 
+  // Build TitleStyleConfig from presetConfig.llm
+  const titleStyleConfig: TitleStyleConfig | undefined =
+    presetConfig.llm.titleStyleConfig || presetConfig.llm.titleStylePrompt
+      ? {
+          maxLength: presetConfig.llm.titleStyleConfig?.maxLength ?? 30,
+          minLength: presetConfig.llm.titleStyleConfig?.minLength ?? 20,
+          customPrompt: presetConfig.llm.titleStylePrompt || undefined,
+        }
+      : undefined;
+
   // 3.5 Phase 1.5: Content understanding + Phase 2: Styled titles
   if (highlights.length > 0 && sendMessage) {
     const enhancement = presetConfig.enhancement;
@@ -181,7 +191,7 @@ export async function runAutoClipPipeline(
           videoPath,
           highlights,
           enhancement,
-          { sendMultimodalMessage, recognizeASR },
+          { sendMultimodalMessage, recognizeASR, ffmpegPath: params.ffmpegPath },
         );
         onProgress?.("understand", 88, "Content understanding complete");
 
@@ -190,6 +200,7 @@ export async function runAutoClipPipeline(
           highlights,
           { asrMap, frameMap },
           sendMessage,
+          titleStyleConfig,
         );
         onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
       } catch (err) {
@@ -203,6 +214,7 @@ export async function runAutoClipPipeline(
           highlights,
           { asrMap: new Map(), frameMap: new Map() },
           sendMessage,
+          titleStyleConfig,
         );
         onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
       } catch (err) {

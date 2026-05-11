@@ -97,6 +97,15 @@ export class AutoClipService {
       }
     }
 
+    // Resolve system ffmpeg path for frame sampler and audio extractor
+    let sysFfmpegPath = "ffmpeg";
+    try {
+      const { getBinPath } = await import("../task/video.js");
+      sysFfmpegPath = getBinPath().ffmpegPath || "ffmpeg";
+    } catch {
+      // Fallback to "ffmpeg" when config is unavailable (e.g., test env)
+    }
+
     // 3. Run pipeline
     const result = await runAutoClipPipeline({
       videoPath,
@@ -107,6 +116,7 @@ export class AutoClipService {
       recognizeASR,
       onProgress,
       id,
+      ffmpegPath: sysFfmpegPath,
     });
 
     // 3.5: Persist newly auto-detected filter rules back to preset
@@ -150,6 +160,17 @@ export class AutoClipService {
         const existing = autoClipModel.getResultById(id);
         effectiveOutputName = existing?.output_name ?? null;
       }
+      const highlightsJson = JSON.stringify(result.highlights);
+      let highlightCount = 0;
+      let firstTitle: string | null = null;
+      try {
+        const parsed = result.highlights;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          highlightCount = parsed.length;
+          firstTitle = parsed[0]?.title || null;
+        }
+      } catch { /* keep defaults */ }
+
       autoClipModel.upsertResult({
         id: result.id,
         video_path: videoPath,
@@ -157,7 +178,7 @@ export class AutoClipService {
         recorder_id: recorderId || null,
         preset_id: presetId || null,
         status,
-        highlights: JSON.stringify(result.highlights),
+        highlights: highlightsJson,
         created_at: new Date().toISOString(),
         exported_at: null,
         uploaded_at: null,
@@ -165,6 +186,8 @@ export class AutoClipService {
         bili_aids: null,
         llm_fallback: result.llmFallback ? 1 : 0,
         output_name: effectiveOutputName,
+        highlight_count: highlightCount,
+        first_title: firstTitle,
       });
 
       if (result.skipped) {

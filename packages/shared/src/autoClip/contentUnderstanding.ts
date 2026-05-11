@@ -21,11 +21,16 @@ export interface ContentUnderstandingDeps {
   sampleFrames?: typeof sampleFrames;
   /** Audio extractor (mockable, defaults to ffmpeg-based) */
   extractAudio?: (videoPath: string, bestRange: [number, number]) => Promise<string>;
+  /** Path to ffmpeg binary (defaults to "ffmpeg") */
+  ffmpegPath?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Audio extraction
 // ---------------------------------------------------------------------------
+
+/** Seconds of audio padding around clip boundaries for ASR context */
+const ASR_PADDING_SEC = 3;
 
 function extractAudioSegment(
   videoPath: string,
@@ -33,8 +38,8 @@ function extractAudioSegment(
   ffmpegPath = "ffmpeg",
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const padStart = Math.max(0, start - 3);
-    const duration = (end - start) + 6; // 3s padding each side
+    const padStart = Math.max(0, start - ASR_PADDING_SEC);
+    const duration = (end - start) + ASR_PADDING_SEC * 2;
     const outputPath = path.join(tmpdir(), `autoclip_asr_${uuidv4()}.wav`);
 
     const args = [
@@ -88,8 +93,12 @@ export async function understandContent(
   const doVisual = config.visualEnabled && !!deps.sendMultimodalMessage;
   if (!doASR && !doVisual) return { asrMap, frameMap };
 
-  const doExtractAudio = deps.extractAudio ?? extractAudioSegment;
-  const doSampleFrames = deps.sampleFrames ?? sampleFrames;
+  const doExtractAudio = deps.extractAudio
+    ? (videoPath: string, range: [number, number]) => (deps.extractAudio!)(videoPath, range)
+    : (videoPath: string, range: [number, number]) => extractAudioSegment(videoPath, range, deps.ffmpegPath);
+  const doSampleFrames = deps.sampleFrames
+    ? (videoPath: string, timestamps: number[]) => deps.sampleFrames!(videoPath, timestamps, deps.ffmpegPath)
+    : (videoPath: string, timestamps: number[]) => sampleFrames(videoPath, timestamps, deps.ffmpegPath);
 
   // Process highlights in parallel with concurrency control
   const CONCURRENCY = 3;
