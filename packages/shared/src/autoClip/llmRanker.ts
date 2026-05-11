@@ -229,6 +229,17 @@ interface HeuristicWeights {
   highlightThreshold: number;
 }
 
+/**
+ * Heuristic scoring weights for LLM fallback / pre-rank sorting.
+ *
+ * Chosen empirically to produce plausible ordering when LLM is unavailable:
+ * - brushFrequency (3): brush storms are strong social proof — high weight
+ * - scTotalDivisor (10): ¥300 ≈ 30 pts; keeps SC from dominating the score
+ * - danmakuDensity (1): raw density has high variance; keep unit weight
+ * - highlightThreshold (3): conservative cutoff — ~1σ above uniform baseline
+ *
+ * Tune these against labeled data for optimal precision/recall.
+ */
 const DEFAULT_HEURISTIC_WEIGHTS: HeuristicWeights = {
   brushFrequency: 3,
   scTotalDivisor: 10,
@@ -361,7 +372,7 @@ export async function rankCandidates(
 
   // Step 2: build contexts
   const contexts = ranked.map((c) =>
-    buildCandidateContext(c, allDanmaku, 30, config.danmakuSampleMax),
+    buildCandidateContext(c, allDanmaku, config.contextWindowSec ?? 30, config.danmakuSampleMax),
   );
 
   // Step 3: send to LLM with concurrency limit, timeout, and error isolation

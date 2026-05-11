@@ -1224,6 +1224,8 @@ export interface AutoClipLLMConfig {
   maxCandidatesPerVideo: number;
   /** 每个候选窗口弹幕采样上限, 默认 200 */
   danmakuSampleMax: number;
+  /** 送入 LLM 的上下文窗口秒数（候选窗口前后各取多少秒的弹幕），默认 30 */
+  contextWindowSec: number;
   /** 自定义 prompt 模板 */
   promptTemplate?: string;
   /** 启发式排序权重 (LLM 不可用时的降级排序) */
