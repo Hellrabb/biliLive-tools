@@ -9,7 +9,7 @@ export interface AutoClipResultRow {
   danmu_path: string;
   recorder_id: string | null;
   preset_id: string | null;
-  status: "analyzing" | "pending" | "approved" | "exporting" | "exported" | "uploaded" | "deleted";
+  status: "analyzing" | "pending" | "approved" | "exporting" | "exported" | "uploaded" | "failed" | "deleted";
   highlights: string; // JSON string
   created_at: string;
   exported_at: string | null;
@@ -140,28 +140,26 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
   }
 
   upsertResult(row: AutoClipResultRow) {
-    const existing = this.getResultById(row.id);
-    if (existing) {
-      // Preserve export/upload history if already exported
-      const hasExistingExport = existing.exported_paths && existing.exported_paths !== "[]";
-      const sql = hasExistingExport
-        ? `UPDATE auto_clip_results
-           SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
-               status = ?, highlights = ?, llm_fallback = ?, output_name = ?
-           WHERE id = ?`
-        : `UPDATE auto_clip_results
-           SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
-               status = ?, highlights = ?, llm_fallback = ?, output_name = ?,
-               exported_at = NULL, uploaded_at = NULL,
-               exported_paths = NULL, bili_aids = NULL
-           WHERE id = ?`;
-      return this.db.prepare(sql).run(
-        row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
-        row.status, row.highlights, row.llm_fallback, row.output_name,
-        row.id,
-      );
-    }
-    return this.insert(row);
+    const sql = `
+      INSERT INTO auto_clip_results (
+        id, video_path, danmu_path, recorder_id, preset_id,
+        status, highlights, created_at, llm_fallback, output_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        video_path = excluded.video_path,
+        danmu_path = excluded.danmu_path,
+        recorder_id = excluded.recorder_id,
+        preset_id = excluded.preset_id,
+        status = excluded.status,
+        highlights = excluded.highlights,
+        llm_fallback = excluded.llm_fallback,
+        output_name = excluded.output_name
+    `;
+    return this.db.prepare(sql).run(
+      row.id, row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
+      row.status, row.highlights, row.created_at,
+      row.llm_fallback, row.output_name ?? null,
+    );
   }
 
   getResults(filter?: {
@@ -221,12 +219,12 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     return this.db.prepare("UPDATE auto_clip_results SET status = 'deleted' WHERE id = ?").run(id);
   }
 
-  getStatusCounts(): { all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number } {
+  getStatusCounts(): { all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number } {
     const rows = this.db
       .prepare("SELECT status, COUNT(*) as count FROM auto_clip_results WHERE status != 'deleted' GROUP BY status")
       .all() as Array<{ status: string; count: number }>;
 
-    const counts = { all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 };
+    const counts = { all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 };
     for (const row of rows) {
       if (row.status in counts) {
         (counts as any)[row.status] = row.count;
