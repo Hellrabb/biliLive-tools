@@ -1245,6 +1245,7 @@ export interface AutoClipLLMConfig {
   titleStyleConfig?: {
     maxLength: number;
     minLength: number;
+    customPrompt?: string;
   };
 }
 

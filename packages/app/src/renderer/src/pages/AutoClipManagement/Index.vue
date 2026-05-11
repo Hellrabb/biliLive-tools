@@ -27,6 +27,7 @@
       <n-radio-button value="exporting">导出中 ({{ counts.exporting }})</n-radio-button>
       <n-radio-button value="exported">已完成 ({{ counts.exported }})</n-radio-button>
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
+      <n-radio-button value="failed">失败 ({{ counts.failed }})</n-radio-button>
     </n-radio-group>
 
     <n-empty v-if="!loading && clips.length === 0" description="暂无切片数据" style="margin:40px 0">
@@ -131,7 +132,7 @@ const pollAbort = ref<AbortController | null>(null);
 const batchExporting = ref(false);
 const pendingCount = computed(() => counts.value.pending);
 
-const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 });
+const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 });
 
 const columns = [
   { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
@@ -188,7 +189,7 @@ async function refreshList() {
 
     // Update global counts
     const c = countsRes.data;
-    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, analyzing: c.analyzing ?? 0, approved: c.approved ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
+    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, analyzing: c.analyzing ?? 0, approved: c.approved ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0, failed: c.failed ?? 0 };
 
     const raw = clipsRes.data?.data ?? [];
     totalCount.value = clipsRes.data?.total ?? raw.length;
@@ -300,12 +301,15 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
         await refreshList();
         return 'done';
       }
-    } catch {
-      consecutive404s++;
-      if (consecutive404s >= 5) {
-        notice.error("分析失败：任务丢失，请重试");
-        return 'lost';
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        consecutive404s++;
+        if (consecutive404s >= 5) {
+          notice.error("分析失败：任务丢失，请重试");
+          return 'lost';
+        }
       }
+      // Network errors don't count toward 404 limit — just retry
     }
     attempt++;
     delay = Math.min(delay * 1.3, 10000);

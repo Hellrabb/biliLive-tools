@@ -8,6 +8,7 @@ import type {
   TimeWindow,
 } from "./types.js";
 import logger from "../utils/log.js";
+import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
 
 // ---------------------------------------------------------------------------
 // Default prompt template
@@ -56,8 +57,6 @@ const VALID_HIGHLIGHT_TYPES = new Set([
   "not_highlight",
 ]);
 
-const LLM_CONCURRENCY = 3;
-const LLM_REQUEST_TIMEOUT_MS = 30_000;
 
 const MAX_SURROUNDING_ITEMS = 10;
 

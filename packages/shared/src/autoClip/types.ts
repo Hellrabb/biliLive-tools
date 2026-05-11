@@ -107,12 +107,18 @@ export interface SuspiciousPattern {
   llmReason?: string;
 }
 
-/** Phase 2 标题风格化配置 */
+/**
+ * Phase 2 标题风格化配置.
+ *
+ * 与 @biliLive-tools/types 中的 AutoClipLLMConfig.titleStyleConfig
+ * 对齐。customPrompt 在 pipeline 边界从 AutoClipLLMConfig.titleStylePrompt
+ * 映射而来。
+ */
 export interface TitleStyleConfig {
   /** 标题最大长度 (字符数)，默认 30 */
   maxLength?: number;
   /** 标题最小长度 (字符数)，默认 20 */
   minLength?: number;
-  /** 自定义 prompt 模板 (覆盖内置模板) */
+  /** 自定义 prompt 模板 (覆盖内置模板，可用占位符: {min}, {max}, {summary}, {asr_section}, {frame_section}, {danmaku}, {style_guide}) */
   customPrompt?: string;
 }

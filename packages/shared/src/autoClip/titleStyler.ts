@@ -2,6 +2,7 @@ import pLimit from "p-limit";
 import logger from "../utils/log.js";
 import type { HighlightSegment, TitleStyleConfig } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
+import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
 
 // ---------------------------------------------------------------------------
 // Prompt templates
@@ -56,8 +57,6 @@ const STYLE_GUIDES: Record<string, string> = {
   not_highlight: `简洁概括，平实但有温度。描述发生了什么事即可。`,
 };
 
-const LLM_CONCURRENCY = 3;
-const LLM_TIMEOUT_MS = 30_000;
 
 // ---------------------------------------------------------------------------
 // buildTitlePrompt
@@ -81,6 +80,19 @@ export function buildTitlePrompt(
   const frameSection = frameDescription
     ? `- 画面描述：${frameDescription}`
     : "";
+
+  // If customPrompt is provided, use it as the template (overrides built-in templates)
+  if (config?.customPrompt) {
+    const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight!;
+    return config.customPrompt
+      .replace(/\{min\}/g, String(min))
+      .replace(/\{max\}/g, String(max))
+      .replace(/\{summary\}/g, summary)
+      .replace(/\{asr_section\}/g, asrSection)
+      .replace(/\{frame_section\}/g, frameSection)
+      .replace(/\{danmaku\}/g, danmakuContext || "无特殊弹幕模式")
+      .replace(/\{style_guide\}/g, styleGuide);
+  }
 
   if (isFirstClip) {
     return OPENING_PROMPT
@@ -127,7 +139,7 @@ export async function generateStyledTitles(
       const timer = setTimeout(() => {
         controller.abort();
         reject(new Error("Title styling LLM timeout"));
-      }, LLM_TIMEOUT_MS);
+      }, LLM_REQUEST_TIMEOUT_MS);
       sendMessage(prompt, controller.signal)
         .then((res) => { clearTimeout(timer); resolve(res); })
         .catch((err) => {

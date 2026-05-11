@@ -18,6 +18,8 @@ export interface AutoClipResultRow {
   bili_aids: string | null; // JSON string
   llm_fallback: number;     // 0 or 1
   output_name: string | null; // custom naming prefix for manual clip
+  highlight_count: number;
+  first_title: string | null;
 }
 
 export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
@@ -46,7 +48,9 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         exported_paths TEXT,
         bili_aids TEXT,
         llm_fallback INTEGER NOT NULL DEFAULT 0,
-        output_name TEXT
+        output_name TEXT,
+        highlight_count INTEGER NOT NULL DEFAULT 0,
+        first_title TEXT
       ) STRICT;
     `;
     super.createTable(sql);
@@ -105,6 +109,16 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         name: "add_output_name",
         sql: `ALTER TABLE auto_clip_results ADD COLUMN output_name TEXT`,
       },
+      {
+        version: 3,
+        name: "add_highlight_count_and_first_title",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN highlight_count INTEGER NOT NULL DEFAULT 0`,
+      },
+      {
+        version: 4,
+        name: "add_first_title",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
+      },
     ];
 
     for (const m of migrations) {
@@ -140,11 +154,22 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
   }
 
   upsertResult(row: AutoClipResultRow) {
+    let highlightCount = 0;
+    let firstTitle: string | null = null;
+    try {
+      const parsed = JSON.parse(row.highlights);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        highlightCount = parsed.length;
+        firstTitle = parsed[0]?.title || null;
+      }
+    } catch { /* keep defaults */ }
+
     const sql = `
       INSERT INTO auto_clip_results (
         id, video_path, danmu_path, recorder_id, preset_id,
-        status, highlights, created_at, llm_fallback, output_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status, highlights, created_at, llm_fallback, output_name,
+        highlight_count, first_title
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         video_path = excluded.video_path,
         danmu_path = excluded.danmu_path,
@@ -153,12 +178,15 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         status = excluded.status,
         highlights = excluded.highlights,
         llm_fallback = excluded.llm_fallback,
-        output_name = excluded.output_name
+        output_name = excluded.output_name,
+        highlight_count = excluded.highlight_count,
+        first_title = excluded.first_title
     `;
     return this.db.prepare(sql).run(
       row.id, row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
       row.status, row.highlights, row.created_at,
       row.llm_fallback, row.output_name ?? null,
+      highlightCount, firstTitle,
     );
   }
 

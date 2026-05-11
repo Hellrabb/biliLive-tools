@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
@@ -10,6 +11,10 @@ import type { AutoClipService } from "@biliLive-tools/shared/autoClip/service.js
 import type { AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 
 const router = new Router({ prefix: "/auto-clip" });
+
+/** Maximum concurrent analysis runs */
+const MAX_CONCURRENT_RUNS = 5;
+const activeRuns = new Set<string>();
 
 interface AutoClipPresetInstance {
   list: () => Promise<AutoClipPresetType[]>;
@@ -226,6 +231,12 @@ router.post("/run", async (ctx) => {
   const { v4: uuidv4 } = await import("uuid");
   const taskId = uuidv4();
 
+  if (activeRuns.size >= MAX_CONCURRENT_RUNS) {
+    ctx.status = 429;
+    ctx.body = { error: `Too many concurrent analyses. Maximum ${MAX_CONCURRENT_RUNS}.` };
+    return;
+  }
+
   // Write placeholder so frontend polling immediately sees status
   autoClipModel.saveResult({
     id: taskId,
@@ -242,7 +253,11 @@ router.post("/run", async (ctx) => {
     bili_aids: null,
     llm_fallback: 0,
     output_name: outputName || null,
+    highlight_count: 0,
+    first_title: null,
   });
+
+  activeRuns.add(taskId);
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
   (async () => {
@@ -266,8 +281,10 @@ router.post("/run", async (ctx) => {
       logger.error(`[AutoClip ${taskId}] failed:`, error);
       try {
         // Don't delete — update to terminal state so frontend polling resolves
-        autoClipModel.updateStatus(taskId, "pending");
+        autoClipModel.updateStatus(taskId, "failed");
       } catch { /* ignore cleanup errors */ }
+    } finally {
+      activeRuns.delete(taskId);
     }
   })();
 
@@ -575,39 +592,47 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
     return;
   }
 
-  const results: Array<{ id: string; status: string; exportedPaths: string[]; errors: string[] }> = [];
+  const BATCH_EXPORT_CONCURRENCY = 3;
+  const limit = pLimit(BATCH_EXPORT_CONCURRENCY);
 
-  for (const id of ids) {
-    const result = autoClipModel.getResultById(id);
-    if (!result) {
-      results.push({ id, status: "skipped", exportedPaths: [], errors: ["Not found"] });
-      continue;
-    }
-    if (result.status !== "pending") {
-      results.push({ id, status: "skipped", exportedPaths: [], errors: [`Status is '${result.status}'`] });
-      continue;
-    }
+  const tasks = ids.map((id) =>
+    limit(async () => {
+      const result = autoClipModel.getResultById(id);
+      if (!result) {
+        return { id, status: "skipped" as const, exportedPaths: [] as string[], errors: ["Not found"] };
+      }
+      if (result.status !== "pending") {
+        return { id, status: "skipped" as const, exportedPaths: [] as string[], errors: [`Status is '${result.status}'`] };
+      }
 
-    try {
-      const highlights = JSON.parse(result.highlights);
-      const exportResult = await doExportClips(
-        id,
-        result.video_path,
-        result.danmu_path,
-        highlights,
-        result.preset_id,
-        "AutoClip batch export",
-      );
-      results.push({
-        id,
-        status: exportResult.status,
-        exportedPaths: exportResult.exportedPaths,
-        errors: exportResult.errors,
-      });
-    } catch (err: any) {
-      results.push({ id, status: "failed", exportedPaths: [], errors: [err.message || String(err)] });
-    }
-  }
+      try {
+        const highlights = JSON.parse(result.highlights);
+        const exportResult = await doExportClips(
+          id,
+          result.video_path,
+          result.danmu_path,
+          highlights,
+          result.preset_id,
+          "AutoClip batch export",
+        );
+        return {
+          id,
+          status: exportResult.status,
+          exportedPaths: exportResult.exportedPaths,
+          errors: exportResult.errors,
+        };
+      } catch (err: any) {
+        return { id, status: "failed" as const, exportedPaths: [] as string[], errors: [err.message || String(err)] };
+      }
+    }),
+  );
+
+  const settled = await Promise.allSettled(tasks);
+  const results = settled.map((r) =>
+    r.status === "fulfilled"
+      ? r.value
+      : { id: "unknown", status: "failed", exportedPaths: [], errors: [String(r.reason)] },
+  );
 
   ctx.body = { results };
 });

@@ -3,14 +3,12 @@
     <n-card :bordered="false" size="small" role="dialog" aria-modal="true">
       <div style="display:flex;gap:12px">
         <!-- 左侧预设列表 -->
-        <div style="width:180px;flex-shrink:0">
+        <div class="preset-list-panel">
           <div style="font-weight:bold;margin-bottom:8px">预设列表</div>
           <div
             v-for="p in presets"
             :key="p.id"
-            :style="{ padding: '6px 8px', cursor: 'pointer', borderRadius: '3px', marginBottom: '4px',
-              background: selectedId === p.id ? '#e8f5e9' : 'transparent',
-              fontWeight: selectedId === p.id ? 'bold' : 'normal' }"
+            :class="['preset-item', { 'preset-item--active': selectedId === p.id }]"
             @click="selectPreset(p.id)"
           >
             {{ p.name }}
@@ -21,8 +19,8 @@
         </div>
 
         <!-- 右侧编辑区 -->
-        <div style="flex:1;min-width:0">
-          <div v-if="!editingPreset" style="text-align:center;padding:40px;color:#999">
+        <div class="preset-editor">
+          <div v-if="!editingPreset" class="preset-empty-hint">
             请选择或创建一个预设
           </div>
 
@@ -349,3 +347,29 @@ watch(visible, async (v) => {
   }
 });
 </script>
+
+<style scoped>
+.preset-list-panel {
+  width: 180px;
+  flex-shrink: 0;
+}
+.preset-item {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-bottom: 4px;
+}
+.preset-item--active {
+  background: #e8f5e9;
+  font-weight: bold;
+}
+.preset-editor {
+  flex: 1;
+  min-width: 0;
+}
+.preset-empty-hint {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+</style>
