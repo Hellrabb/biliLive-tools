@@ -117,6 +117,7 @@ const totalCount = ref(0);
 const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
+const pollAbort = ref<AbortController | null>(null);
 
 const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 });
 
@@ -273,15 +274,26 @@ async function confirmManualAnalyze() {
       return;
     }
 
-    // Poll for results — max 90 attempts, 2s interval = ~3 minutes
+    // Poll for results with exponential backoff (1s → 10s max, ~5 min total)
+    const abortController = new AbortController();
+    pollAbort.value = abortController;
+    let delay = 1000;
+    let attempt = 0;
+    const maxAttempts = 60;
     let consecutive404s = 0;
-    for (let attempt = 0; attempt < 90; attempt++) {
-      await new Promise((r) => setTimeout(r, 2000));
+
+    while (attempt < maxAttempts) {
+      if (abortController.signal.aborted) return;
+      await new Promise((r) => setTimeout(r, delay));
+      if (abortController.signal.aborted) return;
+
       try {
         const resultRes = await request.get(`/auto-clip/result/${taskId}`);
         consecutive404s = 0;
         if (resultRes.data) {
           if (resultRes.data.status === "analyzing") {
+            attempt++;
+            delay = Math.min(delay * 1.3, 10000);
             continue;
           }
           if (resultRes.data.status === "failed") {
@@ -299,12 +311,13 @@ async function confirmManualAnalyze() {
         }
       } catch {
         consecutive404s++;
-        // If 404 persists for 5 consecutive polls (10s), the row likely disappeared
         if (consecutive404s >= 5) {
           notice.error("分析失败：任务丢失，请重试");
           return;
         }
       }
+      attempt++;
+      delay = Math.min(delay * 1.3, 10000);
     }
     notice.warning("分析超时，请稍后刷新查看结果");
     await refreshList();
@@ -342,5 +355,9 @@ watch(filterStatus, () => {
 
 onMounted(() => {
   refreshList();
+});
+
+onUnmounted(() => {
+  pollAbort.value?.abort();
 });
 </script>
