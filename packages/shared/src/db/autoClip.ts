@@ -17,6 +17,7 @@ export interface AutoClipResultRow {
   exported_paths: string | null; // JSON string
   bili_aids: string | null; // JSON string
   llm_fallback: number;     // 0 or 1
+  output_name: string | null; // custom naming prefix for manual clip
 }
 
 export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
@@ -44,7 +45,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         uploaded_at TEXT,
         exported_paths TEXT,
         bili_aids TEXT,
-        llm_fallback INTEGER NOT NULL DEFAULT 0
+        llm_fallback INTEGER NOT NULL DEFAULT 0,
+        output_name TEXT
       ) STRICT;
     `;
     super.createTable(sql);
@@ -98,6 +100,11 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         name: "add_llm_fallback",
         sql: `ALTER TABLE auto_clip_results ADD COLUMN llm_fallback INTEGER NOT NULL DEFAULT 0`,
       },
+      {
+        version: 2,
+        name: "add_output_name",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN output_name TEXT`,
+      },
     ];
 
     for (const m of migrations) {
@@ -107,6 +114,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
           const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
           if (cols.some(c => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
             // Column already exists from old ad-hoc migration, just record version
+          } else if (cols.some(c => c.name === "output_name") && m.name === "add_output_name") {
+            // Column already exists (idempotent)
           } else {
             this.db.exec(m.sql);
           }
@@ -136,13 +145,13 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
       return this.db.prepare(
         `UPDATE auto_clip_results
          SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
-             status = ?, highlights = ?, llm_fallback = ?,
+             status = ?, highlights = ?, llm_fallback = ?, output_name = ?,
              exported_at = NULL, uploaded_at = NULL,
              exported_paths = NULL, bili_aids = NULL
          WHERE id = ?`
       ).run(
         row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
-        row.status, row.highlights, row.llm_fallback,
+        row.status, row.highlights, row.llm_fallback, row.output_name,
         row.id,
       );
     }
