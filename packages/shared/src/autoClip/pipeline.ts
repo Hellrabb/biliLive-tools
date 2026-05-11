@@ -4,6 +4,8 @@ import { parseDanmu } from "../danmu/index.js";
 import { detectSignals } from "./signalDetector.js";
 import { rankCandidates, preRankCandidates } from "./llmRanker.js";
 import { detectSuspicious, applyFilter, llmReviewPatterns } from "./danmakuFilter.js";
+import { understandContent } from "./contentUnderstanding.js";
+import { generateStyledTitles } from "./titleStyler.js";
 import logger from "../utils/log.js";
 
 import type { AutoClipConfig, DanmuItem, VideoCodec, audioCodec } from "@biliLive-tools/types";
@@ -17,7 +19,8 @@ export interface PipelineParams {
   presetConfig: AutoClipConfig;
   onProgress?: ProgressCallback;
   sendMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
-  /** External result ID for async mode polling. Auto-generated if not provided. */
+  sendMultimodalMessage?: (prompt: string, images: string[], signal?: AbortSignal) => Promise<string>;
+  recognizeASR?: (audioPath: string) => Promise<{ text: string }>;
   id?: string;
 }
 
@@ -31,7 +34,7 @@ export interface PipelineParams {
 export async function runAutoClipPipeline(
   params: PipelineParams,
 ): Promise<AutoClipResult> {
-  const { videoPath, danmuPath, presetConfig, onProgress, sendMessage } = params;
+  const { videoPath, danmuPath, presetConfig, onProgress, sendMessage, sendMultimodalMessage, recognizeASR } = params;
   const id = params.id ?? uuidv4();
 
   const llmFallback = presetConfig.llm.enabled && !sendMessage;
@@ -164,6 +167,48 @@ export async function runAutoClipPipeline(
       signalSources: c.signalSources,
       isHighlight: true,
     }));
+  }
+
+  // 3.5 Phase 1.5: Content understanding + Phase 2: Styled titles
+  if (highlights.length > 0 && sendMessage) {
+    const enhancement = presetConfig.enhancement;
+    const hasEnhancement = enhancement?.asrEnabled || enhancement?.visualEnabled;
+
+    if (hasEnhancement) {
+      onProgress?.("understand", 82, "Content understanding (ASR + visual)...");
+      try {
+        const { asrMap, frameMap } = await understandContent(
+          videoPath,
+          highlights,
+          enhancement,
+          { sendMultimodalMessage, recognizeASR },
+        );
+        onProgress?.("understand", 88, "Content understanding complete");
+
+        onProgress?.("title", 90, "Generating styled titles...");
+        highlights = await generateStyledTitles(
+          highlights,
+          { asrMap, frameMap },
+          sendMessage,
+        );
+        onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
+      } catch (err) {
+        logger.warn("AutoClip: content understanding / title styling failed, using Phase 1 titles", err);
+      }
+    } else {
+      // Phase 2 only (no Phase 1.5 enrichment)
+      onProgress?.("title", 90, "Generating styled titles...");
+      try {
+        highlights = await generateStyledTitles(
+          highlights,
+          { asrMap: new Map(), frameMap: new Map() },
+          sendMessage,
+        );
+        onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
+      } catch (err) {
+        logger.warn("AutoClip: title styling failed, using Phase 1 content summaries", err);
+      }
+    }
   }
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);
