@@ -565,4 +565,55 @@ async function doExportClips(
   };
 }
 
+// POST /auto-clip/clips/batch-approve-and-export — 批量批准并导出
+router.post("/clips/batch-approve-and-export", async (ctx) => {
+  const { ids } = ctx.request.body as { ids?: string[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    ctx.status = 400;
+    ctx.body = { error: "ids array is required" };
+    return;
+  }
+  if (ids.length > 50) {
+    ctx.status = 400;
+    ctx.body = { error: "Maximum 50 clips per batch" };
+    return;
+  }
+
+  const results: Array<{ id: string; status: string; exportedPaths: string[]; errors: string[] }> = [];
+
+  for (const id of ids) {
+    const result = autoClipModel.getResultById(id);
+    if (!result) {
+      results.push({ id, status: "skipped", exportedPaths: [], errors: ["Not found"] });
+      continue;
+    }
+    if (result.status !== "pending") {
+      results.push({ id, status: "skipped", exportedPaths: [], errors: [`Status is '${result.status}'`] });
+      continue;
+    }
+
+    try {
+      const highlights = JSON.parse(result.highlights);
+      const exportResult = await doExportClips(
+        id,
+        result.video_path,
+        result.danmu_path,
+        highlights,
+        result.preset_id,
+        "AutoClip batch export",
+      );
+      results.push({
+        id,
+        status: exportResult.status,
+        exportedPaths: exportResult.exportedPaths,
+        errors: exportResult.errors,
+      });
+    } catch (err: any) {
+      results.push({ id, status: "failed", exportedPaths: [], errors: [err.message || String(err)] });
+    }
+  }
+
+  ctx.body = { results };
+});
+
 export default router;
