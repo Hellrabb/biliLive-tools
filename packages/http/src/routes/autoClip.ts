@@ -187,6 +187,14 @@ router.post("/run", async (ctx) => {
       ctx.body = { error: "Danmu file not found" };
       return;
     }
+    // Reject unreasonably large danmaku XML files (>50 MB)
+    const MAX_DANMU_SIZE_BYTES = 50 * 1024 * 1024;
+    const danmuStat = await fs.stat(resolvedDanmu);
+    if (danmuStat.size > MAX_DANMU_SIZE_BYTES) {
+      ctx.status = 400;
+      ctx.body = { error: `Danmu file too large (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB). Maximum is 50 MB.` };
+      return;
+    }
   } catch (err: any) {
     if (err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module")) {
       // fs-extra unavailable — skip file existence check (non-blocking)

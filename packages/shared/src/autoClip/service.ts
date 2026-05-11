@@ -170,7 +170,8 @@ export class AutoClipService {
       }
 
       const videoCutCfg = appConfig.videoCut ?? {};
-      if (videoCutCfg.autoClipUpload ?? false) {
+      // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
+      if ((videoCutCfg.autoClipUpload ?? false) && (presetConfig.export.uploadToBili ?? false)) {
         await this.uploadToBili(exportedPaths, highlights, appConfig);
       }
 
