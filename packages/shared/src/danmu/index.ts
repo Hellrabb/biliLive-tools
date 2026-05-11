@@ -92,7 +92,7 @@ export const parseMetadata = async (input: string) => {
     room_id: data.roomId,
     live_title: data.title,
     video_start_time: data.startTimestamp,
-    platform: undefined,
+    platform: data.platform,
   };
   return metadata;
 };
@@ -106,27 +106,35 @@ export const parseDanmu = async (input: string) => {
   const { danmuku, sc, gift, guard } = await parseXmlFile(input);
   const metadata = await parseMetadata(input);
 
+  // Douyin XML stores time offsets in seconds (pArray[0], @_ts) and
+  // absolute Unix ms in @_timestamp. Normalize to the B站 convention:
+  //   ts → milliseconds, timestamp → undefined (relative offset unavailable)
+  const isDouyin = metadata.platform === "douyin";
+
   const parsedDanmuku = danmuku.map((item) => {
     const pArray = (item["@_p"] as string).split(",");
+    const rawTs = Number(pArray[0]);
+    const rawTimestamp = item["@_timestamp"] ? Number(item["@_timestamp"]) : Number(pArray[4]);
     const data: Danmu = {
       type: "text",
 
       text: item["#text"],
       user: item["@_user"],
-      ts: Number(pArray[0]),
-      timestamp: item["@_timestamp"] ? Number(item["@_timestamp"]) : Number(pArray[4]),
+      ts: isDouyin ? rawTs * 1000 : rawTs,
+      timestamp: isDouyin ? undefined : rawTimestamp,
       p: item["@_p"],
     };
     return data;
   });
 
   const parsedSC = sc.map((item) => {
+    const rawTs = Number(item["@_ts"]);
     const data: SC = {
       type: "sc",
       text: item["#text"],
       user: item["@_user"],
-      ts: Number(item["@_ts"]),
-      timestamp: item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined,
+      ts: isDouyin ? rawTs * 1000 : rawTs,
+      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
       gift_count: 1,
       gift_price: item["@_price"],
     };
@@ -134,12 +142,13 @@ export const parseDanmu = async (input: string) => {
   });
 
   const parsedGift = gift.map((item) => {
+    const rawTs = Number(item["@_ts"]);
     const data: Gift = {
       type: "gift",
       text: "",
       user: item["@_user"],
-      ts: Number(item["@_ts"]),
-      timestamp: item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined,
+      ts: isDouyin ? rawTs * 1000 : rawTs,
+      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
       gift_name: item["@_giftname"],
       gift_count: item["@_giftcount"],
       gift_price: item["@_price"],
@@ -148,12 +157,13 @@ export const parseDanmu = async (input: string) => {
   });
 
   const parsedGuard = guard.map((item) => {
+    const rawTs = Number(item["@_ts"]);
     const data: Guard = {
       type: "guard",
       text: "",
       user: item["@_user"],
-      ts: Number(item["@_ts"]),
-      timestamp: item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined,
+      ts: isDouyin ? rawTs * 1000 : rawTs,
+      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
       gift_name: item["@_giftname"],
       gift_count: item["@_giftcount"],
       gift_price: item["@_price"],
