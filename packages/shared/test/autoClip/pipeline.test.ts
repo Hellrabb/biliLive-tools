@@ -149,7 +149,7 @@ describe("exportClips", () => {
   it("appends timestamp suffix when output file already exists", async () => {
     mockPathExists.mockResolvedValue(true);
 
-    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig, {});
 
     expect(result.success).toHaveLength(1);
     const outputPath: string = mockCutFn.mock.calls[0][1];
@@ -161,7 +161,7 @@ describe("exportClips", () => {
   it("does NOT append timestamp when output file does not exist", async () => {
     mockPathExists.mockResolvedValue(false);
 
-    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig, {});
 
     expect(result.success).toHaveLength(1);
     const outputPath: string = mockCutFn.mock.calls[0][1];
@@ -175,6 +175,7 @@ describe("exportClips", () => {
       danmuPath,
       highlights as any,
       exportConfig,
+      {},
       undefined,
       "myTest",
     );
@@ -185,7 +186,7 @@ describe("exportClips", () => {
   });
 
   it("passes override: true to cut", async () => {
-    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig, {});
 
     expect(result.success).toHaveLength(1);
     const cutOptions = mockCutFn.mock.calls[0][3];
