@@ -42,9 +42,9 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     namingTemplate: "{{title}}_{{index}}",
   },
   danmakuFilter: {
-    enabled: false,
+    enabled: true,
     rules: [],
-    autoDetectEnabled: false,
+    autoDetectEnabled: true,
   },
 };
 
