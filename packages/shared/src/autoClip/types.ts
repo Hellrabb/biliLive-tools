@@ -110,9 +110,9 @@ export interface SuspiciousPattern {
 /** Phase 2 标题风格化配置 */
 export interface TitleStyleConfig {
   /** 标题最大长度 (字符数)，默认 30 */
-  maxLength: number;
+  maxLength?: number;
   /** 标题最小长度 (字符数)，默认 20 */
-  minLength: number;
+  minLength?: number;
   /** 自定义 prompt 模板 (覆盖内置模板) */
   customPrompt?: string;
 }
