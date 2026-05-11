@@ -1235,6 +1235,12 @@ export interface AutoClipLLMConfig {
     danmakuDensity: number;
     highlightThreshold: number;
   };
+  /** 多模态视觉模型 ID (如 qwen-vl-plus)，用于 Phase 1.5 帧描述 */
+  visionModelId?: string;
+  /** ASR 语音识别模型 ID，默认 fallback 到 modelId */
+  asrModelId?: string;
+  /** Phase 2 风格化标题的自定义 prompt 模板 */
+  titleStylePrompt?: string;
 }
 
 /** @reserved — 首版不实现，保留接口用于二期 ASR/视觉扩展 */
