@@ -39,8 +39,10 @@ export class AutoClipService {
     onProgress?: ProgressCallback;
     /** External result ID for async mode polling. Auto-generated if not provided. */
     id?: string;
+    /** Custom naming prefix for manual clip */
+    outputName?: string;
   }): Promise<AutoClipResult> {
-    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id } = params;
+    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id, outputName } = params;
 
     // 1. Load preset config — explicit presetId takes priority
     let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
@@ -89,6 +91,12 @@ export class AutoClipService {
     const status = reviewMode ? "pending" : "approved";
 
     try {
+      // Preserve output_name from existing placeholder (for async manual analysis)
+      let effectiveOutputName = outputName ?? null;
+      if (id && !effectiveOutputName) {
+        const existing = autoClipModel.getResultById(id);
+        effectiveOutputName = existing?.output_name ?? null;
+      }
       autoClipModel.upsertResult({
         id: result.id,
         video_path: videoPath,
@@ -103,6 +111,7 @@ export class AutoClipService {
         exported_paths: null,
         bili_aids: null,
         llm_fallback: result.llmFallback ? 1 : 0,
+        output_name: effectiveOutputName,
       });
 
       if (result.skipped) {

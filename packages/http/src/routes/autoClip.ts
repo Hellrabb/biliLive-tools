@@ -147,10 +147,11 @@ router.get("/default-config", async (ctx) => {
 // ===================== 手动触发 =====================
 
 router.post("/run", async (ctx) => {
-  const { videoPath, danmuPath, presetId } = ctx.request.body as {
+  const { videoPath, danmuPath, presetId, outputName } = ctx.request.body as {
     videoPath?: string;
     danmuPath?: string;
     presetId?: string;
+    outputName?: string;
   };
 
   if (!videoPath || !danmuPath) {
@@ -212,6 +213,7 @@ router.post("/run", async (ctx) => {
     exported_paths: null,
     bili_aids: null,
     llm_fallback: 0,
+    output_name: outputName || null,
   });
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
@@ -225,6 +227,7 @@ router.post("/run", async (ctx) => {
         presetId,
         skipAutoExport: true,
         id: taskId,
+        outputName: outputName || undefined,
         onProgress: (_stage, _pct, message) => {
           logger.info(`[AutoClip ${taskId}] ${message}`);
         },
@@ -476,11 +479,16 @@ async function doExportClips(
       };
     }
 
+    // Read custom naming prefix from DB record (for manual clip)
+    const dbRecord = autoClipModel.getResultById(resultId);
+    const namingPrefix = dbRecord?.output_name || undefined;
+
     const exportResult = await exportClips(
       videoPath,
       validHighlights as any[],
       effectiveConfig,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
+      namingPrefix,
     );
 
     exportedPaths = exportResult.success.map((s: any) => s.path);

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { runAutoClipPipeline } from "../../src/autoClip/pipeline";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runAutoClipPipeline, exportClips } from "../../src/autoClip/pipeline";
 import type { AutoClipConfig } from "@biliLive-tools/types";
 
 // Mock parseDanmu to return empty danmaku data
@@ -13,12 +13,14 @@ vi.mock("../../src/danmu/index.js", () => ({
   }),
 }));
 
+const mockCutFn = vi.fn();
+
 // Mock readVideoMeta to return a known duration
 vi.mock("../../src/task/video.js", () => ({
   readVideoMeta: vi.fn().mockResolvedValue({
     format: { duration: "120.5" },
   }),
-  cut: vi.fn(),
+  cut: (...args: any[]) => mockCutFn(...args),
 }));
 
 const defaultConfig: AutoClipConfig = {
@@ -107,5 +109,82 @@ describe("runAutoClipPipeline", () => {
     });
 
     expect(result.llmFallback).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// exportClips tests
+// ---------------------------------------------------------------------------
+
+const mockPathExists = vi.fn();
+vi.mock("fs-extra", () => ({
+  pathExists: (...args: any[]) => mockPathExists(...args),
+}));
+
+describe("exportClips", () => {
+  const videoPath = "/fake/video.mp4";
+  const exportConfig: AutoClipConfig["export"] = {
+    cutFormat: "mp4",
+    encoder: "libx264",
+    audioCodec: "copy",
+    ffmpegPresetId: "",
+    burnDanmaku: false,
+    uploadToBili: false,
+    savePath: "/fake/output",
+    namingTemplate: "{{title}}_{{index}}",
+  };
+
+  const highlights = [
+    { title: "Highlight", bestRange: [10, 30] as [number, number] },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPathExists.mockResolvedValue(false);
+  });
+
+  it("appends timestamp suffix when output file already exists", async () => {
+    mockPathExists.mockResolvedValue(true);
+
+    const result = await exportClips(videoPath, highlights as any, exportConfig);
+
+    expect(result.success).toHaveLength(1);
+    const outputPath: string = mockCutFn.mock.calls[0][1];
+    // Should contain timestamp pattern _YYYYMMDDTHHmmss
+    expect(outputPath).toMatch(/_\d{8}T\d{6}/);
+    expect(result.failed).toHaveLength(0);
+  });
+
+  it("does NOT append timestamp when output file does not exist", async () => {
+    mockPathExists.mockResolvedValue(false);
+
+    const result = await exportClips(videoPath, highlights as any, exportConfig);
+
+    expect(result.success).toHaveLength(1);
+    const outputPath: string = mockCutFn.mock.calls[0][1];
+    // Should be the plain name without timestamp
+    expect(outputPath).toBe("/fake/output/Highlight_1.mp4");
+  });
+
+  it("prepends namingPrefix when provided", async () => {
+    const result = await exportClips(
+      videoPath,
+      highlights as any,
+      exportConfig,
+      undefined,
+      "myTest",
+    );
+
+    expect(result.success).toHaveLength(1);
+    const outputPath: string = mockCutFn.mock.calls[0][1];
+    expect(outputPath).toContain("myTest_Highlight_1");
+  });
+
+  it("passes override: true to cut", async () => {
+    const result = await exportClips(videoPath, highlights as any, exportConfig);
+
+    expect(result.success).toHaveLength(1);
+    const cutOptions = mockCutFn.mock.calls[0][3];
+    expect(cutOptions.override).toBe(true);
   });
 });

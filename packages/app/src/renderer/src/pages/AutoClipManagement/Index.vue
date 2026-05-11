@@ -74,6 +74,9 @@
           <n-form-item label="弹幕文件路径">
             <n-input v-model:value="danmuInputPath" placeholder="输入弹幕 XML 文件路径" />
           </n-form-item>
+          <n-form-item label="输出名称（可选）">
+            <n-input v-model:value="outputName" placeholder="自定义切片文件名前缀，留空使用默认命名" />
+          </n-form-item>
         </n-form>
         <template #footer>
           <n-space justify="end">
@@ -89,9 +92,10 @@
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
-import { NButton, NSpace, NTag, NDivider, NDataTable, useNotification } from "naive-ui";
+import { NButton, NSpace, NTag, NDivider, NDataTable } from "naive-ui";
 import request from "@renderer/apis/request";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
+import { useNotice } from "@renderer/hooks/useNotice";
 
 interface ClipRow {
   id: string;
@@ -115,7 +119,7 @@ interface ClipRow {
 }
 
 const router = useRouter();
-const notice = useNotification();
+const notice = useNotice();
 const loading = ref(false);
 const analyzing = ref(false);
 const clips = ref<ClipRow[]>([]);
@@ -252,11 +256,13 @@ async function deleteClip(row: ClipRow) {
 const showDanmuDialog = ref(false);
 const danmuInputPath = ref("");
 const pendingVideoPath = ref("");
+const outputName = ref("");
 
 function triggerManualAnalyze(filePath: string) {
   const guessed = filePath.replace(/\.[^.]+$/, ".xml");
   danmuInputPath.value = guessed;
   pendingVideoPath.value = filePath;
+  outputName.value = "";
   showDanmuDialog.value = true;
 }
 
@@ -268,7 +274,11 @@ async function confirmManualAnalyze() {
   analyzing.value = true;
   notice.info("正在分析中，请稍候...");
   try {
-    const res = await request.post("/auto-clip/run", { videoPath, danmuPath });
+    const res = await request.post("/auto-clip/run", {
+      videoPath,
+      danmuPath,
+      outputName: outputName.value || undefined,
+    });
     const taskId = res.data?.taskId;
 
     if (!taskId) {

@@ -129,6 +129,7 @@ export async function exportClips(
   highlights: AutoClipResult["highlights"],
   exportConfig: AutoClipConfig["export"],
   onProgress?: ProgressCallback,
+  namingPrefix?: string,
 ): Promise<ExportClipsResult> {
   const success: ExportClipsResult["success"] = [];
   const failed: ExportClipsResult["failed"] = [];
@@ -152,18 +153,32 @@ export async function exportClips(
 
   // Dynamic import for cut once
   const { cut } = await import("../task/video.js");
+  const { pathExists } = await import("fs-extra");
 
   for (let i = 0; i < highlights.length; i++) {
     const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
     const escapeReplaceValue = (v: string) => v.replace(/\$/g, "$$$$");
-    const outputName = exportConfig.namingTemplate
+    let outputName = exportConfig.namingTemplate
       .replace(/\{\{title\}\}/g, escapeReplaceValue(safeTitle))
       .replace(/\{\{index\}\}/g, String(i + 1));
-    const outputPath = path.join(
+
+    if (namingPrefix) {
+      outputName = `${namingPrefix}_${outputName}`;
+    }
+
+    // Prevent filename collisions — append timestamp if file already exists
+    let outputPath = path.join(
       savePath,
       `${outputName}.${exportConfig.cutFormat}`,
     );
+    if (await pathExists(outputPath)) {
+      const ts = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+      outputPath = path.join(
+        savePath,
+        `${outputName}_${ts}.${exportConfig.cutFormat}`,
+      );
+    }
 
     onProgress?.(
       "cut",
@@ -182,7 +197,7 @@ export async function exportClips(
           ss: h.bestRange[0],
           to: h.bestRange[1],
         },
-        { saveType: 2, savePath },
+        { saveType: 2, savePath, override: true },
       );
       success.push({ path: outputPath, highlight: h });
     } catch (error) {
