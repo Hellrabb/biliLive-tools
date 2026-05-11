@@ -34,6 +34,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     audioCodec: "copy",
     ffmpegPresetId: "default",
     burnDanmaku: false,
+    danmuPresetId: "default",
     uploadToBili: false,
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",

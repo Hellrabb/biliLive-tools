@@ -124,6 +124,7 @@ export class AutoClipService {
         await this.autoExportAndUpload(
           result.id,
           videoPath,
+          danmuPath,
           result.highlights,
           presetConfig,
           appConfig,
@@ -139,6 +140,7 @@ export class AutoClipService {
   private async autoExportAndUpload(
     resultId: string,
     videoPath: string,
+    danmuPath: string,
     highlights: HighlightSegment[],
     presetConfig: AutoClipConfig,
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
@@ -150,6 +152,7 @@ export class AutoClipService {
 
     const exportResult = await exportClips(
       videoPath,
+      danmuPath,
       highlights,
       { ...exportCfg, savePath },
       (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),

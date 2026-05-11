@@ -52,6 +52,7 @@ const defaultConfig: AutoClipConfig = {
     audioCodec: "copy",
     ffmpegPresetId: "default",
     burnDanmaku: false,
+    danmuPresetId: "default",
     uploadToBili: false,
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",
@@ -123,12 +124,14 @@ vi.mock("fs-extra", () => ({
 
 describe("exportClips", () => {
   const videoPath = "/fake/video.mp4";
+  const danmuPath = "/fake/danmu.xml";
   const exportConfig: AutoClipConfig["export"] = {
     cutFormat: "mp4",
     encoder: "libx264",
     audioCodec: "copy",
     ffmpegPresetId: "",
     burnDanmaku: false,
+    danmuPresetId: "default",
     uploadToBili: false,
     savePath: "/fake/output",
     namingTemplate: "{{title}}_{{index}}",
@@ -146,7 +149,7 @@ describe("exportClips", () => {
   it("appends timestamp suffix when output file already exists", async () => {
     mockPathExists.mockResolvedValue(true);
 
-    const result = await exportClips(videoPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
 
     expect(result.success).toHaveLength(1);
     const outputPath: string = mockCutFn.mock.calls[0][1];
@@ -158,7 +161,7 @@ describe("exportClips", () => {
   it("does NOT append timestamp when output file does not exist", async () => {
     mockPathExists.mockResolvedValue(false);
 
-    const result = await exportClips(videoPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
 
     expect(result.success).toHaveLength(1);
     const outputPath: string = mockCutFn.mock.calls[0][1];
@@ -169,6 +172,7 @@ describe("exportClips", () => {
   it("prepends namingPrefix when provided", async () => {
     const result = await exportClips(
       videoPath,
+      danmuPath,
       highlights as any,
       exportConfig,
       undefined,
@@ -181,7 +185,7 @@ describe("exportClips", () => {
   });
 
   it("passes override: true to cut", async () => {
-    const result = await exportClips(videoPath, highlights as any, exportConfig);
+    const result = await exportClips(videoPath, danmuPath, highlights as any, exportConfig);
 
     expect(result.success).toHaveLength(1);
     const cutOptions = mockCutFn.mock.calls[0][3];

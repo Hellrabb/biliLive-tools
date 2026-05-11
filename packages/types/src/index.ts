@@ -1248,7 +1248,10 @@ export interface AutoClipExportConfig {
   /** ffmpeg 音频编码器, 默认 "copy" */
   audioCodec: string;
   ffmpegPresetId: string;
+  /** 弹幕烧录开关 */
   burnDanmaku: boolean;
+  /** 弹幕预设 ID (burnDanmaku 启用时使用) */
+  danmuPresetId: string;
   uploadToBili: boolean;
   savePath: string;
   namingTemplate: string;
