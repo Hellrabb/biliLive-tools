@@ -142,14 +142,20 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
   upsertResult(row: AutoClipResultRow) {
     const existing = this.getResultById(row.id);
     if (existing) {
-      return this.db.prepare(
-        `UPDATE auto_clip_results
-         SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
-             status = ?, highlights = ?, llm_fallback = ?, output_name = ?,
-             exported_at = NULL, uploaded_at = NULL,
-             exported_paths = NULL, bili_aids = NULL
-         WHERE id = ?`
-      ).run(
+      // Preserve export/upload history if already exported
+      const hasExistingExport = existing.exported_paths && existing.exported_paths !== "[]";
+      const sql = hasExistingExport
+        ? `UPDATE auto_clip_results
+           SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
+               status = ?, highlights = ?, llm_fallback = ?, output_name = ?
+           WHERE id = ?`
+        : `UPDATE auto_clip_results
+           SET video_path = ?, danmu_path = ?, recorder_id = ?, preset_id = ?,
+               status = ?, highlights = ?, llm_fallback = ?, output_name = ?,
+               exported_at = NULL, uploaded_at = NULL,
+               exported_paths = NULL, bili_aids = NULL
+           WHERE id = ?`;
+      return this.db.prepare(sql).run(
         row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
         row.status, row.highlights, row.llm_fallback, row.output_name,
         row.id,

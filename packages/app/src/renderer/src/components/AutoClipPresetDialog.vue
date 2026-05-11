@@ -149,6 +149,67 @@
                   </n-form-item>
                 </n-form>
               </n-tab-pane>
+
+              <!-- Tab 4: 弹幕过滤 -->
+              <n-tab-pane name="filter" tab="弹幕过滤">
+                <n-form label-placement="left" :label-width="170" size="small">
+                  <n-form-item label="启用弹幕过滤">
+                    <n-switch v-model:value="editingPreset.config.danmakuFilter.enabled" />
+                  </n-form-item>
+                  <n-form-item label="自动检测垃圾弹幕">
+                    <n-switch v-model:value="editingPreset.config.danmakuFilter.autoDetectEnabled" />
+                  </n-form-item>
+                  <n-divider>过滤规则 ({{ editingPreset.config.danmakuFilter.rules?.length ?? 0 }})</n-divider>
+                  <n-data-table
+                    v-if="(editingPreset.config.danmakuFilter.rules?.length ?? 0) > 0"
+                    :columns="filterRuleColumns"
+                    :data="editingPreset.config.danmakuFilter.rules"
+                    size="small"
+                    :max-height="300"
+                  />
+                  <n-empty v-else description="暂无过滤规则" size="small" />
+                </n-form>
+              </n-tab-pane>
+
+              <!-- Tab 5: 增强 (Phase 1.5) -->
+              <n-tab-pane name="enhancement" tab="增强">
+                <n-form label-placement="left" :label-width="170" size="small">
+                  <n-form-item label="启用 ASR 语音识别">
+                    <n-switch v-model:value="editingPreset.config.enhancement.asrEnabled" />
+                  </n-form-item>
+                  <n-form-item label="启用视觉理解">
+                    <n-switch v-model:value="editingPreset.config.enhancement.visualEnabled" />
+                  </n-form-item>
+                  <n-form-item v-if="editingPreset.config.enhancement.visualEnabled" label="视觉模型 ID">
+                    <n-input v-model:value="editingPreset.config.llm.visionModelId" placeholder="如 qwen-vl-plus" style="width:250px" />
+                  </n-form-item>
+                  <n-form-item v-if="editingPreset.config.enhancement.asrEnabled" label="ASR 模型 ID">
+                    <n-input v-model:value="editingPreset.config.llm.asrModelId" placeholder="留空使用 LLM 模型" style="width:250px" />
+                  </n-form-item>
+                </n-form>
+              </n-tab-pane>
+
+              <!-- Tab 6: 标题风格 (Phase 2) -->
+              <n-tab-pane name="titleStyle" tab="标题风格">
+                <n-form label-placement="left" :label-width="170" size="small">
+                  <n-form-item v-if="editingPreset.config.llm.titleStyleConfig" label="标题最小长度">
+                    <n-input-number v-model:value="editingPreset.config.llm.titleStyleConfig.minLength" :step="1" :min="8" :max="50" />
+                    <span style="margin-left:4px">字</span>
+                  </n-form-item>
+                  <n-form-item v-if="editingPreset.config.llm.titleStyleConfig" label="标题最大长度">
+                    <n-input-number v-model:value="editingPreset.config.llm.titleStyleConfig.maxLength" :step="1" :min="10" :max="60" />
+                    <span style="margin-left:4px">字</span>
+                  </n-form-item>
+                  <n-form-item label="自定义标题 Prompt">
+                    <n-input
+                      v-model:value="editingPreset.config.llm.titleStylePrompt"
+                      type="textarea"
+                      :autosize="{ minRows: 4, maxRows: 10 }"
+                      placeholder="自定义标题风格 prompt，留空使用内置模板"
+                    />
+                  </n-form-item>
+                </n-form>
+              </n-tab-pane>
             </n-tabs>
           </template>
         </div>
@@ -159,6 +220,7 @@
 
 <script setup lang="ts">
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
+import { NSpace, NButton } from "naive-ui";
 import { autoClipPresetApi } from "@renderer/apis/presets";
 import { useConfirm } from "@renderer/hooks";
 import { cloneDeep } from "lodash-es";
@@ -176,6 +238,38 @@ const presets = ref<AutoClipPresetType[]>([]);
 const selectedId = ref<string>("");
 const editingPreset = ref<AutoClipPresetType | null>(null);
 const activeTab = ref("signal");
+
+const filterRuleColumns = [
+  { title: "模式", key: "mode", width: 70, render: (r: any) => ({ exact: "精确", contains: "包含", regex: "正则" } as Record<string, string>)[r.mode] ?? r.mode },
+  { title: "规则", key: "pattern", ellipsis: { tooltip: true } },
+  { title: "来源", key: "source", width: 60, render: (r: any) => r.source === "auto" ? "自动" : "手动" },
+  {
+    title: "操作", key: "actions", width: 120,
+    render: (row: any, index: number) => {
+      return h(NSpace, {}, () => [
+        h(NButton, {
+          size: "tiny",
+          type: row.enabled ? "success" : "default",
+          ghost: true,
+          onClick: () => {
+            const rules = editingPreset.value!.config.danmakuFilter.rules;
+            if (rules) rules[index]!.enabled = !rules[index]!.enabled;
+          },
+        }, () => row.enabled ? "启用" : "禁用"),
+        h(NButton, {
+          size: "tiny",
+          type: "error",
+          ghost: true,
+          onClick: () => {
+            const rules = editingPreset.value!.config.danmakuFilter.rules;
+            if (rules) rules.splice(index, 1);
+          },
+        }, () => "删除"),
+      ]);
+    },
+  },
+];
+
 const confirm = useConfirm();
 
 const defaultConfig = ref<AutoClipConfig | null>(null);

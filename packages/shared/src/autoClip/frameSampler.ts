@@ -1,9 +1,13 @@
 import { spawn } from "node:child_process";
+import pLimit from "p-limit";
 import logger from "../utils/log.js";
+
+const FRAME_CONCURRENCY = 3;
 
 /**
  * Extract frames from a video at given timestamps.
- * Returns base64 JPEG data URIs via ffmpeg pipe (no temp files).
+ * Extractions run in parallel (up to 3 concurrent ffmpeg processes).
+ * Returns base64 JPEG data URIs for successfully extracted frames.
  */
 export async function sampleFrames(
   videoPath: string,
@@ -12,17 +16,26 @@ export async function sampleFrames(
 ): Promise<string[]> {
   if (timestampsSeconds.length === 0) return [];
 
-  const frames: string[] = [];
+  const limit = pLimit(FRAME_CONCURRENCY);
 
-  for (const ts of timestampsSeconds) {
-    try {
-      const frame = await extractOneFrame(videoPath, ts, ffmpegPath);
-      frames.push(frame);
-    } catch (err) {
-      logger.warn(`frameSampler: failed to extract frame at ${ts}s: ${err}`);
+  const tasks = timestampsSeconds.map((ts) =>
+    limit(async () => {
+      try {
+        return await extractOneFrame(videoPath, ts, ffmpegPath);
+      } catch (err) {
+        logger.warn(`frameSampler: failed to extract frame at ${ts}s: ${err}`);
+        return null;
+      }
+    }),
+  );
+
+  const results = await Promise.allSettled(tasks);
+  const frames: string[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value !== null) {
+      frames.push(r.value);
     }
   }
-
   return frames;
 }
 

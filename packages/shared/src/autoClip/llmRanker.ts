@@ -113,8 +113,7 @@ export function buildLLMPrompt(
 // parseLLMResponse
 // ---------------------------------------------------------------------------
 
-const JSON_BLOCK_RE = /```(?:json)?\s*\n?([\s\S]*?)```/;
-const JSON_OBJECT_RE = /\{[\s\S]*\}/;
+import { extractAndParseJSON } from "./jsonParser.js";
 
 /**
  * Parse LLM JSON response into an `LLMRankResult`.
@@ -139,23 +138,9 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
   });
 
   try {
-    // 1. Extract JSON payload from the raw text
-    let jsonStr = raw;
-
-    // Try to extract from markdown code block first
-    const blockMatch = raw.match(JSON_BLOCK_RE);
-    if (blockMatch) {
-      jsonStr = blockMatch[1]!.trim();
-    } else {
-      // Otherwise extract the first JSON object
-      const objMatch = raw.match(JSON_OBJECT_RE);
-      if (objMatch) {
-        jsonStr = objMatch[0];
-      }
-    }
-
-    // 2. Parse JSON
-    const parsed = JSON.parse(jsonStr);
+    // 1. Extract and parse JSON payload from the raw text
+    const parsed = extractAndParseJSON<Record<string, unknown>>(raw);
+    if (!parsed) return fallback();
 
     // 3. Extract score first (needed for isHighlight inference)
     const score = typeof parsed.score === "number" ? parsed.score : 0;

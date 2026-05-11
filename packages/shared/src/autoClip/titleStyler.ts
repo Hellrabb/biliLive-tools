@@ -1,6 +1,7 @@
 import pLimit from "p-limit";
 import logger from "../utils/log.js";
 import type { HighlightSegment, TitleStyleConfig } from "./types.js";
+import { extractAndParseJSON } from "./jsonParser.js";
 
 // ---------------------------------------------------------------------------
 // Prompt templates
@@ -183,30 +184,27 @@ export async function generateStyledTitles(
 // parseTitleResponse
 // ---------------------------------------------------------------------------
 
-function parseTitleResponse(raw: string): string | null {
-  try {
-    let jsonStr = raw;
-
-    const blockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    if (blockMatch) {
-      jsonStr = blockMatch[1]!.trim();
-    } else {
-      const objMatch = raw.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        jsonStr = objMatch[0];
-      }
-    }
-
-    const parsed = JSON.parse(jsonStr);
-    return typeof parsed.title === "string" && parsed.title.length > 0
-      ? parsed.title.trim()
-      : null;
-  } catch {
-    // If it looks like plain text (reasonable title length), use it directly
-    const trimmed = raw.trim();
-    if (trimmed.length >= 8 && trimmed.length <= 50 && !trimmed.includes("\n")) {
-      return trimmed;
-    }
-    return null;
+export function parseTitleResponse(raw: string): string | null {
+  const parsed = extractAndParseJSON<{ title?: string }>(raw);
+  if (parsed && typeof parsed.title === "string" && parsed.title.length > 0) {
+    return parsed.title.trim();
   }
+  const trimmed = raw.trim();
+  // Reject text that looks like an LLM error/refusal message
+  const likelyErrorPatterns = [
+    /^(I|Sorry|Error|无法|不能|抱歉|对不起|Please)/i,
+    /^(As an AI|I am|I cannot|I'm unable)/i,
+  ];
+  const looksLikeError = likelyErrorPatterns.some((p) => p.test(trimmed));
+
+  if (
+    !looksLikeError &&
+    trimmed.length >= 8 &&
+    trimmed.length <= 50 &&
+    !trimmed.includes("\n") &&
+    !trimmed.includes("{")
+  ) {
+    return trimmed;
+  }
+  return null;
 }

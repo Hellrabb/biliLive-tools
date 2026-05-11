@@ -227,6 +227,41 @@ export interface ExportPresetContext {
 }
 
 /**
+ * Resolve ffmpeg and danmaku preset configs from the DI container.
+ * Shared by service.ts (auto export) and routes/autoClip.ts (manual export).
+ */
+export async function resolveExportPresets(exportCfg: {
+  ffmpegPresetId?: string;
+  burnDanmaku?: boolean;
+  danmuPresetId?: string;
+}): Promise<ExportPresetContext> {
+  const result: ExportPresetContext = {};
+
+  if (exportCfg.ffmpegPresetId) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+      const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
+      if (preset?.config) {
+        result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
+      }
+    } catch { /* use empty */ }
+  }
+
+  if (exportCfg.burnDanmaku) {
+    try {
+      const { container: diContainer } = await import("../index.js");
+      const danmuPreset = diContainer.resolve("danmuPreset");
+      const danmuPresetId = exportCfg.danmuPresetId || "default";
+      const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
+      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
+    } catch { /* use empty */ }
+  }
+
+  return result;
+}
+
+/**
  * Export highlight clips to video files using the existing ffmpeg cut pipeline.
  *
  * Uses dynamic import for `task/video.js` to avoid circular dependencies
@@ -282,10 +317,9 @@ export async function exportClips(
   for (let i = 0; i < highlights.length; i++) {
     const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
-    const escapeReplaceValue = (v: string) => v.replace(/\$/g, "$$$$");
     let outputName = exportConfig.namingTemplate
-      .replace(/\{\{title\}\}/g, escapeReplaceValue(safeTitle))
-      .replace(/\{\{index\}\}/g, String(i + 1));
+      .split("{{title}}").join(safeTitle)
+      .split("{{index}}").join(String(i + 1));
 
     if (namingPrefix) {
       outputName = `${namingPrefix}_${outputName}`;

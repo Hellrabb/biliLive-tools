@@ -91,50 +91,55 @@ export async function understandContent(
   const doExtractAudio = deps.extractAudio ?? extractAudioSegment;
   const doSampleFrames = deps.sampleFrames ?? sampleFrames;
 
-  // Process highlights sequentially (audio extraction is heavy)
-  for (let i = 0; i < highlights.length; i++) {
-    const h = highlights[i]!;
+  // Process highlights in parallel with concurrency control
+  const CONCURRENCY = 3;
+  const { default: pLimit } = await import("p-limit");
+  const limit = pLimit(CONCURRENCY);
 
-    // --- ASR ---
-    if (doASR) {
-      try {
-        const audioPath = await doExtractAudio(videoPath, h.bestRange);
+  const tasks = highlights.map((h, i) =>
+    limit(async () => {
+      // --- ASR ---
+      if (doASR) {
         try {
-          const result = await deps.recognizeASR!(audioPath);
-          if (result?.text) {
-            asrMap.set(i, result.text);
+          const audioPath = await doExtractAudio(videoPath, h.bestRange);
+          try {
+            const result = await deps.recognizeASR!(audioPath);
+            if (result?.text) {
+              asrMap.set(i, result.text);
+            }
+          } finally {
+            unlink(audioPath).catch(() => {});
           }
-        } finally {
-          // Clean up temp file
-          unlink(audioPath).catch(() => {});
+        } catch (err) {
+          logger.warn(`contentUnderstanding: ASR failed for highlight ${i}: ${err}`);
         }
-      } catch (err) {
-        logger.warn(`contentUnderstanding: ASR failed for highlight ${i}: ${err}`);
       }
-    }
 
-    // --- Frame description ---
-    if (doVisual) {
-      try {
-        const timestamps = [
-          h.bestRange[0] + 1,
-          (h.bestRange[0] + h.bestRange[1]) / 2,
-        ];
-        const frames = await doSampleFrames(videoPath, timestamps);
-        if (frames.length > 0) {
-          const description = await deps.sendMultimodalMessage!(
-            FRAME_DESCRIPTION_PROMPT,
-            frames,
-          );
-          if (description) {
-            frameMap.set(i, description);
+      // --- Frame description ---
+      if (doVisual) {
+        try {
+          const timestamps = [
+            h.bestRange[0] + 1,
+            (h.bestRange[0] + h.bestRange[1]) / 2,
+          ];
+          const frames = await doSampleFrames(videoPath, timestamps);
+          if (frames.length > 0) {
+            const description = await deps.sendMultimodalMessage!(
+              FRAME_DESCRIPTION_PROMPT,
+              frames,
+            );
+            if (description) {
+              frameMap.set(i, description);
+            }
           }
+        } catch (err) {
+          logger.warn(`contentUnderstanding: frame description failed for highlight ${i}: ${err}`);
         }
-      } catch (err) {
-        logger.warn(`contentUnderstanding: frame description failed for highlight ${i}: ${err}`);
       }
-    }
-  }
+    }),
+  );
+
+  await Promise.allSettled(tasks);
 
   return { asrMap, frameMap };
 }

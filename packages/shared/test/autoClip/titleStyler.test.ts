@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateStyledTitles, buildTitlePrompt } from "../../src/autoClip/titleStyler.js";
+import { generateStyledTitles, buildTitlePrompt, parseTitleResponse } from "../../src/autoClip/titleStyler.js";
 import type { HighlightSegment } from "../../src/autoClip/types.js";
 
 function makeHighlight(overrides: Partial<HighlightSegment> = {}): HighlightSegment {
@@ -103,5 +103,27 @@ describe("generateStyledTitles", () => {
     );
 
     expect(result[0]!.title).toBe("一舞剑器动四方，直播间内尽锋芒");
+  });
+});
+
+describe("parseTitleResponse", () => {
+  it('extracts title from valid JSON', () => {
+    const result = parseTitleResponse('{"title": "江湖夜雨十年灯"}');
+    expect(result).toBe("江湖夜雨十年灯");
+  });
+
+  it('rejects LLM error message in plain text', () => {
+    expect(parseTitleResponse("I cannot generate this because")).toBeNull();
+    expect(parseTitleResponse("Sorry, I'm unable to")).toBeNull();
+    expect(parseTitleResponse("无法生成标题")).toBeNull();
+  });
+
+  it('accepts reasonable plain text title', () => {
+    const result = parseTitleResponse("主播的惊天操作震惊全场观众");
+    expect(result).toBe("主播的惊天操作震惊全场观众");
+  });
+
+  it('rejects text containing JSON braces', () => {
+    expect(parseTitleResponse('{"error": "something went wrong"} extra text')).toBeNull();
   });
 });

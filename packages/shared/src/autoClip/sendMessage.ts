@@ -100,7 +100,12 @@ export async function buildSendMultimodalMessage(
     return undefined;
   }
 
-  if (llmConfig.provider === "qwen") {
+  // Use vendor.provider (not llmConfig.provider) to select the correct multimodal SDK.
+  // llmConfig.provider is for the TEXT model; vendor is for the VISION model.
+  const vp = vendor.provider;
+
+  if (vp === "aliyun" || vp === "openai") {
+    // Both aliyun and openai vendors use the OpenAI-compatible API via QwenLLM
     const { QwenLLM } = await import("../ai/llm/qwen.js");
     const llm = new QwenLLM({
       apiKey: vendor.apiKey ?? "",
@@ -113,20 +118,6 @@ export async function buildSendMultimodalMessage(
     };
   }
 
-  if (llmConfig.provider === "ollama") {
-    const { chatMultimodal } = await import("../llm/ollama.js");
-    const host = vendor.baseURL || "http://localhost:11434";
-    return async (prompt: string, images: string[], signal?: AbortSignal) => {
-      return chatMultimodal({
-        host,
-        model: model.modelName ?? "llava",
-        prompt,
-        images,
-        signal,
-      });
-    };
-  }
-
-  logger.warn(`AutoClip: multimodal not supported for provider "${llmConfig.provider}"`);
+  logger.warn(`AutoClip: multimodal not supported for vendor provider "${vp}"`);
   return undefined;
 }

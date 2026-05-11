@@ -1,6 +1,6 @@
 import path from "node:path";
 import logger from "../utils/log.js";
-import { runAutoClipPipeline, exportClips } from "./pipeline.js";
+import { runAutoClipPipeline, exportClips, resolveExportPresets } from "./pipeline.js";
 import { buildSendMessage, buildSendMultimodalMessage } from "./sendMessage.js";
 import { AUTO_CLIP_DEFAULT_CONFIG } from "../presets/autoClipPreset.js";
 import { autoClipModel } from "../db/index.js";
@@ -200,7 +200,7 @@ export class AutoClipService {
     const exportCfg = presetConfig.export;
     const savePath = exportCfg.savePath || path.dirname(videoPath);
 
-    const presetCtx = await this.resolveExportPresets(exportCfg);
+    const presetCtx = await resolveExportPresets(exportCfg);
     logger.info(`AutoClip: 开始自动导出 ${highlights.length} 个切片...`);
 
     const exportResult = await exportClips(
@@ -287,33 +287,4 @@ export class AutoClipService {
     }
   }
 
-  private async resolveExportPresets(exportCfg: AutoClipConfig["export"]): Promise<{
-    ffmpegConfig?: Record<string, unknown>;
-    danmuConfig?: Record<string, unknown>;
-  }> {
-    const result: { ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> } = {};
-
-    if (exportCfg.ffmpegPresetId) {
-      try {
-        const { container: diContainer } = await import("../index.js");
-        const ffmpegPreset = diContainer.resolve("ffmpegPreset");
-        const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
-        if (preset?.config) {
-          result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
-        }
-      } catch { /* use empty */ }
-    }
-
-    if (exportCfg.burnDanmaku) {
-      try {
-        const { container: diContainer } = await import("../index.js");
-        const danmuPreset = diContainer.resolve("danmuPreset");
-        const danmuPresetId = exportCfg.danmuPresetId || "default";
-        const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
-        result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
-      } catch { /* use empty */ }
-    }
-
-    return result;
-  }
 }
