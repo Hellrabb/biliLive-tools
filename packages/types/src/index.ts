@@ -1264,6 +1264,22 @@ export interface AutoClipConfig {
   llm: AutoClipLLMConfig;
   enhancement: AutoClipEnhancementConfig;
   export: AutoClipExportConfig;
+  danmakuFilter: DanmakuFilterConfig;
+}
+
+export interface DanmakuFilterRule {
+  id: string;
+  pattern: string;
+  mode: "exact" | "contains" | "regex";
+  source: "manual" | "auto";
+  enabled: boolean;
+  createdAt: number;
+}
+
+export interface DanmakuFilterConfig {
+  enabled: boolean;
+  rules: DanmakuFilterRule[];
+  autoDetectEnabled: boolean;
 }
 
 /** 预设类型 */

@@ -36,6 +36,11 @@ const SAMPLE_PRESET_CONFIG: AutoClipConfig = {
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",
   },
+  danmakuFilter: {
+    enabled: false,
+    rules: [],
+    autoDetectEnabled: false,
+  },
 };
 
 const DEFAULT_CONFIG: AutoClipConfig = {

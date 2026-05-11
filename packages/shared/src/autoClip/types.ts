@@ -80,6 +80,13 @@ export interface AutoClipResult {
   skippedReason?: string;
   /** true if LLM was enabled in config but unavailable — results are heuristic only */
   llmFallback?: boolean;
+  suspiciousPatterns?: SuspiciousPattern[];
+  danmakuFilterStats?: {
+    totalBefore: number;
+    totalAfter: number;
+    removed: number;
+    breakdown: Array<{ ruleId: string; pattern: string; removed: number }>;
+  };
 }
 
 /** 弹幕统计 (parseDanmu 内部结构, 用于信号检测) */
@@ -90,4 +97,12 @@ export interface DanmuStats {
   guard: Guard[];
   videoStartTime: number;
   duration: number; // 视频时长秒数
+}
+
+export interface SuspiciousPattern {
+  text: string;
+  count: number;
+  similarity: number;
+  llmVerdict?: "spam" | "not_spam";
+  llmReason?: string;
 }

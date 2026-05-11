@@ -57,6 +57,11 @@ const defaultConfig: AutoClipConfig = {
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",
   },
+  danmakuFilter: {
+    enabled: false,
+    rules: [],
+    autoDetectEnabled: false,
+  },
 };
 
 describe("runAutoClipPipeline", () => {
