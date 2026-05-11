@@ -191,6 +191,35 @@ export class QwenLLM {
   }
 
   /**
+   * Send a multimodal message (text + images).
+   * Images are base64 data URIs.
+   */
+  async sendMultimodalMessage(
+    textPrompt: string,
+    images: string[],
+    systemPrompt?: string,
+    options?: Omit<ChatOptions, "stream">,
+  ): Promise<ChatResponse> {
+    const content: Array<
+      { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    > = [
+      { type: "text", text: textPrompt },
+    ];
+    for (const img of images) {
+      content.push({ type: "image_url", image_url: { url: img } });
+    }
+
+    const messages: ChatMessage[] = [];
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt as unknown as string });
+    }
+    messages.push({ role: "user", content: content as unknown as string });
+
+    return this.chat(messages, options as any) as Promise<ChatResponse>;
+  }
+
+  /**
    * 便捷方法：文本续写
    */
   async complete(prompt: string, options: ChatOptions = {}): Promise<ChatResponse> {
