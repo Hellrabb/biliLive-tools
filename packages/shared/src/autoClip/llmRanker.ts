@@ -37,7 +37,11 @@ Return ONLY valid JSON (no markdown, no extra text):
   "reason": "brief reason (max 20 chars)",
   "bestClipStart": start_second_within_window,
   "bestClipEnd": end_second_within_window
-}`;
+}
+
+Note: Ignore danmaku that are lottery spam or paid-promotion CTAs
+(e.g. "抽奖", "关注抽", "右上角", "点关注送"). These do NOT indicate
+viewer engagement — they are bot/scripted promotions.`;
 
 // ---------------------------------------------------------------------------
 // Constants

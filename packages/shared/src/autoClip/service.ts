@@ -85,6 +85,35 @@ export class AutoClipService {
       id,
     });
 
+    // 3.5: Persist newly auto-detected filter rules back to preset
+    const filterConfig = presetConfig.danmakuFilter;
+    const activePresetId = presetId || appConfig.videoCut?.autoClipPresetId;
+    if (activePresetId && filterConfig?.rules && filterConfig.rules.length > 0) {
+      try {
+        const preset = await this.deps.getPreset(activePresetId);
+        if (preset) {
+          const existingRules = preset.config.danmakuFilter?.rules ?? [];
+          const existingPatterns = new Set(existingRules.map((r: { pattern: string }) => r.pattern));
+          const newRules = filterConfig.rules.filter((r: { pattern: string }) => !existingPatterns.has(r.pattern));
+          if (newRules.length > 0) {
+            const updatedConfig = {
+              ...preset.config,
+              danmakuFilter: {
+                ...preset.config.danmakuFilter,
+                rules: [...existingRules, ...newRules],
+              },
+            };
+            const { container } = await import("../index.js");
+            const autoClipPreset = container.resolve("autoClipPreset");
+            await autoClipPreset.update(activePresetId, updatedConfig);
+            logger.info(`AutoClip: saved ${newRules.length} new filter rules to preset ${activePresetId}`);
+          }
+        }
+      } catch (e) {
+        logger.warn("AutoClip: failed to persist new filter rules to preset", e);
+      }
+    }
+
     // 4. Persist to DB — always upsert to overwrite any /run placeholder
     const videoCutCfg = appConfig.videoCut ?? {};
     const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
