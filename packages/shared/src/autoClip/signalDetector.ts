@@ -7,6 +7,14 @@ import type { CandidateWindow, TimeWindow, DanmuStats, DanmuSample, SCSummary } 
 
 /** Extract seconds from a DanmuItem — prefers `timestamp`, falls back to `ts/1000`. */
 function itemSec(item: DanmuItem): number {
+  // Guard against absolute Unix timestamps (> 1e10 is ~2282 AD in seconds,
+  // or ~2001 in ms — far beyond any reasonable video offset).
+  // Douyin-format XML stores absolute Unix-ms timestamps in `timestamp`;
+  // `parseDanmu` now normalizes those, but this guard is kept for
+  // defense-in-depth against other data sources.
+  if (item.timestamp !== undefined && item.timestamp > 1e10) {
+    return item.ts / 1000;
+  }
   return item.timestamp ?? item.ts / 1000;
 }
 
