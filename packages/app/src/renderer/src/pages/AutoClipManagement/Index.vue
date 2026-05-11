@@ -266,6 +266,53 @@ function triggerManualAnalyze(filePath: string) {
   showDanmuDialog.value = true;
 }
 
+async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'done' | 'failed' | 'lost' | 'timeout' | 'aborted'> {
+  const abortController = new AbortController();
+  pollAbort.value = abortController;
+  let delay = 1000;
+  let attempt = 0;
+  let consecutive404s = 0;
+
+  while (attempt < maxAttempts) {
+    if (abortController.signal.aborted) return 'aborted';
+    await new Promise((r) => setTimeout(r, delay));
+    if (abortController.signal.aborted) return 'aborted';
+
+    try {
+      const resultRes = await request.get(`/auto-clip/result/${taskId}`);
+      consecutive404s = 0;
+      if (resultRes.data) {
+        if (resultRes.data.status === "analyzing") {
+          attempt++;
+          delay = Math.min(delay * 1.3, 10000);
+          continue;
+        }
+        if (resultRes.data.status === "failed") {
+          notice.error("分析失败，请稍后重试");
+          await refreshList();
+          return 'failed';
+        }
+        if (resultRes.data.highlights?.length > 0) {
+          notice.success("分析完成，请查看结果");
+        } else {
+          notice.info("分析完成，未检测到高光片段");
+        }
+        await refreshList();
+        return 'done';
+      }
+    } catch {
+      consecutive404s++;
+      if (consecutive404s >= 5) {
+        notice.error("分析失败：任务丢失，请重试");
+        return 'lost';
+      }
+    }
+    attempt++;
+    delay = Math.min(delay * 1.3, 10000);
+  }
+  return 'timeout';
+}
+
 async function confirmManualAnalyze() {
   showDanmuDialog.value = false;
   const videoPath = pendingVideoPath.value;
@@ -286,53 +333,22 @@ async function confirmManualAnalyze() {
       return;
     }
 
-    // Poll for results with exponential backoff (1s → 10s max, ~5 min total)
-    const abortController = new AbortController();
-    pollAbort.value = abortController;
-    let delay = 1000;
-    let attempt = 0;
-    const maxAttempts = 60;
-    let consecutive404s = 0;
-
-    while (attempt < maxAttempts) {
-      if (abortController.signal.aborted) return;
-      await new Promise((r) => setTimeout(r, delay));
-      if (abortController.signal.aborted) return;
-
-      try {
-        const resultRes = await request.get(`/auto-clip/result/${taskId}`);
-        consecutive404s = 0;
-        if (resultRes.data) {
-          if (resultRes.data.status === "analyzing") {
-            attempt++;
-            delay = Math.min(delay * 1.3, 10000);
-            continue;
-          }
-          if (resultRes.data.status === "failed") {
-            notice.error("分析失败，请稍后重试");
-            await refreshList();
-            return;
-          }
-          if (resultRes.data.highlights?.length > 0) {
-            notice.success("分析完成，请查看结果");
-          } else {
-            notice.info("分析完成，未检测到高光片段");
-          }
+    let result = await pollTaskResult(taskId, 60);
+    if (result === 'timeout') {
+      const continueWaiting = window.confirm(
+        "分析已超过 5 分钟。\n\n[确定] 继续等待 3 分钟\n[取消] 刷新列表查看当前结果"
+      );
+      if (continueWaiting) {
+        notice.info("继续等待分析结果...");
+        result = await pollTaskResult(taskId, 36);
+        if (result === 'timeout') {
+          notice.warning("分析仍然未完成，请稍后刷新查看");
           await refreshList();
-          return;
         }
-      } catch {
-        consecutive404s++;
-        if (consecutive404s >= 5) {
-          notice.error("分析失败：任务丢失，请重试");
-          return;
-        }
+      } else {
+        await refreshList();
       }
-      attempt++;
-      delay = Math.min(delay * 1.3, 10000);
     }
-    notice.warning("分析超时，请稍后刷新查看结果");
-    await refreshList();
   } catch (e: any) {
     notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
   } finally {

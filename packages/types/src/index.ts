@@ -1241,6 +1241,11 @@ export interface AutoClipLLMConfig {
   asrModelId?: string;
   /** Phase 2 风格化标题的自定义 prompt 模板 */
   titleStylePrompt?: string;
+  /** Phase 2 风格化标题的配置 */
+  titleStyleConfig?: {
+    maxLength: number;
+    minLength: number;
+  };
 }
 
 /** @reserved — 首版不实现，保留接口用于二期 ASR/视觉扩展 */

@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
 import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
+import { extractAndParseJSON } from "./jsonParser.js";
 
 export interface DetectSuspiciousOptions {
   minOccurrence: number;
@@ -34,10 +35,24 @@ export function detectSuspicious(
 ): SuspiciousPattern[] {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // Optional downsampling for large inputs
-  const sample = danmu.length > 5000
-    ? danmu.filter((_, i) => i % 3 === 0)
-    : danmu;
+  // Time-bucket stratified sampling for large inputs
+  let sample = danmu;
+  if (danmu.length > 5000) {
+    const NUM_BUCKETS = 100;
+    const bucketSize = Math.ceil(danmu.length / NUM_BUCKETS);
+    const sampled: Array<{ text: string }> = [];
+    for (let b = 0; b < NUM_BUCKETS; b++) {
+      const start = b * bucketSize;
+      const end = Math.min(start + bucketSize, danmu.length);
+      const bucket = danmu.slice(start, end);
+      const bucketSampleSize = Math.max(1, Math.ceil(bucket.length * 0.25));
+      const step = Math.max(1, Math.floor(bucket.length / bucketSampleSize));
+      for (let i = 0; i < bucket.length; i += step) {
+        sampled.push(bucket[i]!);
+      }
+    }
+    sample = sampled;
+  }
 
   // Pre-filter + exact-match grouping
   const countMap = new Map<string, number>();
@@ -249,15 +264,9 @@ Return ONLY valid JSON (no markdown, no extra text):
     const raw = await sendMessage(prompt, controller.signal);
     clearTimeout(timer);
 
-    let jsonStr = raw;
-    const blockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    if (blockMatch) jsonStr = blockMatch[1]!.trim();
-    const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objMatch) {
-      const parsedJson = JSON.parse(objMatch[0]);
-      if (Array.isArray(parsedJson.results)) {
-        parsed = parsedJson.results;
-      }
+    const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
+    if (parsedJson && Array.isArray(parsedJson.results)) {
+      parsed = parsedJson.results;
     }
   } catch (err) {
     logger.warn("AutoClip: LLM review of suspicious patterns failed, using statistical fallback", err);

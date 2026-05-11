@@ -2,6 +2,8 @@ import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
+import { resolveExportPresets } from "@biliLive-tools/shared/autoClip/pipeline.js";
+import type { HighlightSegment } from "@biliLive-tools/shared/autoClip/types.js";
 import { container } from "../index.js";
 import type { AutoClipService } from "@biliLive-tools/shared/autoClip/service.js";
 
@@ -23,6 +25,12 @@ function getAutoClipPreset(): AutoClipPresetInstance {
 // ---------------------------------------------------------------------------
 // Preset validation
 // ---------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(s: string): boolean {
+  return UUID_RE.test(s);
+}
 
 interface ValidationError {
   field: string;
@@ -153,6 +161,18 @@ router.post("/run", async (ctx) => {
     presetId?: string;
     outputName?: string;
   };
+
+  if (presetId && !isValidUUID(presetId)) {
+    ctx.status = 400;
+    ctx.body = { error: "presetId must be a valid UUID" };
+    return;
+  }
+
+  if (outputName && /[\\/]/.test(outputName)) {
+    ctx.status = 400;
+    ctx.body = { error: "outputName must not contain path separators" };
+    return;
+  }
 
   if (!videoPath || !danmuPath) {
     ctx.status = 400;
@@ -423,36 +443,6 @@ router.post("/clip/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
-async function resolveExportPresets(
-  _presetId: string | null,
-  exportCfg: { ffmpegPresetId?: string; burnDanmaku?: boolean; danmuPresetId?: string },
-): Promise<{ ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> }> {
-  const result: { ffmpegConfig?: Record<string, unknown>; danmuConfig?: Record<string, unknown> } = {};
-
-  if (exportCfg.ffmpegPresetId) {
-    try {
-      const { container: diContainer } = await import("../index.js");
-      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
-      const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
-      if (preset?.config) {
-        result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
-      }
-    } catch { /* use empty */ }
-  }
-
-  if (exportCfg.burnDanmaku) {
-    try {
-      const { container: diContainer } = await import("../index.js");
-      const danmuPreset = diContainer.resolve("danmuPreset");
-      const danmuPresetId = exportCfg.danmuPresetId || "default";
-      const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
-      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
-    } catch { /* use empty */ }
-  }
-
-  return result;
-}
-
 function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string } {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
@@ -496,7 +486,7 @@ async function doExportClips(
     savePath: exportConfig.savePath || path.dirname(videoPath),
   };
 
-  const presetCtx = await resolveExportPresets(presetId, exportConfig);
+  const presetCtx = await resolveExportPresets(exportConfig);
 
   // Mark as exporting so UI can show progress during long export operations
   autoClipModel.updateStatus(resultId, "exporting");
@@ -507,7 +497,7 @@ async function doExportClips(
 
   try {
     // Validate highlights shape before passing to exportClips
-    const validHighlights = highlights.filter(isHighlightSegment);
+    const validHighlights = highlights.filter(isHighlightSegment) as HighlightSegment[];
     const skipped = highlights.length - validHighlights.length;
     if (skipped > 0) {
       logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
@@ -529,7 +519,7 @@ async function doExportClips(
     const exportResult = await exportClips(
       videoPath,
       danmuPath,
-      validHighlights as any[],
+      validHighlights,
       effectiveConfig,
       presetCtx,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
@@ -576,6 +566,12 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
   if (ids.length > 50) {
     ctx.status = 400;
     ctx.body = { error: "Maximum 50 clips per batch" };
+    return;
+  }
+
+  if (ids.some((id) => typeof id !== "string" || !isValidUUID(id))) {
+    ctx.status = 400;
+    ctx.body = { error: "Each id must be a valid UUID" };
     return;
   }
 
