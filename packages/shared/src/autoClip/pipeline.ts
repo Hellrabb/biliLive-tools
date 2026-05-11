@@ -3,10 +3,11 @@ import { v4 as uuidv4 } from "uuid";
 import { parseDanmu } from "../danmu/index.js";
 import { detectSignals } from "./signalDetector.js";
 import { rankCandidates, preRankCandidates } from "./llmRanker.js";
+import { detectSuspicious, applyFilter, llmReviewPatterns } from "./danmakuFilter.js";
 import logger from "../utils/log.js";
 
 import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
-import type { AutoClipResult, DanmuStats, HighlightSegment } from "./types.js";
+import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern } from "./types.js";
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
 
@@ -56,6 +57,62 @@ export async function runAutoClipPipeline(
     `Danmaku parsed: ${stats.danmu.length} danmaku, ${stats.sc.length} SC`,
   );
 
+  // 1.5: Danmaku filtering (detect → LLM review → apply)
+  let suspiciousPatterns: SuspiciousPattern[] | undefined;
+  const filterConfig = presetConfig.danmakuFilter ?? { enabled: true, rules: [], autoDetectEnabled: true };
+  if (filterConfig.enabled && stats.danmu.length > 0) {
+    const totalBefore = stats.danmu.length;
+
+    if (filterConfig.autoDetectEnabled) {
+      suspiciousPatterns = detectSuspicious(stats.danmu);
+      if (suspiciousPatterns.length > 0) {
+        onProgress?.("filter", 25, `Detected ${suspiciousPatterns.length} suspicious danmaku patterns`);
+
+        if (sendMessage) {
+          const reviewResult = await llmReviewPatterns(suspiciousPatterns, sendMessage);
+          suspiciousPatterns = reviewResult.patterns.map((p) => ({
+            text: p.text,
+            count: suspiciousPatterns!.find((sp) => sp.text === p.text)?.count ?? 0,
+            similarity: suspiciousPatterns!.find((sp) => sp.text === p.text)?.similarity ?? 1.0,
+            llmVerdict: p.verdict,
+            llmReason: p.reason,
+          }));
+
+          if (reviewResult.newRules.length > 0) {
+            filterConfig.rules = [...filterConfig.rules, ...reviewResult.newRules];
+            onProgress?.("filter", 28, `LLM confirmed ${reviewResult.newRules.length} spam patterns`);
+          }
+        } else {
+          onProgress?.("filter", 25, `Suspicious patterns detected (LLM unavailable, using statistical fallback)`);
+          const now = Date.now();
+          const { v4: uuidv4 } = await import("uuid");
+          for (const p of suspiciousPatterns) {
+            if (p.count >= 10 && p.similarity >= 0.9) {
+              filterConfig.rules.push({
+                id: uuidv4(),
+                pattern: p.text,
+                mode: p.similarity >= 0.95 ? "exact" : "contains",
+                source: "auto",
+                enabled: true,
+                createdAt: now,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    if (filterConfig.rules.length > 0) {
+      const result = applyFilter(stats.danmu, filterConfig);
+      stats.danmu = result.filtered as typeof stats.danmu;
+      onProgress?.(
+        "filter",
+        30,
+        `Filtered ${result.removed}/${totalBefore} danmaku (${result.breakdown.length} rules)`,
+      );
+    }
+  }
+
   // 2. Layer 1: Signal detection
   const candidates = detectSignals(stats, presetConfig.signal);
 
@@ -68,6 +125,7 @@ export async function runAutoClipPipeline(
       highlights: [],
       skipped: true,
       skippedReason: "no_signal",
+      suspiciousPatterns,
       ...(llmFallback ? { llmFallback } : {}),
     };
   }
@@ -109,7 +167,7 @@ export async function runAutoClipPipeline(
   }
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);
-  return { id, videoPath, danmuPath, highlights, llmFallback };
+  return { id, videoPath, danmuPath, highlights, llmFallback, suspiciousPatterns };
 }
 
 export interface ExportClipsResult {
