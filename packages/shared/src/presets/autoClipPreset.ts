@@ -24,6 +24,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     maxCandidatesPerVideo: 15,
     danmakuSampleMax: 200,
   },
+  // @reserved — 首版不实现，保留字段用于二期 ASR/视觉扩展
   enhancement: {
     asrEnabled: false,
     visualEnabled: false,
