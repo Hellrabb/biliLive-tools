@@ -1235,9 +1235,9 @@ export interface AutoClipLLMConfig {
   };
 }
 
+/** @reserved — 首版不实现，保留接口用于二期 ASR/视觉扩展 */
 export interface AutoClipEnhancementConfig {
   asrEnabled: boolean;
-  /** 多模态关键帧 (保留扩展点, 首版不实现) */
   visualEnabled: boolean;
 }
 
@@ -1266,3 +1266,24 @@ export interface AutoClipConfig {
 
 /** 预设类型 */
 export type AutoClipPreset = CommonPreset<AutoClipConfig>;
+
+/** 前端 AutoClip 列表行 */
+export interface AutoClipHighlightItem {
+  title: string;
+  score: number;
+  bestRange: [number, number];
+  tags: string[];
+  highlightType: string;
+  reason: string;
+}
+
+export interface AutoClipClipRow {
+  id: string;
+  video_path: string;
+  status: string;
+  created_at: string;
+  recorder_id: string | null;
+  preset_id: string | null;
+  llmFallback: boolean;
+  highlights: AutoClipHighlightItem[];
+}

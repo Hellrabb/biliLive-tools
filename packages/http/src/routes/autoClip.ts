@@ -205,7 +205,7 @@ router.post("/run", async (ctx) => {
     danmu_path: resolvedDanmu,
     recorder_id: null,
     preset_id: presetId || null,
-    status: "analyzing" as any,
+    status: "analyzing",
     highlights: "[]",
     created_at: new Date().toISOString(),
     exported_at: null,
