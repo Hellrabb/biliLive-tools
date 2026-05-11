@@ -1,7 +1,7 @@
 import path from "node:path";
 import logger from "../utils/log.js";
 import { runAutoClipPipeline, exportClips } from "./pipeline.js";
-import { buildSendMessage } from "./sendMessage.js";
+import { buildSendMessage, buildSendMultimodalMessage } from "./sendMessage.js";
 import { AUTO_CLIP_DEFAULT_CONFIG } from "../presets/autoClipPreset.js";
 import { autoClipModel } from "../db/index.js";
 
@@ -75,12 +75,35 @@ export class AutoClipService {
       aiConfig: appConfig.ai,
     });
 
+    // Build multimodal message sender for Phase 1.5 frame description
+    const sendMultimodalMessage = await buildSendMultimodalMessage({
+      llmConfig: presetConfig.llm,
+      aiConfig: appConfig.ai,
+    });
+
+    // Build ASR recognize function for Phase 1.5 speech-to-text
+    let recognizeASR: ((audioPath: string) => Promise<{ text: string }>) | undefined;
+    if (presetConfig.enhancement?.asrEnabled) {
+      try {
+        const { recognize } = await import("../ai/asr/index.js");
+        const asrModelId = presetConfig.llm.asrModelId ?? presetConfig.llm.modelId;
+        recognizeASR = async (audioPath: string) => {
+          const result = await recognize(audioPath, asrModelId);
+          return { text: result.text };
+        };
+      } catch (err) {
+        logger.warn("AutoClip: ASR provider initialization failed, ASR disabled", err);
+      }
+    }
+
     // 3. Run pipeline
     const result = await runAutoClipPipeline({
       videoPath,
       danmuPath,
       presetConfig,
       sendMessage,
+      sendMultimodalMessage,
+      recognizeASR,
       onProgress,
       id,
     });

@@ -62,6 +62,7 @@ vi.mock("../../src/presets/autoClipPreset.js", () => ({
 
 vi.mock("../../src/autoClip/sendMessage.js", () => ({
   buildSendMessage: vi.fn(),
+  buildSendMultimodalMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../src/autoClip/pipeline.js", () => ({
