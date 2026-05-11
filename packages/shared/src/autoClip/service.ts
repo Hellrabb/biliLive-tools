@@ -105,7 +105,7 @@ export class AutoClipService {
             };
             const { container } = await import("../index.js");
             const autoClipPreset = container.resolve("autoClipPreset");
-            await autoClipPreset.update(activePresetId, updatedConfig);
+            await autoClipPreset.save({ id: activePresetId, name: preset.name, config: updatedConfig });
             logger.info(`AutoClip: saved ${newRules.length} new filter rules to preset ${activePresetId}`);
           }
         }
