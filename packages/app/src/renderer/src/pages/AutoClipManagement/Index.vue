@@ -118,7 +118,7 @@ const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 
-const counts = ref({ all: 0, pending: 0, exporting: 0, exported: 0, uploaded: 0 });
+const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 });
 
 const columns = [
   { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
@@ -175,7 +175,7 @@ async function refreshList() {
 
     // Update global counts
     const c = countsRes.data;
-    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
+    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, analyzing: c.analyzing ?? 0, approved: c.approved ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0 };
 
     const raw = clipsRes.data?.data ?? [];
     totalCount.value = clipsRes.data?.total ?? raw.length;
