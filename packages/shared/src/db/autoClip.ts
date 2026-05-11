@@ -9,7 +9,7 @@ export interface AutoClipResultRow {
   danmu_path: string;
   recorder_id: string | null;
   preset_id: string | null;
-  status: "pending" | "approved" | "exported" | "uploaded" | "deleted";
+  status: "analyzing" | "pending" | "approved" | "exporting" | "exported" | "uploaded" | "deleted";
   highlights: string; // JSON string
   created_at: string;
   exported_at: string | null;
@@ -215,12 +215,12 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     return this.db.prepare("UPDATE auto_clip_results SET status = 'deleted' WHERE id = ?").run(id);
   }
 
-  getStatusCounts(): { all: number; pending: number; approved: number; exporting: number; exported: number; uploaded: number } {
+  getStatusCounts(): { all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number } {
     const rows = this.db
       .prepare("SELECT status, COUNT(*) as count FROM auto_clip_results WHERE status != 'deleted' GROUP BY status")
       .all() as Array<{ status: string; count: number }>;
 
-    const counts = { all: 0, pending: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 };
+    const counts = { all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 };
     for (const row of rows) {
       if (row.status in counts) {
         (counts as any)[row.status] = row.count;

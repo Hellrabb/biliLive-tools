@@ -97,22 +97,9 @@ import request from "@renderer/apis/request";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 import { useNotice } from "@renderer/hooks/useNotice";
 
-interface ClipRow {
-  id: string;
-  video_path: string;
-  status: string;
-  created_at: string;
-  recorder_id: string;
-  preset_id: string;
-  llmFallback: boolean;
-  highlights: Array<{
-    title: string;
-    score: number;
-    bestRange: [number, number];
-    tags: string[];
-    highlightType: string;
-    reason: string;
-  }>;
+import type { AutoClipClipRow } from "@biliLive-tools/types";
+
+interface ClipRow extends AutoClipClipRow {
   previewTitle: string;
   previewScore: number;
   highlightCount: number;
