@@ -41,6 +41,11 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",
   },
+  danmakuFilter: {
+    enabled: false,
+    rules: [],
+    autoDetectEnabled: false,
+  },
 };
 
 export class AutoClipPreset extends CommonPreset<AutoClipConfig> {
