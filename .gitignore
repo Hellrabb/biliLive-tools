@@ -15,4 +15,6 @@ packages/CLI/config.json
 docs/.vitepress/dist
 docs/.vitepress/cache
 
+.worktrees/
+
 .DS_Store
