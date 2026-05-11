@@ -19,6 +19,7 @@ export interface AutoClipServiceDeps {
       autoClipReviewMode?: boolean;
       autoClipExport?: boolean;
       autoClipUpload?: boolean;
+      autoClipPresetId?: string;
     };
     uid?: number;
   };
@@ -41,7 +42,7 @@ export class AutoClipService {
   }): Promise<AutoClipResult> {
     const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id } = params;
 
-    // 1. Load preset config
+    // 1. Load preset config — explicit presetId takes priority
     let presetConfig = AUTO_CLIP_DEFAULT_CONFIG;
     if (presetId && presetId !== "") {
       try {
@@ -52,8 +53,21 @@ export class AutoClipService {
       }
     }
 
-    // 2. Build sendMessage
+    // 2. Fallback to global autoClip preset — enables LLM for manual analysis
     const appConfig = this.deps.getAppConfig();
+    if ((!presetId || presetId === "") && appConfig.videoCut?.autoClipPresetId) {
+      try {
+        const p = await this.deps.getPreset(appConfig.videoCut.autoClipPresetId);
+        if (p?.config) {
+          presetConfig = p.config;
+          logger.info("AutoClip: using global autoClip preset for manual analysis");
+        }
+      } catch (e) {
+        logger.warn("AutoClip: failed to load global preset fallback", e);
+      }
+    }
+
+    // 3. Build sendMessage
     const sendMessage = await buildSendMessage({
       presetConfig,
       aiConfig: appConfig.ai,
