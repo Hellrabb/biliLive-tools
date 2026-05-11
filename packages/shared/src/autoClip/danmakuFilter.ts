@@ -1,4 +1,7 @@
+import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
+import type { DanmakuFilterRule } from "@biliLive-tools/types";
+import logger from "../utils/log.js";
 
 export interface DetectSuspiciousOptions {
   minOccurrence: number;
@@ -111,4 +114,213 @@ export function detectSuspicious(
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, opts.topK);
+}
+
+// --- applyFilter ------------------------------------------------------------
+
+export interface FilterResult {
+  filtered: Array<{ text: string }>;
+  removed: number;
+  breakdown: Array<{ ruleId: string; pattern: string; removed: number }>;
+}
+
+export function applyFilter(
+  danmu: Array<{ text: string }>,
+  config: DanmakuFilterConfig,
+): FilterResult {
+  if (!config.enabled || config.rules.length === 0) {
+    return { filtered: danmu, removed: 0, breakdown: [] };
+  }
+
+  const breakdownMap = new Map<string, { pattern: string; removed: number }>();
+  const activeRules = config.rules.filter((r) => r.enabled);
+
+  const compiled: Array<{ id: string; pattern: string; test: (text: string) => boolean }> = [];
+  for (const rule of activeRules) {
+    let test: (text: string) => boolean;
+    switch (rule.mode) {
+      case "exact":
+        test = (text: string) => text.trim() === rule.pattern;
+        break;
+      case "contains":
+        test = (text: string) => text.includes(rule.pattern);
+        break;
+      case "regex":
+        try {
+          const re = new RegExp(rule.pattern);
+          test = (text: string) => re.test(text);
+        } catch {
+          logger.warn(`AutoClip: invalid regex pattern in filter rule ${rule.id}: ${rule.pattern}`);
+          continue;
+        }
+        break;
+    }
+    compiled.push({ id: rule.id, pattern: rule.pattern, test });
+  }
+
+  const filtered: Array<{ text: string }> = [];
+  for (const d of danmu) {
+    let matched = false;
+    for (const rule of compiled) {
+      if (rule.test(d.text)) {
+        matched = true;
+        const entry = breakdownMap.get(rule.id);
+        if (entry) {
+          entry.removed++;
+        } else {
+          breakdownMap.set(rule.id, { pattern: rule.pattern, removed: 1 });
+        }
+        break;
+      }
+    }
+    if (!matched) {
+      filtered.push(d);
+    }
+  }
+
+  const breakdown = [...breakdownMap.entries()].map(([ruleId, v]) => ({
+    ruleId,
+    pattern: v.pattern,
+    removed: v.removed,
+  }));
+
+  return {
+    filtered,
+    removed: danmu.length - filtered.length,
+    breakdown,
+  };
+}
+
+// --- llmReviewPatterns ------------------------------------------------------
+
+export interface LLMReviewResult {
+  patterns: Array<{
+    text: string;
+    verdict: "spam" | "not_spam";
+    reason: string;
+  }>;
+  newRules: DanmakuFilterRule[];
+}
+
+/**
+ * Send suspicious patterns to LLM for batch review.
+ * LLM-confirmed spam patterns are converted to DanmakuFilterRules.
+ *
+ * On LLM failure, falls back to statistical rule:
+ *   count >= 10 AND similarity >= 0.9 → auto-mark as spam
+ */
+export async function llmReviewPatterns(
+  patterns: SuspiciousPattern[],
+  sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
+): Promise<LLMReviewResult> {
+  if (patterns.length === 0) {
+    return { patterns: [], newRules: [] };
+  }
+
+  const patternList = patterns
+    .map((p, i) => `${i + 1}. "${p.text}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
+    .join("\n");
+
+  const prompt = `You are a danmaku spam classifier. Determine if each danmaku pattern is lottery spam (抽奖广告垃圾弹幕) or legitimate audience engagement (正常观众互动).
+
+Lottery spam indicators: mentions of raffle/lottery (抽奖/抽/抽送), encouraging follows for rewards (关注抽/关注送/点关注), diamond/coin giveaways (钻石/金币/红包/福利), right-corner UI references (右上角), or any paid-promotion CTAs.
+
+Legitimate indicators: viewer reactions (哈哈哈/666/主播牛逼/？？？/厉害了/卧槽), gameplay commentary, sincere compliments, emotes, or questions.
+
+For each pattern, return verdict: "spam" or "not_spam" with a brief reason (max 10 chars in Chinese).
+
+Patterns:
+${patternList}
+
+Return ONLY valid JSON (no markdown, no extra text):
+{
+  "results": [
+    {"index": 1, "verdict": "spam", "reason": "抽奖引导话术"},
+    {"index": 2, "verdict": "not_spam", "reason": "观众自然反应"}
+  ]
+}`;
+
+  let parsed: Array<{ index: number; verdict: string; reason: string }> = [];
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30_000);
+    const raw = await sendMessage(prompt, controller.signal);
+    clearTimeout(timer);
+
+    let jsonStr = raw;
+    const blockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+    if (blockMatch) jsonStr = blockMatch[1]!.trim();
+    const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      const parsedJson = JSON.parse(objMatch[0]);
+      if (Array.isArray(parsedJson.results)) {
+        parsed = parsedJson.results;
+      }
+    }
+  } catch (err) {
+    logger.warn("AutoClip: LLM review of suspicious patterns failed, using statistical fallback", err);
+  }
+
+  if (parsed.length === 0) {
+    return statisticsFallback(patterns);
+  }
+
+  const now = Date.now();
+  const newRules: DanmakuFilterRule[] = [];
+
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i]!;
+    const llmResult = parsed.find((r) => r.index === i + 1);
+    if (llmResult?.verdict === "spam") {
+      const mode = pattern.similarity >= 0.95 ? "exact" : "contains";
+      newRules.push({
+        id: uuidv4(),
+        pattern: pattern.text,
+        mode,
+        source: "auto",
+        enabled: true,
+        createdAt: now,
+      });
+    }
+  }
+
+  return {
+    patterns: patterns.map((p, i) => {
+      const r = parsed.find((x) => x.index === i + 1);
+      return {
+        text: p.text,
+        verdict: (r?.verdict === "spam" ? "spam" : "not_spam") as "spam" | "not_spam",
+        reason: r?.reason ?? "",
+      };
+    }),
+    newRules,
+  };
+}
+
+function statisticsFallback(patterns: SuspiciousPattern[]): LLMReviewResult {
+  const now = Date.now();
+  const newRules: DanmakuFilterRule[] = [];
+
+  for (const p of patterns) {
+    if (p.count >= 10 && p.similarity >= 0.9) {
+      newRules.push({
+        id: uuidv4(),
+        pattern: p.text,
+        mode: p.similarity >= 0.95 ? "exact" : "contains",
+        source: "auto",
+        enabled: true,
+        createdAt: now,
+      });
+    }
+  }
+
+  return {
+    patterns: patterns.map((p) => ({
+      text: p.text,
+      verdict: (p.count >= 10 && p.similarity >= 0.9 ? "spam" : "not_spam") as "spam" | "not_spam",
+      reason: p.count >= 10 && p.similarity >= 0.9 ? "统计判定垃圾弹幕" : "",
+    })),
+    newRules,
+  };
 }

@@ -82,3 +82,83 @@ describe("detectSuspicious", () => {
     expect(spam!.count).toBeGreaterThanOrEqual(20);
   });
 });
+
+import { applyFilter } from "../../src/autoClip/danmakuFilter.js";
+import type { DanmakuFilterConfig } from "@biliLive-tools/types";
+
+describe("applyFilter", () => {
+  const danmu = [
+    { text: "点点关注右上角抽钻石", ts: 1000 },
+    { text: "主播好帅", ts: 2000 },
+    { text: "关注主播不迷路抽奖咯", ts: 3000 },
+    { text: "哈哈哈哈笑死了", ts: 4000 },
+    { text: "右上角抽手机啦", ts: 5000 },
+  ];
+
+  const config: DanmakuFilterConfig = {
+    enabled: true,
+    autoDetectEnabled: true,
+    rules: [
+      { id: "r1", pattern: "点点关注右上角抽钻石", mode: "exact", source: "auto", enabled: true, createdAt: 0 },
+      { id: "r2", pattern: "抽", mode: "contains", source: "auto", enabled: true, createdAt: 0 },
+      { id: "r3", pattern: "右上角抽.*", mode: "regex", source: "manual", enabled: true, createdAt: 0 },
+      { id: "r4", pattern: "disabled_rule", mode: "contains", source: "manual", enabled: false, createdAt: 0 },
+    ],
+  };
+
+  it("filters by exact match", () => {
+    const cfg: DanmakuFilterConfig = {
+      enabled: true,
+      autoDetectEnabled: true,
+      rules: [config.rules[0]!],
+    };
+    const result = applyFilter(danmu, cfg);
+    expect(result.filtered).toHaveLength(4);
+    expect(result.removed).toBe(1);
+  });
+
+  it("filters by contains", () => {
+    const cfg: DanmakuFilterConfig = {
+      enabled: true,
+      autoDetectEnabled: true,
+      rules: [config.rules[1]!],
+    };
+    const result = applyFilter(danmu, cfg);
+    expect(result.removed).toBeGreaterThanOrEqual(2);
+  });
+
+  it("filters by regex", () => {
+    const cfg: DanmakuFilterConfig = {
+      enabled: true,
+      autoDetectEnabled: true,
+      rules: [config.rules[2]!],
+    };
+    const result = applyFilter(danmu, cfg);
+    const filteredTexts = result.filtered.map((d: { text: string }) => d.text);
+    expect(filteredTexts).not.toContain("右上角抽手机啦");
+  });
+
+  it("does not apply disabled rules", () => {
+    const cfg: DanmakuFilterConfig = {
+      enabled: true,
+      autoDetectEnabled: true,
+      rules: [config.rules[3]!],
+    };
+    const result = applyFilter(danmu, cfg);
+    expect(result.removed).toBe(0);
+    expect(result.filtered).toHaveLength(danmu.length);
+  });
+
+  it("skips filtering when config.enabled is false", () => {
+    const cfg: DanmakuFilterConfig = { ...config, enabled: false };
+    const result = applyFilter(danmu, cfg);
+    expect(result.filtered).toEqual(danmu);
+    expect(result.removed).toBe(0);
+  });
+
+  it("returns correct breakdown stats", () => {
+    const result = applyFilter(danmu, config);
+    const totalRemoved = result.breakdown.reduce((sum: number, b: { removed: number }) => sum + b.removed, 0);
+    expect(totalRemoved).toBe(result.removed);
+  });
+});
