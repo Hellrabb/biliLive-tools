@@ -18,7 +18,7 @@ export function chat(params: {
   const ollama = new Ollama({
     host,
     fetch: params.signal
-      ? ((url: string, init?: RequestInit) => fetch(url, { ...init, signal: params.signal }))
+      ? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal: params.signal }))
       : undefined,
   });
   return ollama.chat({
@@ -28,7 +28,39 @@ export function chat(params: {
   });
 }
 
+export async function chatMultimodal(opts: {
+  host: string;
+  model: string;
+  prompt: string;
+  images: string[];
+  signal?: AbortSignal;
+}): Promise<string> {
+  const response = await fetch(`${opts.host}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: opts.model,
+      messages: [{
+        role: "user",
+        content: opts.prompt,
+        images: opts.images,
+      }],
+      stream: false,
+    }),
+    signal: opts.signal,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Ollama multimodal chat failed: ${response.status} ${text}`);
+  }
+
+  const data = await response.json() as { message?: { content?: string } };
+  return data?.message?.content ?? "";
+}
+
 export default {
   getModelList,
   chat,
+  chatMultimodal,
 };
