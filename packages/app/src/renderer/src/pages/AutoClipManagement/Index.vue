@@ -6,6 +6,16 @@
         <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
           {{ analyzing ? '分析中...' : '+ 手动分析' }}
         </n-button>
+        <n-button
+          v-if="pendingCount > 0"
+          type="primary"
+          ghost
+          :loading="batchExporting"
+          :disabled="batchExporting"
+          @click="batchApproveAndExport"
+        >
+          批量导出 ({{ pendingCount }})
+        </n-button>
         <n-button @click="refreshList">刷新</n-button>
       </n-space>
     </div>
@@ -118,6 +128,8 @@ const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 const pollAbort = ref<AbortController | null>(null);
+const batchExporting = ref(false);
+const pendingCount = computed(() => counts.value.pending);
 
 const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0 });
 
@@ -352,6 +364,39 @@ watch(filterStatus, () => {
   currentPage.value = 1;
   refreshList();
 });
+
+async function batchApproveAndExport() {
+  const pendingIds = clips.value
+    .filter((c) => c.status === "pending")
+    .map((c) => c.id);
+  if (pendingIds.length === 0) {
+    notice.warning("当前页没有待审核的切片");
+    return;
+  }
+
+  batchExporting.value = true;
+  try {
+    notice.info(`正在批量导出 ${pendingIds.length} 个切片...`);
+    const res = await request.post("/auto-clip/clips/batch-approve-and-export", { ids: pendingIds });
+    const results: Array<{ id: string; status: string; exportedPaths: string[] }> = res.data?.results ?? [];
+    const succeeded = results.filter((r) => r.status === "exported").length;
+    const failed = results.filter((r) => r.status === "failed" || r.status === "skipped").length;
+    const totalPaths = results.reduce((sum, r) => sum + (r.exportedPaths?.length ?? 0), 0);
+
+    if (succeeded > 0 && failed === 0) {
+      notice.success(`全部导出完成: ${succeeded} 条记录, ${totalPaths} 个文件`);
+    } else if (succeeded > 0) {
+      notice.warning(`部分完成: ${succeeded} 成功, ${failed} 失败, ${totalPaths} 个文件`);
+    } else {
+      notice.error("批量导出失败，请逐条重试");
+    }
+    await refreshList();
+  } catch (e: any) {
+    notice.error(`批量导出失败: ${e?.response?.data?.error || e.message}`);
+  } finally {
+    batchExporting.value = false;
+  }
+}
 
 onMounted(() => {
   refreshList();
