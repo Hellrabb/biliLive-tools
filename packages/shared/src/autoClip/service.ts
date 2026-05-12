@@ -119,6 +119,9 @@ export class AutoClipService {
       ffmpegPath: sysFfmpegPath,
     });
 
+    // Pattern-based filter rule dedup provides best-effort mitigation
+    // against concurrent analyses on the same preset. A true TOCTOU fix
+    // would require file-level locking. In practice this is rare.
     // 3.5: Persist newly auto-detected filter rules back to preset
     const filterConfig = presetConfig.danmakuFilter;
     const activePresetId = presetId || appConfig.videoCut?.autoClipPresetId;
