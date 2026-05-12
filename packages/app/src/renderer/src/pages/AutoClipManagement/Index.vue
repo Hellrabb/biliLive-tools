@@ -264,6 +264,16 @@ function triggerManualAnalyze(filePath: string) {
   danmuInputPath.value = guessed;
   pendingVideoPath.value = filePath;
   outputName.value = "";
+
+  // Advisory pre-check: warn if guessed danmu file doesn't exist
+  if (window.api?.exists) {
+    window.api.exists(guessed).then((exists: boolean) => {
+      if (!exists) {
+        notice.warning(`未找到弹幕文件: ${guessed}。请手动确认路径。`);
+      }
+    }).catch(() => { /* non-blocking */ });
+  }
+
   showDanmuDialog.value = true;
 }
 
