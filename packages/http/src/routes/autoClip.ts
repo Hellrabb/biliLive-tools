@@ -16,6 +16,29 @@ const router = new Router({ prefix: "/auto-clip" });
 const MAX_CONCURRENT_RUNS = 5;
 const activeRuns = new Set<string>();
 
+/** Per-client rate limiting for /run endpoint. Prevents abuse of LLM analysis. */
+const runRateLimit = new Map<string, number>();
+const RUN_RATE_LIMIT_MS = 30_000; // 30s cooldown per client
+const MAX_RATE_LIMIT_ENTRIES = 1000;
+
+function checkRunRateLimit(ip: string): boolean {
+  const lastRun = runRateLimit.get(ip);
+  const now = Date.now();
+  if (lastRun && now - lastRun < RUN_RATE_LIMIT_MS) {
+    return false;
+  }
+  runRateLimit.set(ip, now);
+  // Prevent unbounded map growth
+  if (runRateLimit.size > MAX_RATE_LIMIT_ENTRIES) {
+    const entries = [...runRateLimit.entries()];
+    entries.sort((a, b) => a[1] - b[1]);
+    for (const [key] of entries.slice(0, 50)) {
+      runRateLimit.delete(key);
+    }
+  }
+  return true;
+}
+
 interface AutoClipPresetInstance {
   list: () => Promise<AutoClipPresetType[]>;
   get: (id: string) => Promise<AutoClipPresetType | undefined>;
@@ -185,16 +208,23 @@ router.post("/run", async (ctx) => {
     return;
   }
 
-  // Resolve paths FIRST, then check — prevents relative-path bypass
+  // Check raw input for path traversal BEFORE resolve
+  // (path.resolve normalizes .. away, so checking after is ineffective)
+  if (/\.\./.test(videoPath) || /\.\./.test(danmuPath)) {
+    ctx.status = 400;
+    ctx.body = { error: "Invalid path" };
+    return;
+  }
+
   const resolvedVideo = path.resolve(videoPath);
   const resolvedDanmu = path.resolve(danmuPath);
 
-  const dangerousPatterns = [
-    /\.\./,
+  // Check resolved path against dangerous system prefixes
+  const systemPrefixes = [
     /^\/etc\//, /^\/proc\//, /^\/sys\//, /^\/dev\//,
-    /\x00/, // null byte injection
+    /\x00/,
   ];
-  if (dangerousPatterns.some(p => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
+  if (systemPrefixes.some(p => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
     ctx.status = 400;
     ctx.body = { error: "Invalid path" };
     return;
@@ -230,6 +260,14 @@ router.post("/run", async (ctx) => {
 
   const { v4: uuidv4 } = await import("uuid");
   const taskId = uuidv4();
+
+  // Rate limit per client IP — prevent token-budget abuse
+  const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
+  if (!checkRunRateLimit(clientIp)) {
+    ctx.status = 429;
+    ctx.body = { error: "Too many requests. Please wait 30 seconds between analyses." };
+    return;
+  }
 
   if (activeRuns.size >= MAX_CONCURRENT_RUNS) {
     ctx.status = 429;
