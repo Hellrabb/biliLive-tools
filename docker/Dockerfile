@@ -26,6 +26,14 @@ RUN pnpm run build:webui
 FROM base AS backend-build
 RUN pnpm run build:base && pnpm run --filter bililive-cli build && cd packages/CLI && node ./scripts/removeDev.js && npm install --force
 
+# npm install --force drops @napi-rs/canvas optional platform bindings (npm bug #4828).
+# Project uses node-linker=hoisted, so native bindings are at /app/node_modules/@napi-rs/canvas-linux-*
+RUN for dir in /app/node_modules/@napi-rs/canvas-linux-*; do \
+      [ -d "$dir" ] && cp -r "$dir" /app/packages/CLI/node_modules/@napi-rs/; \
+    done; \
+    ls /app/packages/CLI/node_modules/@napi-rs/canvas-linux-* >/dev/null 2>&1 || \
+      { echo "ERROR: missing @napi-rs/canvas native bindings"; exit 1; }
+
 # 下载二进制依赖
 RUN pnpm run install:bin
 
