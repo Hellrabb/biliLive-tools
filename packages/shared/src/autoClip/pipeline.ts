@@ -384,6 +384,16 @@ export async function exportClips(
     }
   }
 
+  // Clean up temp ASS file after all clips are exported
+  if (assPath) {
+    try {
+      const { unlink } = await import("node:fs/promises");
+      await unlink(assPath);
+    } catch {
+      // Best-effort cleanup — temp dir will eventually reclaim
+    }
+  }
+
   return { success, failed };
 }
 
