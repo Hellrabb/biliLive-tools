@@ -106,8 +106,8 @@ export async function runAutoClipPipeline(
     }
 
     if (filterConfig.rules.length > 0) {
-      const result = applyFilter(stats.danmu as Array<{ text: string }>, filterConfig);
-      stats.danmu = result.filtered as DanmuItem[];
+      const result = applyFilter(stats.danmu, filterConfig);
+      stats.danmu = result.filtered;
       onProgress?.(
         "filter",
         30,

@@ -25,7 +25,7 @@ describe("Title Pipeline Integration", () => {
   it("should generate styled titles for all highlight types", async () => {
     const highlights = makeHighlights(3);
     const sendMessage = async (prompt: string) => {
-      if (prompt.includes("典故意境")) {
+      if (prompt.includes("大气震撼")) {
         return '{"title": "一舞剑器动四方，直播间内尽锋芒"}';
       }
       if (prompt.includes("幽默俏皮")) {
@@ -41,24 +41,24 @@ describe("Title Pipeline Integration", () => {
     );
 
     expect(result).toHaveLength(3);
-    // First clip gets opening prompt (典故意境)
+    // First clip (impressive type) gets adaptive prompt with 大气震撼 style
     expect(result[0]!.title).toBe("一舞剑器动四方，直播间内尽锋芒");
   });
 
   it("should correctly route prompt styles by highlightType", () => {
     const funny = makeHighlights(1)[0]!;
     funny.highlightType = "funny";
-    const prompt = buildTitlePrompt(funny, false, undefined, "弹幕热闹");
+    const prompt = buildTitlePrompt(funny, undefined, "弹幕热闹");
     expect(prompt).toContain("幽默俏皮");
 
     const touching = makeHighlights(1)[0]!;
     touching.highlightType = "touching";
-    const prompt2 = buildTitlePrompt(touching, false, undefined, "弹幕感人");
+    const prompt2 = buildTitlePrompt(touching, undefined, "弹幕感人");
     expect(prompt2).toContain("温情含蓄");
 
     const hype = makeHighlights(1)[0]!;
     hype.highlightType = "hype";
-    const prompt3 = buildTitlePrompt(hype, false, undefined, "弹幕爆炸");
+    const prompt3 = buildTitlePrompt(hype, undefined, "弹幕爆炸");
     expect(prompt3).toContain("热血澎湃");
   });
 

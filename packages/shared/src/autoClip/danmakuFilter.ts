@@ -3,6 +3,7 @@ import type { SuspiciousPattern } from "./types.js";
 import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
 import { extractAndParseJSON } from "./jsonParser.js";
+import { sanitizeForPrompt } from "./promptSanitizer.js";
 
 export interface DetectSuspiciousOptions {
   minOccurrence: number;
@@ -133,16 +134,16 @@ export function detectSuspicious(
 
 // --- applyFilter ------------------------------------------------------------
 
-export interface FilterResult {
-  filtered: Array<{ text: string }>;
+export interface FilterResult<T extends { text?: string } = { text?: string }> {
+  filtered: T[];
   removed: number;
   breakdown: Array<{ ruleId: string; pattern: string; removed: number }>;
 }
 
-export function applyFilter(
-  danmu: Array<{ text: string }>,
+export function applyFilter<T extends { text?: string }>(
+  danmu: T[],
   config: DanmakuFilterConfig,
-): FilterResult {
+): FilterResult<T> {
   if (!config.enabled || config.rules.length === 0) {
     return { filtered: danmu, removed: 0, breakdown: [] };
   }
@@ -174,11 +175,11 @@ export function applyFilter(
     compiled.push({ id: rule.id, pattern: rule.pattern, test: matchFn });
   }
 
-  const filtered: Array<{ text: string }> = [];
+  const filtered: T[] = [];
   for (const d of danmu) {
     let matched = false;
     for (const rule of compiled) {
-      if (rule.test(d.text)) {
+      if (rule.test(d.text ?? "")) {
         matched = true;
         const entry = breakdownMap.get(rule.id);
         if (entry) {
@@ -234,7 +235,7 @@ export async function llmReviewPatterns(
   }
 
   const patternList = patterns
-    .map((p, i) => `${i + 1}. "${p.text}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
+    .map((p, i) => `${i + 1}. "${sanitizeForPrompt(p.text)}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
     .join("\n");
 
   const prompt = `You are a danmaku spam classifier. Determine if each danmaku pattern is lottery spam (抽奖广告垃圾弹幕) or legitimate audience engagement (正常观众互动).

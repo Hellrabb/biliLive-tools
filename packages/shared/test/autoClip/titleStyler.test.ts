@@ -18,42 +18,42 @@ function makeHighlight(overrides: Partial<HighlightSegment> = {}): HighlightSegm
 }
 
 describe("buildTitlePrompt", () => {
-  it("should use 典故意境 prompt for first clip (isFirstClip=true)", () => {
+  it("should use adaptive prompt for first clip (impressive type)", () => {
     const h = makeHighlight();
-    const prompt = buildTitlePrompt(h, true, undefined, "弹幕疯狂刷666");
-    expect(prompt).toContain("典故意境");
-    expect(prompt).toContain("诗词典故");
+    const prompt = buildTitlePrompt(h, undefined, "弹幕疯狂刷666");
+    expect(prompt).toContain("大气震撼");
+    expect(prompt).toContain("冲击力的意象");
     expect(prompt).toContain(h.title);
   });
 
   it("should use adaptive prompt for funny type", () => {
     const h = makeHighlight({ highlightType: "funny" });
-    const prompt = buildTitlePrompt(h, false, undefined, "观众笑疯了");
+    const prompt = buildTitlePrompt(h, undefined, "观众笑疯了");
     expect(prompt).toContain("幽默俏皮");
   });
 
   it("should include ASR transcript when provided", () => {
     const h = makeHighlight();
-    const prompt = buildTitlePrompt(h, false, "主播说：卧槽这波天秀", "弹幕666");
+    const prompt = buildTitlePrompt(h, "主播说：卧槽这波天秀", "弹幕666");
     expect(prompt).toContain("主播说：卧槽这波天秀");
   });
 
   it("should include frame description when provided", () => {
     const h = makeHighlight();
-    const prompt = buildTitlePrompt(h, false, undefined, "弹幕666", "激烈的团战场面");
+    const prompt = buildTitlePrompt(h, undefined, "弹幕666", "激烈的团战场面");
     expect(prompt).toContain("激烈的团战场面");
   });
 });
 
 describe("generateStyledTitles", () => {
-  it("should style first clip with opening prompt", async () => {
+  it("should style all clips with adaptive prompt by highlightType", async () => {
     const highlights = [
-      makeHighlight({ score: 9, title: "极限反杀" }),
-      makeHighlight({ score: 5, title: "日常聊天" }),
+      makeHighlight({ score: 9, title: "极限反杀", highlightType: "impressive" }),
+      makeHighlight({ score: 5, title: "日常聊天", highlightType: "funny" }),
     ];
 
     const sendMessage = async (prompt: string) => {
-      if (prompt.includes("典故意境")) {
+      if (prompt.includes("大气震撼")) {
         return '{"title": "一剑曾当百万师，此刻尽显神威"}';
       }
       return '{"title": "主播的日常，弹幕的狂欢"}';
