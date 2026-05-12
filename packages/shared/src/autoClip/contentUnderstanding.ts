@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { unlink } from "node:fs/promises";
+import { readdir, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
@@ -152,3 +152,35 @@ export async function understandContent(
 
   return { asrMap, frameMap };
 }
+
+// ---------------------------------------------------------------------------
+// Stale temp file cleanup
+// ---------------------------------------------------------------------------
+
+const ASR_TEMP_PREFIX = "autoclip_asr_";
+
+/**
+ * Clean up stale ASR temp files from previous runs (e.g., after SIGKILL).
+ * Best-effort — errors are logged and ignored.
+ */
+export async function cleanupStaleASRTempFiles(): Promise<void> {
+  try {
+    const files = await readdir(tmpdir());
+    const stale = files.filter((f) => f.startsWith(ASR_TEMP_PREFIX));
+    for (const f of stale) {
+      try {
+        await unlink(path.join(tmpdir(), f));
+      } catch {
+        // File may be locked or already deleted
+      }
+    }
+    if (stale.length > 0) {
+      logger.info(`AutoClip: cleaned up ${stale.length} stale ASR temp files`);
+    }
+  } catch (err) {
+    logger.warn("AutoClip: failed to scan for stale ASR temp files", err);
+  }
+}
+
+// Schedule cleanup at module import time (non-blocking)
+setImmediate(() => { cleanupStaleASRTempFiles(); });
