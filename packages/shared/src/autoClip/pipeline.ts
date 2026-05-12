@@ -248,10 +248,13 @@ export async function resolveExportPresets(exportCfg: {
   danmuPresetId?: string;
 }): Promise<ExportPresetContext> {
   const result: ExportPresetContext = {};
+  let diContainer: any;
 
   if (exportCfg.ffmpegPresetId) {
     try {
-      const { container: diContainer } = await import("../index.js");
+      if (!diContainer) {
+        ({ container: diContainer } = await import("../index.js"));
+      }
       const ffmpegPreset = diContainer.resolve("ffmpegPreset");
       const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
       if (preset?.config) {
@@ -264,7 +267,9 @@ export async function resolveExportPresets(exportCfg: {
 
   if (exportCfg.burnDanmaku) {
     try {
-      const { container: diContainer } = await import("../index.js");
+      if (!diContainer) {
+        ({ container: diContainer } = await import("../index.js"));
+      }
       const danmuPreset = diContainer.resolve("danmuPreset");
       const danmuPresetId = exportCfg.danmuPresetId || "default";
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
