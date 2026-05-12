@@ -3,27 +3,11 @@ import logger from "../utils/log.js";
 import type { HighlightSegment, TitleStyleConfig } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
+import { sanitizeForPrompt } from "./promptSanitizer.js";
 
 // ---------------------------------------------------------------------------
 // Prompt templates
 // ---------------------------------------------------------------------------
-
-const OPENING_PROMPT = `你是一位精通中国古典文化的文案大师。基于以下直播片段的信息，为切片生成一个 {min}-{max} 字的标题。
-
-核心要求：
-- 典故意境：融合传统文化意象，如诗词典故、江湖意境、戏曲韵味、山水隐喻
-- 有画面感、韵律感和留白——不要直白描述事件，要有文学化的转译
-- 如素材有明显情感基调，标题应呼应之
-- 参考风格：江湖夜雨十年灯 / 一舞剑器动四方 / 此时无声胜有声 / 大漠孤烟直 / 会当凌绝顶
-
-直播片段信息：
-- 事件摘要：{summary}
-{asr_section}
-{frame_section}
-- 弹幕氛围：{danmaku}
-
-返回 ONLY 有效 JSON（不要 markdown）：
-{"title": "诗意标题"}`;
 
 const ADAPTIVE_PROMPT_BASE = `你是一位创意文案写手。基于以下直播片段的信息，为切片生成一个 {min}-{max} 字、富有文化和诗意的标题。
 
@@ -64,7 +48,6 @@ const STYLE_GUIDES: Record<string, string> = {
 
 export function buildTitlePrompt(
   highlight: HighlightSegment,
-  isFirstClip: boolean,
   asrTranscript: string | undefined,
   danmakuContext: string,
   frameDescription?: string,
@@ -72,13 +55,13 @@ export function buildTitlePrompt(
 ): string {
   const min = config?.minLength ?? 20;
   const max = config?.maxLength ?? 30;
-  const summary = highlight.title || "直播精彩片段";
+  const summary = sanitizeForPrompt(highlight.title || "直播精彩片段");
 
   const asrSection = asrTranscript
-    ? `- 主播语音：${asrTranscript}`
+    ? `- 主播语音：${sanitizeForPrompt(asrTranscript)}`
     : "";
   const frameSection = frameDescription
-    ? `- 画面描述：${frameDescription}`
+    ? `- 画面描述：${sanitizeForPrompt(frameDescription)}`
     : "";
 
   // If customPrompt is provided, use it as the template (overrides built-in templates)
@@ -92,16 +75,6 @@ export function buildTitlePrompt(
       .replace(/\{frame_section\}/g, frameSection)
       .replace(/\{danmaku\}/g, danmakuContext || "无特殊弹幕模式")
       .replace(/\{style_guide\}/g, styleGuide);
-  }
-
-  if (isFirstClip) {
-    return OPENING_PROMPT
-      .replace(/\{min\}/g, String(min))
-      .replace(/\{max\}/g, String(max))
-      .replace(/\{summary\}/g, summary)
-      .replace(/\{asr_section\}/g, asrSection)
-      .replace(/\{frame_section\}/g, frameSection)
-      .replace(/\{danmaku\}/g, danmakuContext || "无特殊弹幕模式");
   }
 
   const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight!;
@@ -156,7 +129,6 @@ export async function generateStyledTitles(
   const tasks = highlights.map((h, i) =>
     limit(async () => {
       try {
-        const isFirst = i === 0;
         const asrTranscript = context.asrMap.get(i);
         const frameDescription = context.frameMap.get(i);
 
@@ -167,7 +139,6 @@ export async function generateStyledTitles(
 
         const prompt = buildTitlePrompt(
           h,
-          isFirst,
           asrTranscript,
           danmakuContext,
           frameDescription,

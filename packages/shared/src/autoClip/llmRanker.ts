@@ -9,6 +9,7 @@ import type {
 } from "./types.js";
 import logger from "../utils/log.js";
 import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
+import { sanitizeDanmakuList } from "./promptSanitizer.js";
 
 // ---------------------------------------------------------------------------
 // Default prompt template
@@ -83,17 +84,17 @@ export function buildLLMPrompt(
 
   const before =
     ctx.surroundingBefore.length > 0
-      ? ctx.surroundingBefore.slice(0, MAX_SURROUNDING_ITEMS).join(" | ")
+      ? sanitizeDanmakuList(ctx.surroundingBefore).slice(0, MAX_SURROUNDING_ITEMS).join(" | ")
       : "(none)";
 
   const after =
     ctx.surroundingAfter.length > 0
-      ? ctx.surroundingAfter.slice(0, MAX_SURROUNDING_ITEMS).join(" | ")
+      ? sanitizeDanmakuList(ctx.surroundingAfter).slice(0, MAX_SURROUNDING_ITEMS).join(" | ")
       : "(none)";
 
   const danmaku =
     ctx.danmakuSamples.length > 0
-      ? ctx.danmakuSamples.map((d, i) => `${i + 1}. ${d}`).join("\n")
+      ? sanitizeDanmakuList(ctx.danmakuSamples).map((d, i) => `${i + 1}. ${d}`).join("\n")
       : "(none)";
 
   return tpl
