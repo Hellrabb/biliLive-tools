@@ -3,6 +3,7 @@ import pLimit from "p-limit";
 import logger from "../utils/log.js";
 
 const FRAME_CONCURRENCY = 3;
+const FRAME_EXTRACT_TIMEOUT_MS = 30_000;
 
 /**
  * Extract frames from a video at given timestamps.
@@ -59,6 +60,11 @@ function extractOneFrame(
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+      reject(new Error(`Frame extraction timed out after ${FRAME_EXTRACT_TIMEOUT_MS}ms at ${timestampSec}s`));
+    }, FRAME_EXTRACT_TIMEOUT_MS);
+
     const chunks: Buffer[] = [];
     let stderr = "";
 
@@ -71,6 +77,7 @@ function extractOneFrame(
     });
 
     proc.on("close", (code) => {
+      clearTimeout(timer);
       if (code !== 0 || chunks.length === 0) {
         reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-200)}`));
         return;
@@ -79,6 +86,9 @@ function extractOneFrame(
       resolve(`data:image/jpeg;base64,${base64}`);
     });
 
-    proc.on("error", reject);
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 }

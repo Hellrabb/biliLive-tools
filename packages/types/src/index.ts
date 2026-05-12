@@ -1249,7 +1249,7 @@ export interface AutoClipLLMConfig {
   };
 }
 
-/** @reserved — 首版不实现，保留接口用于二期 ASR/视觉扩展 */
+/** Phase 1.5 enhancement: ASR speech recognition + multimodal visual frame understanding */
 export interface AutoClipEnhancementConfig {
   asrEnabled: boolean;
   visualEnabled: boolean;

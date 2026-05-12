@@ -257,7 +257,9 @@ export async function resolveExportPresets(exportCfg: {
       if (preset?.config) {
         result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
       }
-    } catch { /* use empty */ }
+    } catch (err) {
+      logger.warn("AutoClip: failed to resolve ffmpeg preset for export", err);
+    }
   }
 
   if (exportCfg.burnDanmaku) {
@@ -267,7 +269,9 @@ export async function resolveExportPresets(exportCfg: {
       const danmuPresetId = exportCfg.danmuPresetId || "default";
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
       result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
-    } catch { /* use empty */ }
+    } catch (err) {
+      logger.warn("AutoClip: failed to resolve danmaku preset for export", err);
+    }
   }
 
   return result;

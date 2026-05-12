@@ -112,12 +112,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
       {
         version: 3,
         name: "add_highlight_count_and_first_title",
-        sql: `ALTER TABLE auto_clip_results ADD COLUMN highlight_count INTEGER NOT NULL DEFAULT 0`,
-      },
-      {
-        version: 4,
-        name: "add_first_title",
-        sql: `ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN highlight_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
       },
     ];
 
