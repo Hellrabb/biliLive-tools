@@ -519,6 +519,8 @@ async function doExportClips(
   exportedPaths: string[];
   failedCount: number;
   errors: string[];
+  danmakuStatus?: string;
+  danmakuError?: string;
 }> {
   const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
   const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
@@ -564,6 +566,8 @@ async function doExportClips(
         exportedPaths: [],
         failedCount: highlights.length,
         errors: ["All highlights have invalid shape — cannot export"],
+        danmakuStatus: "skipped",
+        danmakuError: "Export aborted before danmaku processing",
       };
     }
 
@@ -590,6 +594,15 @@ async function doExportClips(
     } else {
       autoClipModel.updateStatus(resultId, "pending");
     }
+
+    return {
+      status: exportedPaths.length > 0 ? "exported" : "failed",
+      exportedPaths,
+      failedCount,
+      errors,
+      danmakuStatus: exportResult.danmakuStatus,
+      danmakuError: exportResult.danmakuError,
+    };
   } catch (err: any) {
     logger.error(`${logPrefix}: exportClips threw:`, err);
     // Roll back status so the user can retry
@@ -599,15 +612,10 @@ async function doExportClips(
       exportedPaths: [],
       failedCount: highlights.length,
       errors: [err.message || String(err)],
+      danmakuStatus: "skipped",
+      danmakuError: `Export threw before danmaku processing: ${err.message || String(err)}`,
     };
   }
-
-  return {
-    status: exportedPaths.length > 0 ? "exported" : "failed",
-    exportedPaths,
-    failedCount,
-    errors,
-  };
 }
 
 // POST /auto-clip/clips/batch-approve-and-export — 批量批准并导出

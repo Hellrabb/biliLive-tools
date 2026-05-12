@@ -227,9 +227,13 @@ export async function runAutoClipPipeline(
   return { id, videoPath, danmuPath, highlights, llmFallback, suspiciousPatterns };
 }
 
+export type DanmakuStatus = "rendered" | "skipped" | "failed";
+
 export interface ExportClipsResult {
   success: Array<{ path: string; highlight: HighlightSegment }>;
   failed: Array<{ highlight: HighlightSegment; error: string }>;
+  danmakuStatus: DanmakuStatus;
+  danmakuError?: string;
 }
 
 /** Resolved preset configs — callers resolve from DI container and pass in */
@@ -300,6 +304,8 @@ export async function exportClips(
 ): Promise<ExportClipsResult> {
   const success: ExportClipsResult["success"] = [];
   const failed: ExportClipsResult["failed"] = [];
+  let danmakuStatus: DanmakuStatus = "skipped";
+  let danmakuError: string | undefined;
 
   const savePath = exportConfig.savePath || path.dirname(videoPath);
 
@@ -324,11 +330,34 @@ export async function exportClips(
         task.on("task-error", ({ error }: { error: string }) => reject(new Error(error)));
         task.on("task-cancel", () => reject(new Error("Danmaku conversion cancelled")));
       });
+      // Verify ASS file was actually created and is non-empty
+      const assOutput = task.output;
+      if (!assOutput) {
+        throw new Error("Danmaku task completed but output path is empty");
+      }
+      const { stat } = await import("node:fs/promises");
+      const assStat = await stat(assOutput).catch(() => null);
+      if (!assStat || assStat.size === 0) {
+        throw new Error(
+          `Danmaku ASS file ${assOutput}: ${!assStat ? "not found after conversion" : "empty (0 bytes)"}`,
+        );
+      }
       assPath = task.output;
-      logger.info(`AutoClip: danmaku ASS generated at ${assPath}`);
+      danmakuStatus = "rendered";
+      logger.info(`AutoClip: danmaku ASS generated at ${assPath} (${assStat.size} bytes)`);
     } catch (err) {
+      danmakuStatus = "failed";
+      danmakuError = err instanceof Error ? err.message : String(err);
       logger.warn("AutoClip: danmaku ASS generation failed, exporting without danmaku", err);
     }
+  } else if (exportConfig.burnDanmaku) {
+    // burnDanmaku is true but one of the prerequisites is missing
+    const missing: string[] = [];
+    if (!danmuPath) missing.push("danmuPath (no danmaku XML file)");
+    if (!presetCtx.danmuConfig) missing.push("danmuConfig (danmaku preset not resolved)");
+    danmakuStatus = "skipped";
+    danmakuError = `Danmaku rendering skipped: ${missing.join(", ")}`;
+    logger.warn(`AutoClip: ${danmakuError}`);
   }
 
   // Dynamic import for cut once
@@ -399,7 +428,7 @@ export async function exportClips(
     }
   }
 
-  return { success, failed };
+  return { success, failed, danmakuStatus, danmakuError };
 }
 
 // ---------------------------------------------------------------------------

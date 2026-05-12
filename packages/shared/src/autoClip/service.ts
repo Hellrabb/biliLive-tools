@@ -244,6 +244,14 @@ export class AutoClipService {
     );
 
     const exportedPaths = exportResult.success.map((s) => s.path);
+
+    // Log danmaku status for diagnostics
+    if (exportResult.danmakuStatus === "failed") {
+      logger.warn(`AutoClip: 弹幕渲染失败 — ${exportResult.danmakuError}`);
+    } else if (exportResult.danmakuStatus === "skipped" && exportResult.danmakuError) {
+      logger.warn(`AutoClip: 弹幕渲染跳过 — ${exportResult.danmakuError}`);
+    }
+
     if (exportedPaths.length > 0) {
       autoClipModel.markExported(resultId, exportedPaths);
       logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
