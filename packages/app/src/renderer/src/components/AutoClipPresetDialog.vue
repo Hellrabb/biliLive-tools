@@ -293,7 +293,13 @@ async function loadPresets() {
 function selectPreset(id: string) {
   selectedId.value = id;
   const p = presets.value.find((x) => x.id === id);
-  if (p) editingPreset.value = cloneDeep(p);
+  if (p) {
+    editingPreset.value = cloneDeep(p);
+    // Ensure titleStyleConfig exists for older presets that lack it
+    if (!editingPreset.value.config.llm.titleStyleConfig) {
+      editingPreset.value.config.llm.titleStyleConfig = { maxLength: 30, minLength: 20 };
+    }
+  }
 }
 
 function createPreset() {
