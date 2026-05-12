@@ -8,7 +8,7 @@ import type {
   TimeWindow,
 } from "./types.js";
 import logger from "../utils/log.js";
-import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
+import { LLM_CONCURRENCY } from "./constants.js";
 import { sanitizeForPrompt, sanitizeDanmakuList } from "./promptSanitizer.js";
 import { sendWithTimeout } from "./llmUtils.js";
 

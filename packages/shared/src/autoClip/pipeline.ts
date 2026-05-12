@@ -8,7 +8,7 @@ import { understandContent } from "./contentUnderstanding.js";
 import { generateStyledTitles } from "./titleStyler.js";
 import logger from "../utils/log.js";
 
-import type { AutoClipConfig, DanmuItem, VideoCodec, audioCodec } from "@biliLive-tools/types";
+import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
 import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern, TitleStyleConfig } from "./types.js";
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
