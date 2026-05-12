@@ -39,7 +39,6 @@ services:
     # image: renmu1234/bililive-tools  # 预构建镜像（不含 autoClip）
     labels:
       icon: https://icon.casaos.io/main/all/webui.png
-    network_mode: bridge
     ports:
       - target: 3000
         published: "13000"
