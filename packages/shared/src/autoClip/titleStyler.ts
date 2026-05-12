@@ -4,6 +4,7 @@ import type { HighlightSegment, TitleStyleConfig } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
 import { sanitizeForPrompt } from "./promptSanitizer.js";
+import { sendWithTimeout } from "./llmUtils.js";
 
 // ---------------------------------------------------------------------------
 // Prompt templates
@@ -106,26 +107,6 @@ export async function generateStyledTitles(
 
   const limit = pLimit(LLM_CONCURRENCY);
 
-  const sendWithTimeout = (prompt: string): Promise<string> => {
-    const controller = new AbortController();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        controller.abort();
-        reject(new Error("Title styling LLM timeout"));
-      }, LLM_REQUEST_TIMEOUT_MS);
-      sendMessage(prompt, controller.signal)
-        .then((res) => { clearTimeout(timer); resolve(res); })
-        .catch((err) => {
-          clearTimeout(timer);
-          if (err?.name === "AbortError") {
-            reject(new Error("Title styling LLM timeout"));
-          } else {
-            reject(err);
-          }
-        });
-    });
-  };
-
   const tasks = highlights.map((h, i) =>
     limit(async () => {
       try {
@@ -145,7 +126,7 @@ export async function generateStyledTitles(
           config,
         );
 
-        const raw = await sendWithTimeout(prompt);
+        const raw = await sendWithTimeout(sendMessage, prompt);
         const parsed = parseTitleResponse(raw);
 
         if (parsed) {
