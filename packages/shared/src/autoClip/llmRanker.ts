@@ -9,7 +9,8 @@ import type {
 } from "./types.js";
 import logger from "../utils/log.js";
 import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
-import { sanitizeDanmakuList } from "./promptSanitizer.js";
+import { sanitizeForPrompt, sanitizeDanmakuList } from "./promptSanitizer.js";
+import { sendWithTimeout } from "./llmUtils.js";
 
 // ---------------------------------------------------------------------------
 // Default prompt template
@@ -78,7 +79,7 @@ export function buildLLMPrompt(
   const scRecords =
     ctx.scSummary.length > 0
       ? ctx.scSummary
-          .map((s) => `${s.user} ¥${s.amount}: ${s.message}`)
+          .map((s) => `${sanitizeForPrompt(s.user)} ¥${s.amount}: ${sanitizeForPrompt(s.message)}`)
           .join("\n")
       : "(none)";
 
@@ -366,32 +367,13 @@ export async function rankCandidates(
 
   // Step 3: send to LLM with concurrency limit, timeout, and error isolation
   const limit = pLimit(LLM_CONCURRENCY);
-  const sendWithTimeout = (prompt: string): Promise<string> => {
-    const controller = new AbortController();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        controller.abort();
-        reject(new Error("LLM request timeout"));
-      }, LLM_REQUEST_TIMEOUT_MS);
-      sendMessage(prompt, controller.signal)
-        .then((res) => { clearTimeout(timer); resolve(res); })
-        .catch((err) => {
-          clearTimeout(timer);
-          if (err?.name === "AbortError") {
-            reject(new Error("LLM request timeout"));
-          } else {
-            reject(err);
-          }
-        });
-    });
-  };
 
   const prompts = contexts.map((ctx) =>
     buildLLMPrompt(ctx, config.promptTemplate),
   );
 
   const rawResults = await Promise.allSettled(
-    prompts.map((prompt) => limit(() => sendWithTimeout(prompt))),
+    prompts.map((prompt) => limit(() => sendWithTimeout(sendMessage, prompt))),
   );
 
   // Step 4: parse responses — fulfilled → parse, rejected → heuristic fallback
