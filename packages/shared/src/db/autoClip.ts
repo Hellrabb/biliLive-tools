@@ -164,8 +164,9 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
       INSERT INTO auto_clip_results (
         id, video_path, danmu_path, recorder_id, preset_id,
         status, highlights, created_at, llm_fallback, output_name,
-        highlight_count, first_title
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        highlight_count, first_title,
+        exported_at, uploaded_at, exported_paths, bili_aids
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
       ON CONFLICT(id) DO UPDATE SET
         video_path = excluded.video_path,
         danmu_path = excluded.danmu_path,
@@ -176,7 +177,11 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         llm_fallback = excluded.llm_fallback,
         output_name = excluded.output_name,
         highlight_count = excluded.highlight_count,
-        first_title = excluded.first_title
+        first_title = excluded.first_title,
+        exported_at = NULL,
+        uploaded_at = NULL,
+        exported_paths = NULL,
+        bili_aids = NULL
     `;
     return this.db.prepare(sql).run(
       row.id, row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
