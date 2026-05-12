@@ -2,7 +2,7 @@ import pLimit from "p-limit";
 import logger from "../utils/log.js";
 import type { HighlightSegment, TitleStyleConfig } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
-import { LLM_CONCURRENCY, LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
+import { LLM_CONCURRENCY } from "./constants.js";
 import { sanitizeForPrompt } from "./promptSanitizer.js";
 import { sendWithTimeout } from "./llmUtils.js";
 
