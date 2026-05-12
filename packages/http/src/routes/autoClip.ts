@@ -498,7 +498,7 @@ router.post("/clip/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
-function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string } {
+function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string; score?: number; isHighlight?: boolean } {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
   if (!Array.isArray(obj.bestRange) || obj.bestRange.length !== 2) return false;
