@@ -142,10 +142,10 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
     const parsed = extractAndParseJSON<Record<string, unknown>>(raw);
     if (!parsed) return fallback();
 
-    // 3. Extract score first (needed for isHighlight inference)
+    // 2. Extract score first (needed for isHighlight inference)
     const score = typeof parsed.score === "number" ? parsed.score : 0;
 
-    // 4. Extract isHighlight — honor explicit value, infer from score when missing
+    // 3. Extract isHighlight — honor explicit value, infer from score when missing
     let isHighlight: boolean;
     if (typeof parsed.isHighlight === "boolean") {
       isHighlight = parsed.isHighlight;
@@ -156,14 +156,14 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
       isHighlight = score >= 3 && inferredType !== "not_highlight";
     }
 
-    // 5. Extract remaining fields
+    // 4. Extract remaining fields
     const title = typeof parsed.title === "string" ? parsed.title : "";
     const tags = Array.isArray(parsed.tags)
       ? parsed.tags.filter((t: unknown): t is string => typeof t === "string")
       : [];
     const reason = typeof parsed.reason === "string" ? parsed.reason : "";
 
-    // 6. Validate highlightType
+    // 5. Validate highlightType
     let highlightType: LLMRankResult["highlightType"] = "not_highlight";
     if (typeof parsed.highlightType === "string") {
       const rawType = parsed.highlightType.trim().toLowerCase();
@@ -172,7 +172,7 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
       }
     }
 
-    // 5. Extract and clamp bestClipStart / bestClipEnd
+    // 6. Extract and clamp bestClipStart / bestClipEnd
     let bestClipStart =
       typeof parsed.bestClipStart === "number" && Number.isFinite(parsed.bestClipStart)
         ? parsed.bestClipStart
