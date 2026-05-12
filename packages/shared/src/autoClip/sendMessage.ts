@@ -118,6 +118,20 @@ export async function buildSendMultimodalMessage(
     };
   }
 
+  if (vp === "ollama") {
+    const { chat } = await import("../llm/ollama.js");
+    const host = vendor.baseURL || "http://localhost:11434";
+    return async (prompt: string, images: string[], signal?: AbortSignal) => {
+      const result = await chat({
+        host,
+        model: model.modelName ?? "llava",
+        messages: [{ role: "user", content: prompt, images }],
+        signal,
+      });
+      return result?.message?.content ?? "";
+    };
+  }
+
   logger.warn(`AutoClip: multimodal not supported for vendor provider "${vp}"`);
   return undefined;
 }
