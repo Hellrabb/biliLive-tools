@@ -197,14 +197,18 @@ export class AutoClipService {
       }
 
       if (!result.skipped && !skipAutoExport && !reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
-        await this.autoExportAndUpload(
+        // Fire-and-forget to avoid blocking DB persist response.
+        // Errors are logged internally by autoExportAndUpload.
+        this.autoExportAndUpload(
           result.id,
           videoPath,
           danmuPath,
           result.highlights,
           presetConfig,
           appConfig,
-        );
+        ).catch((err) => {
+          logger.error("AutoClip: autoExportAndUpload failed", err);
+        });
       }
     } catch (dbError) {
       logger.error("AutoClip: 持久化失败", dbError);
