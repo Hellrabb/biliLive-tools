@@ -68,7 +68,7 @@ interface ValidationError {
 function validatePresetConfig(config: unknown): ValidationError[] {
   const errors: ValidationError[] = [];
   if (!config || typeof config !== "object") {
-    return [{ field: "config", message: "config must be an object" }];
+    return [{ field: "config", message: "配置必须是对象" }];
   }
 
   const c = config as Record<string, unknown>;
@@ -76,7 +76,7 @@ function validatePresetConfig(config: unknown): ValidationError[] {
   // signal
   const signal = c.signal as Record<string, unknown> | undefined;
   if (!signal || typeof signal !== "object") {
-    errors.push({ field: "config.signal", message: "signal config is required" });
+    errors.push({ field: "config.signal", message: "信号检测配置为必填项" });
   } else {
     const numFields = [
       "danmakuDensityThreshold", "scMinAmount", "giftBurstThreshold",
@@ -85,30 +85,30 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     ] as const;
     for (const f of numFields) {
       if (typeof signal[f] !== "number" || !Number.isFinite(signal[f])) {
-        errors.push({ field: `config.signal.${f}`, message: `${f} must be a finite number` });
+        errors.push({ field: `config.signal.${f}`, message: `${f} 必须是有限数字` });
       }
     }
     // validate windowPadding is a 2-element number array
     if (!Array.isArray(signal.windowPadding) || signal.windowPadding.length !== 2 ||
         typeof signal.windowPadding[0] !== "number" || typeof signal.windowPadding[1] !== "number") {
-      errors.push({ field: "config.signal.windowPadding", message: "windowPadding must be [number, number]" });
+      errors.push({ field: "config.signal.windowPadding", message: "windowPadding 必须是 [number, number]" });
     }
   }
 
   // llm
   const llm = c.llm as Record<string, unknown> | undefined;
   if (!llm || typeof llm !== "object") {
-    errors.push({ field: "config.llm", message: "llm config is required" });
+    errors.push({ field: "config.llm", message: "LLM 配置为必填项" });
   } else {
-    if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled must be boolean" });
+    if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled 必须是布尔值" });
     if (typeof llm.provider !== "string" || !["qwen", "ollama", "aliyun"].includes(llm.provider as string)) {
-      errors.push({ field: "config.llm.provider", message: 'provider must be "qwen", "ollama", or "aliyun"' });
+      errors.push({ field: "config.llm.provider", message: 'provider 必须是 "qwen"、"ollama" 或 "aliyun"' });
     }
     if (typeof llm.topK !== "number" || !Number.isFinite(llm.topK) || (llm.topK as number) < 1) {
-      errors.push({ field: "config.llm.topK", message: "topK must be >= 1" });
+      errors.push({ field: "config.llm.topK", message: "topK 必须 >= 1" });
     }
     if (typeof llm.maxCandidatesPerVideo !== "number" || !Number.isFinite(llm.maxCandidatesPerVideo) || (llm.maxCandidatesPerVideo as number) < 1) {
-      errors.push({ field: "config.llm.maxCandidatesPerVideo", message: "maxCandidatesPerVideo must be >= 1" });
+      errors.push({ field: "config.llm.maxCandidatesPerVideo", message: "maxCandidatesPerVideo 必须 >= 1" });
     }
   }
 
@@ -116,7 +116,7 @@ function validatePresetConfig(config: unknown): ValidationError[] {
   const exp = c.export as Record<string, unknown> | undefined;
   if (exp && typeof exp === "object") {
     if (typeof exp.cutFormat !== "string" || !["mp4", "flv"].includes(exp.cutFormat as string)) {
-      errors.push({ field: "config.export.cutFormat", message: 'cutFormat must be "mp4" or "flv"' });
+      errors.push({ field: "config.export.cutFormat", message: 'cutFormat 必须是 "mp4" 或 "flv"' });
     }
   }
 
@@ -142,7 +142,7 @@ router.post("/preset", async (ctx) => {
   const errors = validatePresetConfig(data.config);
   if (errors.length > 0) {
     ctx.status = 400;
-    ctx.body = { error: "Invalid preset config", details: errors };
+    ctx.body = { error: "预设配置无效", details: errors };
     return;
   }
 
@@ -156,7 +156,7 @@ router.put("/preset/:id", async (ctx) => {
   const errors = validatePresetConfig(data.config);
   if (errors.length > 0) {
     ctx.status = 400;
-    ctx.body = { error: "Invalid preset config", details: errors };
+    ctx.body = { error: "预设配置无效", details: errors };
     return;
   }
 
@@ -176,7 +176,7 @@ router.get("/default-config", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip default-config error:", error);
     ctx.status = 500;
-    ctx.body = { error: "Internal server error" };
+    ctx.body = { error: "服务器内部错误" };
   }
 });
 
@@ -192,7 +192,7 @@ router.post("/run", async (ctx) => {
 
   if (presetId && !isValidUUID(presetId)) {
     ctx.status = 400;
-    ctx.body = { error: "presetId must be a valid UUID" };
+    ctx.body = { error: "presetId 必须是有效的 UUID" };
     return;
   }
 
@@ -204,7 +204,7 @@ router.post("/run", async (ctx) => {
 
   if (!videoPath || !danmuPath) {
     ctx.status = 400;
-    ctx.body = { error: "videoPath and danmuPath are required" };
+    ctx.body = { error: "videoPath 和 danmuPath 为必填项" };
     return;
   }
 
@@ -212,7 +212,7 @@ router.post("/run", async (ctx) => {
   // (path.resolve normalizes .. away, so checking after is ineffective)
   if (/\.\./.test(videoPath) || /\.\./.test(danmuPath)) {
     ctx.status = 400;
-    ctx.body = { error: "Invalid path" };
+    ctx.body = { error: "路径无效" };
     return;
   }
 
@@ -226,7 +226,7 @@ router.post("/run", async (ctx) => {
   ];
   if (systemPrefixes.some(p => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
     ctx.status = 400;
-    ctx.body = { error: "Invalid path" };
+    ctx.body = { error: "路径无效" };
     return;
   }
 
@@ -234,12 +234,12 @@ router.post("/run", async (ctx) => {
     const fs = await import("fs-extra");
     if (!(await fs.pathExists(resolvedVideo))) {
       ctx.status = 400;
-      ctx.body = { error: "Video file not found" };
+      ctx.body = { error: "视频文件不存在" };
       return;
     }
     if (!(await fs.pathExists(resolvedDanmu))) {
       ctx.status = 400;
-      ctx.body = { error: "Danmu file not found" };
+      ctx.body = { error: "弹幕文件不存在" };
       return;
     }
     // Reject unreasonably large danmaku XML files (>50 MB)
@@ -247,7 +247,7 @@ router.post("/run", async (ctx) => {
     const danmuStat = await fs.stat(resolvedDanmu);
     if (danmuStat.size > MAX_DANMU_SIZE_BYTES) {
       ctx.status = 400;
-      ctx.body = { error: `Danmu file too large (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB). Maximum is 50 MB.` };
+      ctx.body = { error: `弹幕文件过大 (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB)，上限 50 MB` };
       return;
     }
   } catch (err: any) {
@@ -275,7 +275,7 @@ router.post("/run", async (ctx) => {
   const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
   if (!checkRunRateLimit(clientIp)) {
     ctx.status = 429;
-    ctx.body = { error: "Too many requests. Please wait 30 seconds between analyses." };
+    ctx.body = { error: "请求过于频繁，请等待 30 秒后再试" };
     return;
   }
 
@@ -344,7 +344,7 @@ router.get("/result/:id", async (ctx) => {
   const result = autoClipModel.getResultById(id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Result not found" };
+    ctx.body = { error: "结果不存在" };
     return;
   }
   const { llm_fallback, ...rest } = result;
@@ -356,7 +356,7 @@ router.get("/result/:id", async (ctx) => {
     };
   } catch {
     ctx.status = 500;
-    ctx.body = { error: "Data corruption: highlights JSON is invalid" };
+    ctx.body = { error: "数据损坏：highlights JSON 无效" };
   }
 });
 
@@ -403,7 +403,7 @@ router.get("/clip/:id", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Not found" };
+    ctx.body = { error: "未找到" };
     return;
   }
   const { llm_fallback, ...rest } = result;
@@ -415,7 +415,7 @@ router.get("/clip/:id", async (ctx) => {
     };
   } catch {
     ctx.status = 500;
-    ctx.body = { error: "Data corruption: highlights JSON is invalid" };
+    ctx.body = { error: "数据损坏：highlights JSON 无效" };
   }
 });
 
@@ -423,12 +423,12 @@ router.post("/clip/:id/approve", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Not found" };
+    ctx.body = { error: "未找到" };
     return;
   }
   if (result.status !== "pending") {
     ctx.status = 400;
-    ctx.body = { error: `Cannot approve: current status is '${result.status}'` };
+    ctx.body = { error: `无法批准：当前状态为 '${result.status}'` };
     return;
   }
   autoClipModel.updateStatus(ctx.params.id, "approved");
@@ -440,13 +440,13 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Not found" };
+    ctx.body = { error: "未找到" };
     return;
   }
 
   if (result.status !== "pending") {
     ctx.status = 400;
-    ctx.body = { error: `Cannot export: current status is '${result.status}'` };
+    ctx.body = { error: `无法导出：当前状态为 '${result.status}'` };
     return;
   }
 
@@ -463,7 +463,7 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip approve-and-export error:", error);
     ctx.status = 500;
-    ctx.body = { error: "Internal server error" };
+    ctx.body = { error: "服务器内部错误" };
   }
 });
 
@@ -472,7 +472,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Not found" };
+    ctx.body = { error: "未找到" };
     return;
   }
 
@@ -489,7 +489,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
   } catch (error: any) {
     logger.error("AutoClip re-export error:", error);
     ctx.status = 500;
-    ctx.body = { error: "Internal server error" };
+    ctx.body = { error: "服务器内部错误" };
   }
 });
 
@@ -497,7 +497,7 @@ router.post("/clip/:id/delete", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
-    ctx.body = { error: "Not found" };
+    ctx.body = { error: "未找到" };
     return;
   }
   autoClipModel.deleteResult(ctx.params.id);
@@ -646,18 +646,18 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
   const { ids } = ctx.request.body as { ids?: string[] };
   if (!Array.isArray(ids) || ids.length === 0) {
     ctx.status = 400;
-    ctx.body = { error: "ids array is required" };
+    ctx.body = { error: "ids 数组为必填项" };
     return;
   }
   if (ids.length > 50) {
     ctx.status = 400;
-    ctx.body = { error: "Maximum 50 clips per batch" };
+    ctx.body = { error: "每批最多 50 个切片" };
     return;
   }
 
   if (ids.some((id) => typeof id !== "string" || !isValidUUID(id))) {
     ctx.status = 400;
-    ctx.body = { error: "Each id must be a valid UUID" };
+    ctx.body = { error: "每个 id 必须是有效的 UUID" };
     return;
   }
 
