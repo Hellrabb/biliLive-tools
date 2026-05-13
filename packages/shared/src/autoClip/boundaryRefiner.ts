@@ -24,7 +24,7 @@ export async function refineBoundaries(
   const contextWindowSec = config.contextWindowSec ?? 60;
 
   const systemPrompt = buildSystemPrompt(maxAdjustSec, hasASR, hasFrames);
-  const userPrompt = buildUserPrompt(highlights, asrMap, frameMap, contextWindowSec, videoDuration);
+  const userPrompt = buildUserPrompt(highlights, asrMap, frameMap, maxAdjustSec, contextWindowSec, videoDuration);
 
   let response: string;
   try {
@@ -77,12 +77,14 @@ function buildUserPrompt(
   highlights: HighlightSegment[],
   asrMap: Map<number, string>,
   frameMap: Map<number, string[]>,
+  maxAdjustSec: number,
   contextWindowSec: number,
   duration: number,
 ): string {
   const parts: string[] = [];
   parts.push(`视频总时长: ${duration}秒`);
-  parts.push(`最大调整幅度: ±${contextWindowSec}秒`);
+  parts.push(`最大调整幅度: ±${maxAdjustSec}秒`);
+  parts.push(`周边参考数据范围: ±${contextWindowSec}秒`);
   parts.push("");
 
   for (let i = 0; i < highlights.length; i++) {
