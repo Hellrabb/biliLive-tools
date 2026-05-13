@@ -271,9 +271,11 @@ router.post("/run", async (ctx) => {
 
   if (activeRuns.size >= MAX_CONCURRENT_RUNS) {
     ctx.status = 429;
-    ctx.body = { error: `Too many concurrent analyses. Maximum ${MAX_CONCURRENT_RUNS}.` };
+    ctx.body = { error: `并发分析数已达上限 (${MAX_CONCURRENT_RUNS})，请稍后重试` };
     return;
   }
+
+  activeRuns.add(taskId);
 
   // Write placeholder so frontend polling immediately sees status
   autoClipModel.saveResult({
@@ -294,8 +296,6 @@ router.post("/run", async (ctx) => {
     highlight_count: 0,
     first_title: null,
   });
-
-  activeRuns.add(taskId);
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
   (async () => {
