@@ -122,3 +122,31 @@ export interface TitleStyleConfig {
   /** 自定义 prompt 模板 (覆盖内置模板，可用占位符: {min}, {max}, {summary}, {asr_section}, {frame_section}, {danmaku}, {style_guide}) */
   customPrompt?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1.6: Boundary refinement
+// ---------------------------------------------------------------------------
+
+export interface BoundaryRefineConfig {
+  /** 最大调整幅度 (秒)，默认 30 */
+  maxAdjustSec: number;
+  /** 最小片段时长 (秒)，默认 15 */
+  minClipDuration: number;
+  /** 边界前后采样窗口 (秒)，默认 60 */
+  contextWindowSec: number;
+}
+
+export interface BoundaryAdjustment {
+  highlightIndex: number;
+  /** 负数=向前扩展起点，正数=后移起点，0=不变 */
+  startAdjustment: number;
+  /** 正数=向后扩展终点，负数=提前终点，0=不变 */
+  endAdjustment: number;
+  startReason: string;
+  endReason: string;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface BoundaryRefineResult {
+  adjustments: BoundaryAdjustment[];
+}
