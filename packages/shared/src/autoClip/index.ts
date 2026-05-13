@@ -4,6 +4,7 @@ export * from "./llmRanker.js";
 export * from "./frameSampler.js";
 export * from "./titleStyler.js";
 export * from "./contentUnderstanding.js";
+export * from "./boundaryRefiner.js";
 export * from "./jsonParser.js";
 export * from "./pipeline.js";
 export * from "./exportPipeline.js";
