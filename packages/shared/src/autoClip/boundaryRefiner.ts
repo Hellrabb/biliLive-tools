@@ -181,17 +181,18 @@ function applyBoundaryAdjustments(
     newStart = clamp(newStart, origStart - maxAdjustSec, origStart + maxAdjustSec);
     newEnd = clamp(newEnd, origEnd - maxAdjustSec, origEnd + maxAdjustSec);
 
-    // Constraint 2: min clip duration
+    // Constraint 2: video bounds
+    newStart = Math.max(0, newStart);
+    newEnd = Math.min(videoDuration, newEnd);
+
+    // Constraint 3: min clip duration
     if (newEnd - newStart < minClipDuration) {
       logger.info(`boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`);
       continue;
     }
 
-    // Constraint 3: video bounds
-    newStart = Math.max(0, newStart);
-    newEnd = Math.min(videoDuration, newEnd);
-
     h.timeRange = [newStart, newEnd];
+    h.bestRange = [newStart, newEnd];
   }
 
   // Constraint 4: resolve overlaps
@@ -218,6 +219,7 @@ function resolveOverlaps(
     if (overlap <= 3) {
       // Minor overlap: trim current end
       curr.timeRange = [curr.timeRange[0], next.timeRange[0] - 1];
+      curr.bestRange = [curr.timeRange[0], next.timeRange[0] - 1];
     } else {
       // Significant overlap: merge clips
       const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
