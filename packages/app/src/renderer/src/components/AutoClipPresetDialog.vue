@@ -178,6 +178,12 @@
                   <n-form-item label="启用视觉理解">
                     <n-switch v-model:value="editingPreset.config.enhancement.visualEnabled" />
                   </n-form-item>
+                  <n-form-item label="启用边界智能精修">
+                    <n-switch v-model:value="editingPreset.config.enhancement.boundaryRefineEnabled" />
+                    <template #feedback>
+                      <span style="font-size:12px;color:#999">分析语音和画面，自动优化切片起止位置，避免剧情不完整</span>
+                    </template>
+                  </n-form-item>
                   <n-form-item v-if="editingPreset.config.enhancement.visualEnabled" label="视觉模型 ID">
                     <n-input v-model:value="editingPreset.config.llm.visionModelId" placeholder="如 qwen-vl-plus" style="width:250px" />
                   </n-form-item>
