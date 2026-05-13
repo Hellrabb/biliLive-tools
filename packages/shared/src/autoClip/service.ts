@@ -237,53 +237,60 @@ export class AutoClipService {
     presetConfig: AutoClipConfig,
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
   ) {
-    const exportCfg = presetConfig.export;
-    const savePath = exportCfg.savePath || path.dirname(videoPath);
+    try {
+      const exportCfg = presetConfig.export;
+      const savePath = exportCfg.savePath || path.dirname(videoPath);
 
-    const presetCtx = await resolveExportPresets(exportCfg);
-    logger.info(`AutoClip: 开始自动导出 ${highlights.length} 个切片...`);
+      const presetCtx = await resolveExportPresets(exportCfg);
+      logger.info(`AutoClip: 开始自动导出 ${highlights.length} 个切片...`);
 
-    const exportResult = await exportClips(
-      videoPath,
-      danmuPath,
-      highlights,
-      { ...exportCfg, savePath },
-      presetCtx,
-      (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
-    );
+      const exportResult = await exportClips(
+        videoPath,
+        danmuPath,
+        highlights,
+        { ...exportCfg, savePath },
+        presetCtx,
+        (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
+      );
 
-    const exportedPaths = exportResult.success.map((s) => s.path);
+      const exportedPaths = exportResult.success.map((s) => s.path);
 
-    // Log danmaku status for diagnostics
-    if (exportResult.danmakuStatus === "failed") {
-      logger.warn(`AutoClip: 弹幕渲染失败 — ${exportResult.danmakuError}`);
-    } else if (exportResult.danmakuStatus === "skipped" && exportResult.danmakuError) {
-      logger.warn(`AutoClip: 弹幕渲染跳过 — ${exportResult.danmakuError}`);
-    }
-
-    if (exportedPaths.length > 0) {
-      autoClipModel.markExported(resultId, exportedPaths);
-      logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
-
-      if (exportResult.failed.length > 0) {
-        logger.warn(`AutoClip: ${exportResult.failed.length} 个切片导出失败`);
+      // Log danmaku status for diagnostics
+      if (exportResult.danmakuStatus === "failed") {
+        logger.warn(`AutoClip: 弹幕渲染失败 — ${exportResult.danmakuError}`);
+      } else if (exportResult.danmakuStatus === "skipped" && exportResult.danmakuError) {
+        logger.warn(`AutoClip: 弹幕渲染跳过 — ${exportResult.danmakuError}`);
       }
 
-      const videoCutCfg = appConfig.videoCut ?? {};
-      // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
-      if ((videoCutCfg.autoClipUpload ?? false) && (presetConfig.export.uploadToBili ?? false)) {
-        await this.uploadToBili(exportedPaths, highlights, appConfig);
-      }
+      if (exportedPaths.length > 0) {
+        autoClipModel.markExported(resultId, exportedPaths);
+        logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
 
+        if (exportResult.failed.length > 0) {
+          logger.warn(`AutoClip: ${exportResult.failed.length} 个切片导出失败`);
+        }
+
+        const videoCutCfg = appConfig.videoCut ?? {};
+        // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
+        if ((videoCutCfg.autoClipUpload ?? false) && (presetConfig.export.uploadToBili ?? false)) {
+          await this.uploadToBili(exportedPaths, highlights, appConfig);
+        }
+
+        try {
+          const { sendNotify } = await import("../notify.js");
+          await sendNotify(
+            "autoClip 切片完成",
+            `录制 ${path.basename(videoPath)} 自动切片完成，共 ${exportedPaths.length} 个高光片段`,
+          );
+        } catch {
+          // notification may not be configured
+        }
+      }
+    } catch (err: any) {
+      logger.error(`AutoClip: autoExportAndUpload 失败 — ${err.message || err}`);
       try {
-        const { sendNotify } = await import("../notify.js");
-        await sendNotify(
-          "autoClip 切片完成",
-          `录制 ${path.basename(videoPath)} 自动切片完成，共 ${exportedPaths.length} 个高光片段`,
-        );
-      } catch {
-        // notification may not be configured
-      }
+        autoClipModel.updateStatus(resultId, "failed");
+      } catch { /* ignore DB errors during rollback */ }
     }
   }
 
