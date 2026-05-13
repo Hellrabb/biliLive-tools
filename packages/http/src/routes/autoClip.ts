@@ -526,15 +526,28 @@ async function doExportClips(
   const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
 
   let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
-  if (presetId) {
+
+  async function tryLoadExportConfig(pid: string | null): Promise<boolean> {
+    if (!pid) return false;
     try {
       const preset = getAutoClipPreset();
-      const p = await preset.get(presetId);
+      const p = await preset.get(pid);
       if (p?.config?.export) {
         exportConfig = p.config.export;
+        return true;
       }
-    } catch {
-      // fall back to default export config
+    } catch { /* fall through */ }
+    return false;
+  }
+
+  const loaded = await tryLoadExportConfig(presetId);
+
+  if (!loaded) {
+    // Fallback to global autoClipPresetId (same logic as service.ts analyzeAndSave)
+    const config = container.resolve("appConfig") as any;
+    const globalPresetId = config?.videoCut?.autoClipPresetId;
+    if (globalPresetId && globalPresetId !== presetId) {
+      await tryLoadExportConfig(globalPresetId);
     }
   }
 
