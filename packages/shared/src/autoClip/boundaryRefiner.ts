@@ -150,13 +150,81 @@ function parseRefineResponse(
   return adjustments;
 }
 
-// TODO: Task 5 will implement
 function applyBoundaryAdjustments(
   highlights: HighlightSegment[],
-  _adjustments: BoundaryAdjustment[],
-  _maxAdjustSec: number,
-  _minClipDuration: number,
-  _videoDuration: number,
+  adjustments: BoundaryAdjustment[],
+  maxAdjustSec: number,
+  minClipDuration: number,
+  videoDuration: number,
 ): HighlightSegment[] {
+  const result = highlights.map((h) => ({ ...h, timeRange: [...h.timeRange] as [number, number] }));
+
+  for (const adj of adjustments) {
+    if (adj.confidence === "low") continue;
+
+    const h = result[adj.highlightIndex];
+    if (!h) continue;
+
+    let [newStart, newEnd] = h.timeRange;
+
+    // Apply adjustments
+    newStart += adj.startAdjustment;
+    newEnd += adj.endAdjustment;
+
+    // Constraint 1: clamp to maxAdjustSec
+    const origStart = highlights[adj.highlightIndex]!.timeRange[0];
+    const origEnd = highlights[adj.highlightIndex]!.timeRange[1];
+    newStart = clamp(newStart, origStart - maxAdjustSec, origStart + maxAdjustSec);
+    newEnd = clamp(newEnd, origEnd - maxAdjustSec, origEnd + maxAdjustSec);
+
+    // Constraint 2: min clip duration
+    if (newEnd - newStart < minClipDuration) {
+      logger.info(`boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`);
+      continue;
+    }
+
+    // Constraint 3: video bounds
+    newStart = Math.max(0, newStart);
+    newEnd = Math.min(videoDuration, newEnd);
+
+    h.timeRange = [newStart, newEnd];
+  }
+
+  // Constraint 4: resolve overlaps
+  return resolveOverlaps(result, minClipDuration);
+}
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+function resolveOverlaps(
+  highlights: HighlightSegment[],
+  _minDuration: number,
+): HighlightSegment[] {
+  for (let i = 0; i < highlights.length - 1; i++) {
+    const curr = highlights[i]!;
+    const next = highlights[i + 1]!;
+    const overlap = curr.timeRange[1] - next.timeRange[0];
+
+    if (overlap <= 3) {
+      // Minor overlap: trim current end
+      curr.timeRange = [curr.timeRange[0], next.timeRange[0] - 1];
+    } else if (overlap > 3) {
+      // Significant overlap: merge clips
+      const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
+      const mergedEnd = Math.max(curr.timeRange[1], next.timeRange[1]);
+      const mergedTitle = `${curr.title} + ${next.title}`;
+      highlights[i] = {
+        ...curr,
+        timeRange: [mergedStart, mergedEnd],
+        bestRange: [mergedStart, mergedEnd],
+        title: mergedTitle,
+        signalSources: [...new Set([...curr.signalSources, ...next.signalSources])],
+      };
+      highlights.splice(i + 1, 1);
+      i--; // re-check this position
+    }
+  }
   return highlights;
 }
