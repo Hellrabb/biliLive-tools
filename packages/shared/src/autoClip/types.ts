@@ -129,11 +129,11 @@ export interface TitleStyleConfig {
 
 export interface BoundaryRefineConfig {
   /** 最大调整幅度 (秒)，默认 30 */
-  maxAdjustSec: number;
+  maxAdjustSec?: number;
   /** 最小片段时长 (秒)，默认 15 */
-  minClipDuration: number;
+  minClipDuration?: number;
   /** 边界前后采样窗口 (秒)，默认 60 */
-  contextWindowSec: number;
+  contextWindowSec?: number;
 }
 
 export interface BoundaryAdjustment {
