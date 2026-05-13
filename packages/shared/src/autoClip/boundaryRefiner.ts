@@ -1,4 +1,5 @@
-import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment } from "./types.js";
+import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment, BoundaryRefineResult } from "./types.js";
+import { extractAndParseJSON } from "./jsonParser.js";
 import logger from "../utils/log.js";
 
 export async function refineBoundaries(
@@ -72,23 +73,79 @@ ${frameClause}
 - 片段之间不能重叠，如有相邻片段请检查调整后是否交叉`;
 }
 
-// TODO: Task 4 will implement
 function buildUserPrompt(
-  _highlights: HighlightSegment[],
-  _asrMap: Map<number, string>,
-  _frameMap: Map<number, string[]>,
-  _contextWindowSec: number,
-  _duration: number,
+  highlights: HighlightSegment[],
+  asrMap: Map<number, string>,
+  frameMap: Map<number, string[]>,
+  contextWindowSec: number,
+  duration: number,
 ): string {
-  return "(TODO: Task 4 - user prompt not yet implemented)";
+  const parts: string[] = [];
+  parts.push(`视频总时长: ${duration}秒`);
+  parts.push(`最大调整幅度: ±${contextWindowSec}秒`);
+  parts.push("");
+
+  for (let i = 0; i < highlights.length; i++) {
+    const h = highlights[i]!;
+    const [start, end] = h.timeRange;
+    const clipDuration = end - start;
+
+    parts.push(`═══ 片段 ${i} ═══`);
+    parts.push(`主题: ${h.title}`);
+    parts.push(`当前区间: ${formatTime(start)} → ${formatTime(end)} (${clipDuration}秒)`);
+    parts.push(`评分: ${h.score} | 类型: ${h.highlightType}`);
+    parts.push("");
+
+    const asrText = asrMap.get(i);
+    if (asrText) {
+      parts.push("--- 语音转文字 (ASR) ---");
+      parts.push(asrText);
+      parts.push("");
+    }
+
+    const frames = frameMap.get(i);
+    if (frames && frames.length > 0) {
+      parts.push("--- 关键帧描述 ---");
+      parts.push(frames.join("\n"));
+      parts.push("");
+    }
+  }
+
+  parts.push("---");
+  parts.push("请评估每个片段并返回 JSON。只返回 JSON，不要其他内容。");
+
+  return parts.join("\n");
 }
 
-// TODO: Task 4 will implement
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function parseRefineResponse(
-  _raw: string,
-  _expectedCount: number,
+  raw: string,
+  expectedCount: number,
 ): BoundaryAdjustment[] | null {
-  return null;
+  const parsed = extractAndParseJSON<BoundaryRefineResult>(raw);
+  if (!parsed || !Array.isArray(parsed.adjustments)) {
+    logger.warn("boundaryRefiner: failed to parse LLM response", { raw: raw.slice(0, 200) });
+    return null;
+  }
+
+  const adjustments = parsed.adjustments.filter(
+    (a) =>
+      typeof a.highlightIndex === "number" &&
+      a.highlightIndex >= 0 &&
+      a.highlightIndex < expectedCount,
+  );
+
+  if (adjustments.length === 0) {
+    logger.warn("boundaryRefiner: no valid adjustments in response");
+    return null;
+  }
+
+  return adjustments;
 }
 
 // TODO: Task 5 will implement
