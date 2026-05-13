@@ -1214,7 +1214,7 @@ export interface AutoClipSignalConfig {
 
 export interface AutoClipLLMConfig {
   enabled: boolean;
-  provider: "qwen" | "ollama" | "aliyun";
+  provider: "qwen" | "ollama" | "aliyun" | "openai";
   modelId: string;
   /** 默认 1000 */
   maxTokens: number;

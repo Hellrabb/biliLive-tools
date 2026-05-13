@@ -101,8 +101,8 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     errors.push({ field: "config.llm", message: "LLM 配置为必填项" });
   } else {
     if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled 必须是布尔值" });
-    if (typeof llm.provider !== "string" || !["qwen", "ollama", "aliyun"].includes(llm.provider as string)) {
-      errors.push({ field: "config.llm.provider", message: 'provider 必须是 "qwen"、"ollama" 或 "aliyun"' });
+    if (typeof llm.provider !== "string" || !["qwen", "ollama", "aliyun", "openai"].includes(llm.provider as string)) {
+      errors.push({ field: "config.llm.provider", message: 'provider 必须是 "qwen"、"ollama"、"aliyun" 或 "openai"' });
     }
     if (typeof llm.topK !== "number" || !Number.isFinite(llm.topK) || (llm.topK as number) < 1) {
       errors.push({ field: "config.llm.topK", message: "topK 必须 >= 1" });

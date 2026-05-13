@@ -1,12 +1,15 @@
 import type { AutoClipConfig, AutoClipLLMConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
 
+/** Shared AI config slice — used by both text and multimodal message builders */
+export interface AIConfig {
+  models: Array<{ modelId: string; modelName?: string; vendorId?: string; tags?: string[] }>;
+  vendors: Array<{ id: string; apiKey?: string; baseURL?: string; provider?: string }>;
+}
+
 export interface SendMessageOptions {
   presetConfig: AutoClipConfig;
-  aiConfig: {
-    models: Array<{ modelId: string; modelName?: string; vendorId?: string; tags?: string[] }>;
-    vendors: Array<{ id: string; apiKey?: string; baseURL?: string; provider?: string }>;
-  };
+  aiConfig: AIConfig;
 }
 
 /**
@@ -75,10 +78,7 @@ export type SendMultimodalMessage = (
 
 export interface BuildMultimodalOptions {
   llmConfig: AutoClipLLMConfig;
-  aiConfig: {
-    models: Array<{ modelId: string; modelName?: string; vendorId?: string; tags?: string[] }>;
-    vendors: Array<{ id: string; apiKey?: string; baseURL?: string; provider?: string }>;
-  };
+  aiConfig: AIConfig;
 }
 
 /**
