@@ -139,7 +139,11 @@ function parseRefineResponse(
     (a) =>
       typeof a.highlightIndex === "number" &&
       a.highlightIndex >= 0 &&
-      a.highlightIndex < expectedCount,
+      a.highlightIndex < expectedCount &&
+      typeof a.startAdjustment === "number" &&
+      typeof a.endAdjustment === "number" &&
+      !isNaN(a.startAdjustment) &&
+      !isNaN(a.endAdjustment),
   );
 
   if (adjustments.length === 0) {
@@ -191,7 +195,7 @@ function applyBoundaryAdjustments(
   }
 
   // Constraint 4: resolve overlaps
-  return resolveOverlaps(result, minClipDuration);
+  return resolveOverlaps(result);
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -200,17 +204,21 @@ function clamp(v: number, min: number, max: number): number {
 
 function resolveOverlaps(
   highlights: HighlightSegment[],
-  _minDuration: number,
 ): HighlightSegment[] {
   for (let i = 0; i < highlights.length - 1; i++) {
     const curr = highlights[i]!;
     const next = highlights[i + 1]!;
     const overlap = curr.timeRange[1] - next.timeRange[0];
 
+    if (overlap <= 0) {
+      // No overlap — nothing to resolve
+      continue;
+    }
+
     if (overlap <= 3) {
       // Minor overlap: trim current end
       curr.timeRange = [curr.timeRange[0], next.timeRange[0] - 1];
-    } else if (overlap > 3) {
+    } else {
       // Significant overlap: merge clips
       const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
       const mergedEnd = Math.max(curr.timeRange[1], next.timeRange[1]);
