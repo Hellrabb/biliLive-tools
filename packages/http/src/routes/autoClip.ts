@@ -101,8 +101,8 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     errors.push({ field: "config.llm", message: "llm config is required" });
   } else {
     if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled must be boolean" });
-    if (typeof llm.provider !== "string" || !["qwen", "ollama"].includes(llm.provider as string)) {
-      errors.push({ field: "config.llm.provider", message: 'provider must be "qwen" or "ollama"' });
+    if (typeof llm.provider !== "string" || !["qwen", "ollama", "aliyun"].includes(llm.provider as string)) {
+      errors.push({ field: "config.llm.provider", message: 'provider must be "qwen", "ollama", or "aliyun"' });
     }
     if (typeof llm.topK !== "number" || !Number.isFinite(llm.topK) || (llm.topK as number) < 1) {
       errors.push({ field: "config.llm.topK", message: "topK must be >= 1" });
