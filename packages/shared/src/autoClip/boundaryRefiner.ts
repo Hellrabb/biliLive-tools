@@ -1,5 +1,4 @@
-import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment, BoundaryRefineResult } from "./types.js";
-import { extractAndParseJSON } from "./jsonParser.js";
+import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment } from "./types.js";
 import logger from "../utils/log.js";
 
 export async function refineBoundaries(
@@ -81,7 +80,7 @@ function buildUserPrompt(
   _contextWindowSec: number,
   _duration: number,
 ): string {
-  return "";
+  return "(TODO: Task 4 - user prompt not yet implemented)";
 }
 
 // TODO: Task 4 will implement
