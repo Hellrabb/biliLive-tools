@@ -270,14 +270,16 @@ export async function resolveExportPresets(exportCfg: {
   }
 
   if (exportCfg.burnDanmaku) {
+    const danmuPresetId = exportCfg.danmuPresetId || "default";
+    logger.info(`AutoClip: burnDanmaku=enabled, resolving danmaku preset "${danmuPresetId}"`);
     try {
       if (!diContainer) {
         ({ container: diContainer } = await import("../index.js"));
       }
       const danmuPreset = diContainer.resolve("danmuPreset");
-      const danmuPresetId = exportCfg.danmuPresetId || "default";
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
       result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
+      logger.info(`AutoClip: danmaku preset resolved (keys: ${Object.keys(result.danmuConfig ?? {}).length})`);
     } catch (err) {
       logger.warn("AutoClip: failed to resolve danmaku preset for export", err);
     }
@@ -314,6 +316,11 @@ export async function exportClips(
     (presetCtx.ffmpegConfig as Partial<Record<string, unknown>>) ?? {};
 
   // --- Danmaku burning setup ---
+  logger.info(
+    `AutoClip: export danmaku preflight — burnDanmaku=${exportConfig.burnDanmaku}, ` +
+    `danmuPath=${danmuPath || "<empty>"}, ` +
+    `danmuConfig=${presetCtx.danmuConfig ? `resolved (${Object.keys(presetCtx.danmuConfig).length} keys)` : "<missing>"}`,
+  );
   let assPath: string | undefined;
   if (exportConfig.burnDanmaku && danmuPath && presetCtx.danmuConfig) {
     try {
