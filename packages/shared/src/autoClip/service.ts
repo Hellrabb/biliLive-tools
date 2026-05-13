@@ -13,7 +13,7 @@ import type { ProgressCallback } from "./pipeline.js";
 export interface AutoClipServiceDeps {
   getAppConfig: () => {
     ai: {
-      models: Array<{ modelId: string; modelName?: string; vendorId?: string }>;
+      models: Array<{ modelId: string; modelName?: string; vendorId?: string; tags?: string[] }>;
       vendors: Array<{ id: string; apiKey?: string; baseURL?: string }>;
     };
     videoCut?: {
@@ -87,7 +87,16 @@ export class AutoClipService {
     if (presetConfig.enhancement?.asrEnabled) {
       try {
         const { recognize } = await import("../ai/asr/index.js");
-        const asrModelId = presetConfig.llm.asrModelId ?? presetConfig.llm.modelId;
+        // Prefer explicit asrModelId, then auto-discover an ASR-tagged model,
+        // then fall back to llm.modelId (legacy behavior).
+        let asrModelId = presetConfig.llm.asrModelId;
+        if (!asrModelId) {
+          const asrModel = appConfig.ai.models.find((m) => m.tags?.includes("asr"));
+          asrModelId = asrModel?.modelId ?? presetConfig.llm.modelId;
+          if (asrModel) {
+            logger.info(`AutoClip: auto-discovered ASR model "${asrModel.modelName}" (${asrModelId})`);
+          }
+        }
         recognizeASR = async (audioPath: string) => {
           const result = await recognize(audioPath, asrModelId);
           return { text: result.text };

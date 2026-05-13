@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
 import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
+import { LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { sanitizeForPrompt } from "./promptSanitizer.js";
 
@@ -261,7 +262,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30_000);
+    const timer = setTimeout(() => controller.abort(), LLM_REQUEST_TIMEOUT_MS);
     const raw = await sendMessage(prompt, controller.signal);
     clearTimeout(timer);
 
