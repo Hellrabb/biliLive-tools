@@ -101,7 +101,7 @@ describe("buildLLMPrompt", () => {
   it("should handle empty SC records gracefully", () => {
     const ctx = makeMockContext({ scSummary: [] });
     const prompt = buildLLMPrompt(ctx);
-    expect(prompt).toContain("SC total");
+    expect(prompt).toContain("SC 总额");
     expect(prompt).toContain("(none)");
   });
 
