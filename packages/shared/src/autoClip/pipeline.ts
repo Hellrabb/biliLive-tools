@@ -5,6 +5,7 @@ import { rankCandidates, preRankCandidates } from "./llmRanker.js";
 import { detectSuspicious, applyFilter, llmReviewPatterns } from "./danmakuFilter.js";
 import { understandContent } from "./contentUnderstanding.js";
 import { generateStyledTitles } from "./titleStyler.js";
+import { refineBoundaries } from "./boundaryRefiner.js";
 import { getVideoDuration } from "./exportPipeline.js";
 import logger from "../utils/log.js";
 
@@ -194,6 +195,24 @@ export async function runAutoClipPipeline(
           { sendMultimodalMessage, recognizeASR, ffmpegPath: params.ffmpegPath },
         );
         onProgress?.("understand", 88, "Content understanding complete");
+
+        // Phase 1.6: Boundary refinement
+        if (presetConfig.enhancement.boundaryRefineEnabled) {
+          onProgress?.("refine", 89, "Refining clip boundaries...");
+          try {
+            highlights = await refineBoundaries(
+              highlights,
+              asrMap,
+              frameMap,
+              sendMessage,
+              {},
+              duration,
+            );
+            onProgress?.("refine", 92, "Boundaries refined");
+          } catch (err) {
+            logger.warn("AutoClip: boundary refinement failed, using original boundaries", err);
+          }
+        }
 
         onProgress?.("title", 90, "Generating styled titles...");
         highlights = await generateStyledTitles(

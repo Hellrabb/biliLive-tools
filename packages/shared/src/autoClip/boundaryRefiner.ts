@@ -5,7 +5,7 @@ import logger from "../utils/log.js";
 export async function refineBoundaries(
   highlights: HighlightSegment[],
   asrMap: Map<number, string>,
-  frameMap: Map<number, string[]>,
+  frameMap: Map<number, string>,
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   config: BoundaryRefineConfig,
   videoDuration: number,
@@ -76,7 +76,7 @@ ${frameClause}
 function buildUserPrompt(
   highlights: HighlightSegment[],
   asrMap: Map<number, string>,
-  frameMap: Map<number, string[]>,
+  frameMap: Map<number, string>,
   maxAdjustSec: number,
   contextWindowSec: number,
   duration: number,
@@ -106,9 +106,9 @@ function buildUserPrompt(
     }
 
     const frames = frameMap.get(i);
-    if (frames && frames.length > 0) {
+    if (frames) {
       parts.push("--- 关键帧描述 ---");
-      parts.push(frames.join("\n"));
+      parts.push(frames);
       parts.push("");
     }
   }
