@@ -6,5 +6,6 @@ export * from "./titleStyler.js";
 export * from "./contentUnderstanding.js";
 export * from "./jsonParser.js";
 export * from "./pipeline.js";
+export * from "./exportPipeline.js";
 export * from "./sendMessage.js";
 export * from "./service.js";
