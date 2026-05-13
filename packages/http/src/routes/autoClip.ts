@@ -252,7 +252,17 @@ router.post("/run", async (ctx) => {
     }
   } catch (err: any) {
     if (err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module")) {
-      // fs-extra unavailable — skip file existence check (non-blocking)
+      // fs-extra unavailable — fallback to Node.js built-in fs
+      const { access, constants } = await import("node:fs/promises");
+      try {
+        await access(resolvedVideo, constants.F_OK);
+        await access(resolvedDanmu, constants.F_OK);
+      } catch {
+        ctx.status = 400;
+        ctx.body = { error: "视频或弹幕文件不存在" };
+        return;
+      }
+      // Skip size check when fs-extra is unavailable (non-blocking)
     } else {
       throw err;
     }
