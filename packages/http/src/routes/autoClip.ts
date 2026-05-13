@@ -196,9 +196,9 @@ router.post("/run", async (ctx) => {
     return;
   }
 
-  if (outputName && /[\\/]/.test(outputName)) {
+  if (outputName && (/[\\/]/.test(outputName) || /\x00/.test(outputName))) {
     ctx.status = 400;
-    ctx.body = { error: "outputName must not contain path separators" };
+    ctx.body = { error: "输出名称包含非法字符" };
     return;
   }
 
