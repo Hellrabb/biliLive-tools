@@ -1254,7 +1254,7 @@ export interface AutoClipEnhancementConfig {
   asrEnabled: boolean;
   visualEnabled: boolean;
   /** 边界智能精修，默认 true */
-  boundaryRefineEnabled: boolean;
+  boundaryRefineEnabled?: boolean;
 }
 
 export interface AutoClipExportConfig {
