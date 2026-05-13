@@ -34,6 +34,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
   enhancement: {
     asrEnabled: false,
     visualEnabled: false,
+    boundaryRefineEnabled: true,
   },
   export: {
     cutFormat: "mp4",
