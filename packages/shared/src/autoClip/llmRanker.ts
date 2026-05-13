@@ -16,35 +16,35 @@ import { sendWithTimeout } from "./llmUtils.js";
 // Default prompt template
 // ---------------------------------------------------------------------------
 
-const DEFAULT_PROMPT_TEMPLATE = `You are a live stream highlight detection assistant. Analyze the following danmaku data and determine if this segment is worth clipping.
+const DEFAULT_PROMPT_TEMPLATE = `你是一个直播高光检测助手。分析以下弹幕数据，判断该片段是否值得切片。
 
-Danmaku stats: {count} total danmaku, {density} danmaku/sec, SC total ¥{scTotal},
-         {uniqueUsers} unique users, {brush} brush waves
+弹幕统计：共 {count} 条，密度 {density} 条/秒，SC 总额 ¥{scTotal}，
+         独立用户 {uniqueUsers} 人，刷屏波次 {brush} 次
 
-SC records:
+SC 记录：
 {sc_records}
 
-Context before: {before}
-Context after: {after}
+上文的弹幕：{before}
+下文的弹幕：{after}
 
-Danmaku in window (time-ordered):
+窗口内的弹幕（按时间排序）：
 {danmaku}
 
-Return ONLY valid JSON (no markdown, no extra text):
+只返回合法 JSON（不要 markdown，不要额外文字）：
 {
   "isHighlight": true/false,
   "score": 0-10,
-  "title": "neutral content summary — 1 sentence factually describing what happened based on danmaku context (no stylistic flourishes, no length limit)",
-  "tags": ["tag1", "tag2"],
+  "title": "基于弹幕内容的一句话中文概述，客观描述发生了什么（不要修饰，不限字数）",
+  "tags": ["标签1", "标签2"],
   "highlightType": "funny/impressive/touching/hype/troll/not_highlight",
-  "reason": "brief reason (max 20 chars)",
-  "bestClipStart": start_second_within_window,
-  "bestClipEnd": end_second_within_window
+  "reason": "简短原因（最多20字）",
+  "bestClipStart": 窗口内的起始秒数,
+  "bestClipEnd": 窗口内的结束秒数
 }
 
-Note: Ignore danmaku that are lottery spam or paid-promotion CTAs
-(e.g. "抽奖", "关注抽", "右上角", "点关注送"). These do NOT indicate
-viewer engagement — they are bot/scripted promotions.`;
+注意：忽略抽奖刷屏和付费引流弹幕
+（如"抽奖"、"关注抽"、"右上角"、"点关注送"等），
+这些不反映观众真实互动——它们是机器/脚本营销内容。`;
 
 // ---------------------------------------------------------------------------
 // Constants
