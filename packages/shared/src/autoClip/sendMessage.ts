@@ -21,7 +21,10 @@ export async function buildSendMessage(
 
   if (!llmCfg.enabled) return undefined;
 
-  const model = aiConfig.models.find((m) => m.modelId === llmCfg.modelId);
+  let model = aiConfig.models.find((m) => m.modelId === llmCfg.modelId);
+  if (!model && llmCfg.modelId) {
+    model = aiConfig.models.find((m) => m.modelName === llmCfg.modelId);
+  }
   if (!model) {
     logger.warn(`AutoClip: model "${llmCfg.modelId}" not found in AI config, LLM ranking disabled`);
     return undefined;
@@ -33,7 +36,7 @@ export async function buildSendMessage(
     return undefined;
   }
 
-  if (llmCfg.provider === "qwen") {
+  if (llmCfg.provider === "qwen" || llmCfg.provider === "aliyun") {
     const { QwenLLM } = await import("../ai/llm/qwen.js");
     const llm = new QwenLLM({
       apiKey: vendor.apiKey ?? "",
@@ -88,7 +91,10 @@ export async function buildSendMultimodalMessage(
   const { llmConfig, aiConfig } = opts;
   if (!llmConfig.visionModelId) return undefined;
 
-  const model = aiConfig.models.find((m) => m.modelId === llmConfig.visionModelId);
+  let model = aiConfig.models.find((m) => m.modelId === llmConfig.visionModelId);
+  if (!model && llmConfig.visionModelId) {
+    model = aiConfig.models.find((m) => m.modelName === llmConfig.visionModelId);
+  }
   if (!model) {
     logger.warn(`AutoClip: vision model "${llmConfig.visionModelId}" not found`);
     return undefined;
