@@ -16,8 +16,8 @@ services:
               driver: nvidia
               count: -1
     environment:
-      BILILIVE_TOOLS_BILIKEY: 18234002278ASD
-      BILILIVE_TOOLS_PASSKEY: 18234002278ASD
+      BILILIVE_TOOLS_BILIKEY: ${BILILIVE_TOOLS_BILIKEY:-change_me}
+      BILILIVE_TOOLS_PASSKEY: ${BILILIVE_TOOLS_PASSKEY:-change_me}
       LANG: zh_CN.UTF-8
       LANGUAGE: zh_CN:zh
       LC_ALL: zh_CN.UTF-8
