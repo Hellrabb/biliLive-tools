@@ -27,6 +27,10 @@ const getDefaultConfig = async (): Promise<AutoClipConfig> => {
   return res.data;
 };
 
+export async function batchApproveAndExport(ids: string[]) {
+  return request.post("/auto-clip/clips/batch-approve-and-export", { ids });
+}
+
 const getCounts = async (): Promise<{
   all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number;
 }> => {
