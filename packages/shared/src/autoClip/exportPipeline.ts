@@ -163,21 +163,38 @@ export async function exportClips(
       outputName = `${namingPrefix}_${outputName}`;
     }
 
+    // Strip path separators and traversal sequences to prevent
+    // escaping savePath via malicious namingTemplate values
+    outputName = outputName.replace(/\.\./g, "").replace(/[\\/]/g, "_");
+
     // Truncate to safe filename length (reserve headroom for extension + timestamp suffix)
     const MAX_FILENAME_BYTES = 200;
     if (outputName.length > MAX_FILENAME_BYTES) {
       outputName = outputName.slice(0, MAX_FILENAME_BYTES - 3) + "...";
     }
 
+    const resolvedSavePath = path.resolve(savePath);
+
     // Prevent filename collisions — append timestamp if file already exists
     let outputPath = path.join(
-      savePath,
+      resolvedSavePath,
       `${outputName}.${exportConfig.cutFormat}`,
     );
+
+    // Verify output stays within savePath (defense in depth)
+    if (!path.resolve(outputPath).startsWith(resolvedSavePath + path.sep)) {
+      logger.warn(
+        `AutoClip: output path traversal blocked — ` +
+        `outputPath=${outputPath}, savePath=${resolvedSavePath}`,
+      );
+      failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
+      continue;
+    }
+
     if (await pathExists(outputPath)) {
       const ts = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
       outputPath = path.join(
-        savePath,
+        resolvedSavePath,
         `${outputName}_${ts}.${exportConfig.cutFormat}`,
       );
     }
