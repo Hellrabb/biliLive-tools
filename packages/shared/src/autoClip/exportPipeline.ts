@@ -33,6 +33,7 @@ export async function resolveExportPresets(exportCfg: {
   danmuPresetId?: string;
 }): Promise<ExportPresetContext> {
   const result: ExportPresetContext = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let diContainer: any;
 
   if (exportCfg.ffmpegPresetId) {
@@ -43,7 +44,7 @@ export async function resolveExportPresets(exportCfg: {
       const ffmpegPreset = diContainer.resolve("ffmpegPreset");
       const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
       if (preset?.config) {
-        result.ffmpegConfig = preset.config as unknown as Record<string, unknown>;
+        result.ffmpegConfig = preset.config as Record<string, unknown>;
       }
     } catch (err) {
       logger.warn("AutoClip: failed to resolve ffmpeg preset for export", err);
@@ -59,7 +60,7 @@ export async function resolveExportPresets(exportCfg: {
       }
       const danmuPreset = diContainer.resolve("danmuPreset");
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
-      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as unknown as Record<string, unknown>;
+      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as Record<string, unknown>;
       logger.info(`AutoClip: danmaku preset resolved (keys: ${Object.keys(result.danmuConfig ?? {}).length})`);
     } catch (err) {
       logger.warn("AutoClip: failed to resolve danmaku preset for export", err);
@@ -94,8 +95,7 @@ export async function exportClips(
   const resolvedSavePath = path.resolve(savePath);
 
   // Use caller-resolved ffmpeg preset config
-  const ffmpegPresetOpts: Partial<Record<string, unknown>> =
-    (presetCtx.ffmpegConfig as Partial<Record<string, unknown>>) ?? {};
+  const ffmpegPresetOpts: Record<string, unknown> = presetCtx.ffmpegConfig ?? {};
 
   // --- Danmaku burning setup ---
   logger.info(
@@ -110,7 +110,7 @@ export async function exportClips(
       const { v4: uuid } = await import("uuid");
       const task = await convertXml2Ass(
         { input: danmuPath, output: uuid() },
-        presetCtx.danmuConfig as any,
+        presetCtx.danmuConfig as Record<string, unknown>,
         { temp: true, saveRadio: 2, savePath: "", override: true },
       );
       // Wait for task completion (promisify event-based task)
