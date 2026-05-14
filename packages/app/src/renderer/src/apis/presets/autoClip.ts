@@ -7,19 +7,19 @@ const list = async (): Promise<AutoClipPresetType[]> => {
 };
 
 const get = async (id: string): Promise<AutoClipPresetType> => {
-  const res = await request.get(`/auto-clip/preset/${id}`);
+  const res = await request.get(`/auto-clip/presets/${id}`);
   return res.data;
 };
 
 const save = async (preset: AutoClipPresetType) => {
   if (preset.id) {
-    return request.put(`/auto-clip/preset/${preset.id}`, preset);
+    return request.put(`/auto-clip/presets/${preset.id}`, preset);
   }
   return request.post("/auto-clip/preset", preset);
 };
 
 const remove = async (id: string) => {
-  return request.delete(`/auto-clip/preset/${id}`);
+  return request.delete(`/auto-clip/presets/${id}`);
 };
 
 const getDefaultConfig = async (): Promise<AutoClipConfig> => {

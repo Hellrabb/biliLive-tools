@@ -153,7 +153,7 @@ router.get("/presets", async (ctx) => {
   ctx.body = await preset.list();
 });
 
-router.get("/preset/:id", async (ctx) => {
+router.get("/presets/:id", async (ctx) => {
   const preset = getAutoClipPreset();
   ctx.body = await preset.get(ctx.params.id);
 });
@@ -179,7 +179,7 @@ router.post("/preset", async (ctx) => {
   ctx.body = await preset.save(data);
 });
 
-router.put("/preset/:id", async (ctx) => {
+router.put("/presets/:id", async (ctx) => {
   if (!isValidUUID(ctx.params.id)) {
     ctx.status = 400;
     ctx.body = { error: "预设 ID 格式无效" };
@@ -213,7 +213,7 @@ router.put("/preset/:id", async (ctx) => {
   ctx.body = await preset.save({ ...data, id: ctx.params.id });
 });
 
-router.del("/preset/:id", async (ctx) => {
+router.del("/presets/:id", async (ctx) => {
   const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
   if (!checkPresetMutationRateLimit(clientIp)) {
     ctx.status = 429;
