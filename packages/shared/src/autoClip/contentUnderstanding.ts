@@ -85,6 +85,12 @@ export async function understandContent(
   deps: ContentUnderstandingDeps,
   signal?: AbortSignal,
 ): Promise<{ asrMap: Map<number, string>; frameMap: Map<number, string> }> {
+  // Lazy one-time cleanup of stale ASR temp files from previous runs
+  if (!cleanupRan) {
+    cleanupRan = true;
+    setImmediate(() => { cleanupStaleASRTempFiles(); });
+  }
+
   const asrMap = new Map<number, string>();
   const frameMap = new Map<number, string>();
 
@@ -186,5 +192,5 @@ export async function cleanupStaleASRTempFiles(): Promise<void> {
   }
 }
 
-// Schedule cleanup at module import time (non-blocking)
-setImmediate(() => { cleanupStaleASRTempFiles(); });
+// Cleanup runs lazily on first understandContent call instead of at import time
+let cleanupRan = false;
