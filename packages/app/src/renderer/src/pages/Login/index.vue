@@ -71,7 +71,7 @@ const login = async () => {
     if (!isProxyMode) {
       request.defaults.baseURL = testUrl;
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error?.response?.data === "Forbidden") {
       notice.error({ title: "密钥错误", duration: 5000 });
       return;
@@ -107,7 +107,7 @@ const test = async () => {
         duration: 5000,
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error?.response?.data === "Forbidden") {
       notice.error({ title: "密钥错误", duration: 5000 });
       return;
