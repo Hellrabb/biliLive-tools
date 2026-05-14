@@ -6,6 +6,9 @@
         <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
           {{ analyzing ? '分析中...' : '+ 手动分析' }}
         </n-button>
+        <n-button v-if="analyzing" type="warning" size="small" @click="cancelAnalysis" style="margin-left:8px">
+          取消分析
+        </n-button>
         <n-button
           v-if="currentPagePendingCount > 0"
           type="primary"
@@ -129,6 +132,7 @@ const previewVisible = ref(false);
 const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 const pollAbort = ref<AbortController | null>(null);
+const currentTaskId = ref<string | null>(null);
 const batchExporting = ref(false);
 const currentPagePendingCount = computed(() => clips.value.filter((c) => c.status === "pending").length);
 
@@ -347,6 +351,8 @@ async function confirmManualAnalyze() {
       return;
     }
 
+    currentTaskId.value = taskId;
+
     let result = await pollTaskResult(taskId, 60);
     if (result === 'timeout') {
       const continueWaiting = window.confirm(
@@ -367,6 +373,20 @@ async function confirmManualAnalyze() {
     notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
   } finally {
     analyzing.value = false;
+    currentTaskId.value = null;
+  }
+}
+
+async function cancelAnalysis() {
+  if (!currentTaskId.value) return;
+  try {
+    await request.post(`/auto-clip/cancel/${currentTaskId.value}`);
+    pollAbort.value?.abort();
+    notice.info("已取消分析");
+    analyzing.value = false;
+    await refreshList();
+  } catch (e: any) {
+    notice.error(`取消失败: ${e?.response?.data?.error || e.message}`);
   }
 }
 

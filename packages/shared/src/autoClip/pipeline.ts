@@ -24,6 +24,7 @@ export interface PipelineParams {
   recognizeASR?: (audioPath: string) => Promise<{ text: string }>;
   ffmpegPath?: string;
   id?: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -36,7 +37,7 @@ export interface PipelineParams {
 export async function runAutoClipPipeline(
   params: PipelineParams,
 ): Promise<AutoClipResult> {
-  const { videoPath, danmuPath, presetConfig, onProgress, sendMessage, sendMultimodalMessage, recognizeASR } = params;
+  const { videoPath, danmuPath, presetConfig, onProgress, sendMessage, sendMultimodalMessage, recognizeASR, signal } = params;
   const id = params.id ?? uuidv4();
 
   const llmFallback = presetConfig.llm.enabled && !sendMessage;
@@ -45,6 +46,11 @@ export async function runAutoClipPipeline(
 
   // 1. Parse danmaku
   const parsed = await parseDanmu(danmuPath);
+
+  if (signal?.aborted) {
+    return { id, videoPath, danmuPath, highlights: [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
+  }
+
   const duration = await getVideoDuration(videoPath);
 
   const stats: DanmuStats = {
@@ -117,6 +123,10 @@ export async function runAutoClipPipeline(
     }
   }
 
+  if (signal?.aborted) {
+    return { id, videoPath, danmuPath, highlights: [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
+  }
+
   // 2. Layer 1: Signal detection
   const candidates = detectSignals(stats, presetConfig.signal);
 
@@ -168,6 +178,10 @@ export async function runAutoClipPipeline(
       signalSources: c.signalSources,
       isHighlight: true,
     }));
+  }
+
+  if (signal?.aborted) {
+    return { id, videoPath, danmuPath, highlights: highlights.length > 0 ? highlights : [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
   }
 
   // Build TitleStyleConfig from presetConfig.llm
@@ -240,6 +254,10 @@ export async function runAutoClipPipeline(
         logger.warn("AutoClip: title styling failed, using Phase 1 content summaries", err);
       }
     }
+  }
+
+  if (signal?.aborted) {
+    return { id, videoPath, danmuPath, highlights: highlights.length > 0 ? highlights : [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
   }
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);

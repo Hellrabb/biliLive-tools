@@ -42,8 +42,10 @@ export class AutoClipService {
     id?: string;
     /** Custom naming prefix for manual clip */
     outputName?: string;
+    /** AbortSignal for cancellation */
+    signal?: AbortSignal;
   }): Promise<AutoClipResult> {
-    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id, outputName } = params;
+    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id, outputName, signal } = params;
 
     // 1. Load preset config — explicit presetId takes priority
     let presetConfig = cloneDeep(AUTO_CLIP_DEFAULT_CONFIG);
@@ -126,6 +128,7 @@ export class AutoClipService {
       onProgress,
       id,
       ffmpegPath: sysFfmpegPath,
+      signal,
     });
 
     // Pattern-based filter rule dedup provides best-effort mitigation
