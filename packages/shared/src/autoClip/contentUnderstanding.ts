@@ -83,11 +83,13 @@ export async function understandContent(
   highlights: HighlightSegment[],
   config: AutoClipEnhancementConfig,
   deps: ContentUnderstandingDeps,
+  signal?: AbortSignal,
 ): Promise<{ asrMap: Map<number, string>; frameMap: Map<number, string> }> {
   const asrMap = new Map<number, string>();
   const frameMap = new Map<number, string>();
 
   if (highlights.length === 0) return { asrMap, frameMap };
+  if (signal?.aborted) return { asrMap, frameMap };
 
   const doASR = config.asrEnabled && !!deps.recognizeASR;
   const doVisual = config.visualEnabled && !!deps.sendMultimodalMessage;
@@ -107,6 +109,7 @@ export async function understandContent(
 
   const tasks = highlights.map((h, i) =>
     limit(async () => {
+      if (signal?.aborted) return;
       // --- ASR ---
       if (doASR) {
         try {
@@ -136,6 +139,7 @@ export async function understandContent(
             const description = await deps.sendMultimodalMessage!(
               FRAME_DESCRIPTION_PROMPT,
               frames,
+              signal,
             );
             if (description) {
               frameMap.set(i, description);
