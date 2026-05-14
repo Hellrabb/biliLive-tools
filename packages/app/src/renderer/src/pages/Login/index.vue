@@ -72,7 +72,7 @@ const login = async () => {
       request.defaults.baseURL = testUrl;
     }
   } catch (error) {
-    if (error === "Forbidden") {
+    if (error?.response?.data === "Forbidden") {
       notice.error({ title: "密钥错误", duration: 5000 });
       return;
     }
@@ -108,7 +108,7 @@ const test = async () => {
       });
     }
   } catch (error) {
-    if (error === "Forbidden") {
+    if (error?.response?.data === "Forbidden") {
       notice.error({ title: "密钥错误", duration: 5000 });
       return;
     }
