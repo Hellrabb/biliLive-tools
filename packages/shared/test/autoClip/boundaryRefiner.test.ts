@@ -160,6 +160,46 @@ describe("refineBoundaries constraint checks", () => {
     expect(result[0]!.timeRange[1]).toBeLessThanOrEqual(result[1]!.timeRange[0]);
   });
 
+  it("should merge overlapping clips and preserve best metadata from both", async () => {
+    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+
+    const highlights = [
+      makeHighlight({ start: 100, end: 200, title: "Clip A", score: 7 }),
+      makeHighlight({ start: 150, end: 300, title: "Clip B", score: 9 }),
+    ];
+    highlights[0]!.tags = ["funny"];
+    highlights[1]!.tags = ["impressive", "hype"];
+
+    const asrMap = new Map([[0, "a"], [1, "b"]]);
+    const frameMap = new Map<number, string>();
+
+    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
+      adjustments: [
+        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
+        { highlightIndex: 1, startAdjustment: 0, endAdjustment: 0, startReason: "", endReason: "", confidence: "medium" },
+      ],
+    }));
+
+    const result = await refineBoundaries(
+      highlights, asrMap, frameMap, mockSend,
+      { maxAdjustSec: 80, minClipDuration: 15 },
+      1000,
+    );
+
+    // Merged into single clip (overlap = 280 - 150 = 130 > 3s triggers merge)
+    expect(result).toHaveLength(1);
+    const merged = result[0]!;
+    expect(merged.score).toBe(9); // should use higher score from Clip B
+    expect(merged.tags).toContain("funny");
+    expect(merged.tags).toContain("impressive");
+    expect(merged.tags).toContain("hype");
+    expect(merged.tags).toHaveLength(3);
+    expect(merged.title).toContain("Clip A");
+    expect(merged.title).toContain("Clip B");
+    expect(merged.highlightType).toBe(highlights[1]!.highlightType); // from higher-scored clip
+    expect(merged.reason).toBe(highlights[1]!.reason);
+  });
+
   it("should return original highlights when LLM call throws", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
