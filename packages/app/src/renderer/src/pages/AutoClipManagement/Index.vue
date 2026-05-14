@@ -7,14 +7,14 @@
           {{ analyzing ? '分析中...' : '+ 手动分析' }}
         </n-button>
         <n-button
-          v-if="pendingCount > 0"
+          v-if="currentPagePendingCount > 0"
           type="primary"
           ghost
           :loading="batchExporting"
           :disabled="batchExporting"
           @click="batchApproveAndExport"
         >
-          批量导出 ({{ pendingCount }})
+          批量导出 ({{ currentPagePendingCount }})
         </n-button>
         <n-button @click="refreshList">刷新</n-button>
       </n-space>
@@ -130,7 +130,7 @@ const previewItem = ref<ClipRow | null>(null);
 const exportingId = ref<string | null>(null);
 const pollAbort = ref<AbortController | null>(null);
 const batchExporting = ref(false);
-const pendingCount = computed(() => counts.value.pending);
+const currentPagePendingCount = computed(() => clips.value.filter((c) => c.status === "pending").length);
 
 const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 });
 
