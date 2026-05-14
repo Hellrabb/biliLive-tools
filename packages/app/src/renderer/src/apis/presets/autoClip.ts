@@ -28,7 +28,7 @@ const getDefaultConfig = async (): Promise<AutoClipConfig> => {
 };
 
 const getCounts = async (): Promise<{
-  all: number; pending: number; approved: number; exporting: number; exported: number; uploaded: number;
+  all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number;
 }> => {
   const res = await request.get("/auto-clip/clips/counts");
   return res.data;
