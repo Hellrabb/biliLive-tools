@@ -91,6 +91,7 @@ export async function exportClips(
   let danmakuError: string | undefined;
 
   const savePath = exportConfig.savePath || path.dirname(videoPath);
+  const resolvedSavePath = path.resolve(savePath);
 
   // Use caller-resolved ffmpeg preset config
   const ffmpegPresetOpts: Partial<Record<string, unknown>> =
@@ -173,8 +174,6 @@ export async function exportClips(
       outputName = outputName.slice(0, MAX_FILENAME_BYTES - 3) + "...";
     }
 
-    const resolvedSavePath = path.resolve(savePath);
-
     // Prevent filename collisions — append timestamp if file already exists
     let outputPath = path.join(
       resolvedSavePath,
@@ -197,6 +196,11 @@ export async function exportClips(
         resolvedSavePath,
         `${outputName}_${ts}.${exportConfig.cutFormat}`,
       );
+      if (!path.resolve(outputPath).startsWith(resolvedSavePath + path.sep)) {
+        logger.warn("AutoClip: collision-avoidance path traversed unexpectedly");
+        failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
+        continue;
+      }
     }
 
     onProgress?.(
