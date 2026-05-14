@@ -41,6 +41,27 @@ function checkRunRateLimit(ip: string): boolean {
   return true;
 }
 
+/** Per-client rate limiting for preset mutation endpoints. */
+const presetMutationRateLimit = new Map<string, number>();
+const PRESET_MUTATION_RATE_LIMIT_MS = 10_000; // 10s cooldown
+
+function checkPresetMutationRateLimit(ip: string): boolean {
+  const last = presetMutationRateLimit.get(ip);
+  const now = Date.now();
+  if (last && now - last < PRESET_MUTATION_RATE_LIMIT_MS) {
+    return false;
+  }
+  presetMutationRateLimit.set(ip, now);
+  if (presetMutationRateLimit.size > MAX_RATE_LIMIT_ENTRIES) {
+    const entries = [...presetMutationRateLimit.entries()];
+    entries.sort((a, b) => a[1] - b[1]);
+    for (const [key] of entries.slice(0, 50)) {
+      presetMutationRateLimit.delete(key);
+    }
+  }
+  return true;
+}
+
 interface AutoClipPresetInstance {
   list: () => Promise<AutoClipPresetType[]>;
   get: (id: string) => Promise<AutoClipPresetType | undefined>;
@@ -138,6 +159,13 @@ router.get("/preset/:id", async (ctx) => {
 });
 
 router.post("/preset", async (ctx) => {
+  const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
+  if (!checkPresetMutationRateLimit(clientIp)) {
+    ctx.status = 429;
+    ctx.body = { error: "请求过于频繁，请等待 10 秒后再试" };
+    return;
+  }
+
   const preset = getAutoClipPreset();
   const data = ctx.request.body as AutoClipPresetType;
 
@@ -152,7 +180,27 @@ router.post("/preset", async (ctx) => {
 });
 
 router.put("/preset/:id", async (ctx) => {
+  if (!isValidUUID(ctx.params.id)) {
+    ctx.status = 400;
+    ctx.body = { error: "预设 ID 格式无效" };
+    return;
+  }
+
+  const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
+  if (!checkPresetMutationRateLimit(clientIp)) {
+    ctx.status = 429;
+    ctx.body = { error: "请求过于频繁，请等待 10 秒后再试" };
+    return;
+  }
+
   const preset = getAutoClipPreset();
+  const existing = await preset.get(ctx.params.id);
+  if (!existing) {
+    ctx.status = 404;
+    ctx.body = { error: "预设不存在" };
+    return;
+  }
+
   const data = ctx.request.body as AutoClipPresetType;
 
   const errors = validatePresetConfig(data.config);
@@ -166,6 +214,13 @@ router.put("/preset/:id", async (ctx) => {
 });
 
 router.del("/preset/:id", async (ctx) => {
+  const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
+  if (!checkPresetMutationRateLimit(clientIp)) {
+    ctx.status = 429;
+    ctx.body = { error: "请求过于频繁，请等待 10 秒后再试" };
+    return;
+  }
+
   const preset = getAutoClipPreset();
   ctx.body = await preset.delete(ctx.params.id);
 });
@@ -388,7 +443,16 @@ router.get("/result/:id", async (ctx) => {
 // ===================== Clips 管理 =====================
 
 router.get("/clips", async (ctx) => {
+  const VALID_CLIP_STATUSES = new Set([
+    "pending", "analyzing", "approved", "exporting", "exported", "uploaded", "failed",
+  ]);
   const status = ctx.query.status as string | undefined;
+  if (status && !VALID_CLIP_STATUSES.has(status)) {
+    ctx.status = 400;
+    ctx.body = { error: `无效的状态值: ${status}` };
+    return;
+  }
+
   const rawLimit = parseInt(ctx.query.limit as string, 10);
   const rawOffset = parseInt(ctx.query.offset as string, 10);
   const limit = Number.isFinite(rawLimit) ? Math.min(rawLimit, 200) : 50;
@@ -396,7 +460,7 @@ router.get("/clips", async (ctx) => {
 
   const { data, total } = autoClipModel.getResults({
     status: status || undefined,
-    limit: Math.min(limit, 200),
+    limit,
     offset,
   });
 
@@ -415,7 +479,7 @@ router.get("/clips", async (ctx) => {
       return acc;
     }, []),
     total,
-    limit: Math.min(limit, 200),
+    limit,
     offset,
   };
 });
