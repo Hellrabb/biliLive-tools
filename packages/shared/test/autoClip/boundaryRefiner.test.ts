@@ -168,7 +168,11 @@ describe("refineBoundaries constraint checks", () => {
       makeHighlight({ start: 150, end: 300, title: "Clip B", score: 9 }),
     ];
     highlights[0]!.tags = ["funny"];
+    highlights[0]!.highlightType = "hype";
+    highlights[0]!.reason = "lower quality moment";
     highlights[1]!.tags = ["impressive", "hype"];
+    highlights[1]!.highlightType = "impressive";
+    highlights[1]!.reason = "best moment of stream";
 
     const asrMap = new Map([[0, "a"], [1, "b"]]);
     const frameMap = new Map<number, string>();
@@ -196,8 +200,8 @@ describe("refineBoundaries constraint checks", () => {
     expect(merged.tags).toHaveLength(3);
     expect(merged.title).toContain("Clip A");
     expect(merged.title).toContain("Clip B");
-    expect(merged.highlightType).toBe(highlights[1]!.highlightType); // from higher-scored clip
-    expect(merged.reason).toBe(highlights[1]!.reason);
+    expect(merged.highlightType).toBe("impressive");
+    expect(merged.reason).toBe("best moment of stream");
   });
 
   it("should return original highlights when LLM call throws", async () => {
