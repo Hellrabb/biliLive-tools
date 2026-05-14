@@ -1321,6 +1321,7 @@ export interface AutoClipHighlightItem {
 export interface AutoClipClipRow {
   id: string;
   video_path: string;
+  output_name?: string;
   status: string;
   created_at: string;
   recorder_id: string | null;
