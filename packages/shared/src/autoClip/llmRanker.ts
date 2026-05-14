@@ -351,6 +351,7 @@ export async function rankCandidates(
   config: AutoClipLLMConfig,
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   allDanmaku: Array<{ sec: number; text: string }>,
+  signal?: AbortSignal,
 ): Promise<HighlightSegment[]> {
   if (candidates.length === 0) return [];
 
@@ -373,7 +374,7 @@ export async function rankCandidates(
   );
 
   const rawResults = await Promise.allSettled(
-    prompts.map((prompt) => limit(() => sendWithTimeout(sendMessage, prompt))),
+    prompts.map((prompt) => limit(() => sendWithTimeout(sendMessage, prompt, { externalSignal: signal }))),
   );
 
   // Step 4: parse responses — fulfilled → parse, rejected → heuristic fallback

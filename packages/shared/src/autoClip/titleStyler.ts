@@ -102,6 +102,7 @@ export async function generateStyledTitles(
   },
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   config?: TitleStyleConfig,
+  signal?: AbortSignal,
 ): Promise<HighlightSegment[]> {
   if (highlights.length === 0) return highlights;
 
@@ -126,7 +127,7 @@ export async function generateStyledTitles(
           config,
         );
 
-        const raw = await sendWithTimeout(sendMessage, prompt);
+        const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
         const parsed = parseTitleResponse(raw);
 
         if (parsed) {

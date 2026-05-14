@@ -9,6 +9,7 @@ export async function refineBoundaries(
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   config: BoundaryRefineConfig,
   videoDuration: number,
+  signal?: AbortSignal,
 ): Promise<HighlightSegment[]> {
   if (highlights.length === 0) return highlights;
 
@@ -28,7 +29,7 @@ export async function refineBoundaries(
 
   let response: string;
   try {
-    response = await sendMessage(`System: ${systemPrompt}\n\nUser: ${userPrompt}`);
+    response = await sendMessage(`System: ${systemPrompt}\n\nUser: ${userPrompt}`, signal);
   } catch (err) {
     logger.warn("boundaryRefiner: LLM call failed, keeping original boundaries", err);
     return highlights;

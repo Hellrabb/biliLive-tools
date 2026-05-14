@@ -12,6 +12,14 @@ import logger from "../utils/log.js";
 import type { AutoClipConfig } from "@biliLive-tools/types";
 import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern, TitleStyleConfig } from "./types.js";
 
+function checkAborted(signal?: AbortSignal, phase?: string): void {
+  if (signal?.aborted) {
+    const err = new Error("AutoClip pipeline aborted");
+    (err as any).phase = phase;
+    throw err;
+  }
+}
+
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
 
 export interface PipelineParams {
@@ -47,9 +55,7 @@ export async function runAutoClipPipeline(
   // 1. Parse danmaku
   const parsed = await parseDanmu(danmuPath);
 
-  if (signal?.aborted) {
-    return { id, videoPath, danmuPath, highlights: [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
-  }
+  checkAborted(signal, "parse");
 
   const duration = await getVideoDuration(videoPath);
 
@@ -123,9 +129,7 @@ export async function runAutoClipPipeline(
     }
   }
 
-  if (signal?.aborted) {
-    return { id, videoPath, danmuPath, highlights: [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
-  }
+  checkAborted(signal, "filter");
 
   // 2. Layer 1: Signal detection
   const candidates = detectSignals(stats, presetConfig.signal);
@@ -155,7 +159,7 @@ export async function runAutoClipPipeline(
       sec: d.timestamp ?? d.ts / 1000,
       text: d.text ?? "",
     }));
-    highlights = await rankCandidates(candidates, presetConfig.llm, sendMessage, allDanmaku);
+    highlights = await rankCandidates(candidates, presetConfig.llm, sendMessage, allDanmaku, signal);
     onProgress?.(
       "rank",
       80,
@@ -180,9 +184,7 @@ export async function runAutoClipPipeline(
     }));
   }
 
-  if (signal?.aborted) {
-    return { id, videoPath, danmuPath, highlights: highlights.length > 0 ? highlights : [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
-  }
+  checkAborted(signal, "rank");
 
   // Build TitleStyleConfig from presetConfig.llm
   const titleStyleConfig: TitleStyleConfig | undefined =
@@ -207,6 +209,7 @@ export async function runAutoClipPipeline(
           highlights,
           enhancement,
           { sendMultimodalMessage, recognizeASR, ffmpegPath: params.ffmpegPath },
+          signal,
         );
         onProgress?.("understand", 88, "Content understanding complete");
 
@@ -221,6 +224,7 @@ export async function runAutoClipPipeline(
               sendMessage,
               {},
               duration,
+              signal,
             );
             onProgress?.("refine", 92, "Boundaries refined");
           } catch (err) {
@@ -234,6 +238,7 @@ export async function runAutoClipPipeline(
           { asrMap, frameMap },
           sendMessage,
           titleStyleConfig,
+          signal,
         );
         onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
       } catch (err) {
@@ -248,6 +253,7 @@ export async function runAutoClipPipeline(
           { asrMap: new Map(), frameMap: new Map() },
           sendMessage,
           titleStyleConfig,
+          signal,
         );
         onProgress?.("title", 95, `Styled titles generated for ${highlights.length} clips`);
       } catch (err) {
@@ -256,9 +262,7 @@ export async function runAutoClipPipeline(
     }
   }
 
-  if (signal?.aborted) {
-    return { id, videoPath, danmuPath, highlights: highlights.length > 0 ? highlights : [], skipped: true, skippedReason: "cancelled", ...(llmFallback ? { llmFallback } : {}) };
-  }
+  checkAborted(signal, "enhance");
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);
   return { id, videoPath, danmuPath, highlights, llmFallback, suspiciousPatterns };
