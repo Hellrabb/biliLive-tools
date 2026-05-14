@@ -221,15 +221,19 @@ function resolveOverlaps(
       curr.timeRange = [curr.timeRange[0], next.timeRange[0] - 1];
       curr.bestRange = [curr.timeRange[0], next.timeRange[0] - 1];
     } else {
-      // Significant overlap: merge clips
+      // Significant overlap: merge clips — keep best metadata from both
       const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
       const mergedEnd = Math.max(curr.timeRange[1], next.timeRange[1]);
-      const mergedTitle = `${curr.title} + ${next.title}`;
+      const useCurr = curr.score >= next.score;
       highlights[i] = {
         ...curr,
         timeRange: [mergedStart, mergedEnd],
         bestRange: [mergedStart, mergedEnd],
-        title: mergedTitle,
+        title: `${curr.title} + ${next.title}`,
+        score: Math.max(curr.score, next.score),
+        tags: [...new Set([...curr.tags, ...next.tags])],
+        highlightType: useCurr ? curr.highlightType : next.highlightType,
+        reason: useCurr ? curr.reason : next.reason,
         signalSources: [...new Set([...curr.signalSources, ...next.signalSources])],
       };
       highlights.splice(i + 1, 1);
