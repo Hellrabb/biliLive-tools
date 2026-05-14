@@ -307,6 +307,7 @@ router.post("/run", async (ctx) => {
     output_name: outputName || null,
     highlight_count: 0,
     first_title: null,
+    retry_count: 0,
   });
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
@@ -639,7 +640,9 @@ async function doExportClips(
     if (exportedPaths.length > 0) {
       autoClipModel.markExported(resultId, exportedPaths);
     } else {
-      autoClipModel.updateStatus(resultId, "pending");
+      if (autoClipModel.incrementRetry(resultId)) {
+        autoClipModel.updateStatus(resultId, "pending");
+      }
     }
 
     return {
@@ -652,8 +655,9 @@ async function doExportClips(
     };
   } catch (err: any) {
     logger.error(`${logPrefix}: exportClips threw:`, err);
-    // Roll back status so the user can retry
-    autoClipModel.updateStatus(resultId, "pending");
+    if (autoClipModel.incrementRetry(resultId)) {
+      autoClipModel.updateStatus(resultId, "pending");
+    }
     return {
       status: "failed",
       exportedPaths: [],
