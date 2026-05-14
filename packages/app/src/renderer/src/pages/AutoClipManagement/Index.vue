@@ -261,7 +261,7 @@ async function approveClip(row: ClipRow) {
     }
     await refreshList();
   } catch (e: any) {
-    notice.error(`操作失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`操作失败: ${e?.response?.data?.error || e?.message || "未知错误"}`);
   } finally {
     exportingId.value = null;
   }
@@ -273,7 +273,7 @@ async function deleteClip(row: ClipRow) {
     notice.success("已删除");
     await refreshList();
   } catch (e: any) {
-    notice.error(`删除失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`删除失败: ${e?.response?.data?.error || e?.message || "未知错误"}`);
   }
 }
 
@@ -390,7 +390,7 @@ async function confirmManualAnalyze() {
       }
     }
   } catch (e: any) {
-    notice.error(`分析失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`分析失败: ${e?.response?.data?.error || e?.message || "未知错误"}`);
   } finally {
     analyzing.value = false;
     currentTaskId.value = null;
@@ -406,7 +406,7 @@ async function cancelAnalysis() {
     analyzing.value = false;
     await refreshList();
   } catch (e: any) {
-    notice.error(`取消失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`取消失败: ${e?.response?.data?.error || e?.message || "未知错误"}`);
   }
 }
 
@@ -462,7 +462,7 @@ async function batchApproveAndExport() {
     }
     await refreshList();
   } catch (e: any) {
-    notice.error(`批量导出失败: ${e?.response?.data?.error || e.message}`);
+    notice.error(`批量导出失败: ${e?.response?.data?.error || e?.message || "未知错误"}`);
   } finally {
     batchExporting.value = false;
   }
