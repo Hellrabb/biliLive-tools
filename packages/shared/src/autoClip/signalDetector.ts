@@ -1,5 +1,6 @@
 import type { DanmuItem, SC, Gift, AutoClipSignalConfig } from "@biliLive-tools/types";
 import type { CandidateWindow, TimeWindow, DanmuStats, DanmuSample, SCSummary } from "./types.js";
+import { BRUSH_WINDOW_SEC, MAX_BRUSH_SAMPLE, MAX_BRUSH_FREQ_SAMPLE } from "./constants.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -256,9 +257,6 @@ export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): T
  * If performance becomes an issue, consider shingling (Jaccard on n-grams)
  * instead of LCS for the pair-wise similarity step.
  */
-const BRUSH_WINDOW_SEC = 10;
-const MAX_BRUSH_SAMPLE = 80;
-const MAX_BRUSH_FREQ_SAMPLE = 150;
 
 /**
  * Detect time windows where a high proportion of danmaku text pairs share
@@ -435,21 +433,15 @@ export function detectSignals(
 
   for (const [start, end] of mergedWindows) {
     // Determine which signal sources contributed to this window
-    const signalSources: string[] = [];
+    const signalSourcesSet = new Set<string>();
     for (const { window: sw, source } of allLabeled) {
-      if (source === "density" && !signalSources.includes("danmakuDensity")) {
-        if (sw[0] <= end && sw[1] >= start) signalSources.push("danmakuDensity");
-      }
-      if (source === "sc" && !signalSources.includes("scBurst")) {
-        if (sw[0] <= end && sw[1] >= start) signalSources.push("scBurst");
-      }
-      if (source === "gift" && !signalSources.includes("giftBurst")) {
-        if (sw[0] <= end && sw[1] >= start) signalSources.push("giftBurst");
-      }
-      if (source === "brush" && !signalSources.includes("brushStorm")) {
-        if (sw[0] <= end && sw[1] >= start) signalSources.push("brushStorm");
-      }
+      if (sw[0] > end || sw[1] < start) continue; // no overlap
+      if (source === "density") signalSourcesSet.add("danmakuDensity");
+      else if (source === "sc") signalSourcesSet.add("scBurst");
+      else if (source === "gift") signalSourcesSet.add("giftBurst");
+      else if (source === "brush") signalSourcesSet.add("brushStorm");
     }
+    const signalSources = [...signalSourcesSet];
 
     // Collect items within the window
     const windowDanmu = danmu.filter((d) => {

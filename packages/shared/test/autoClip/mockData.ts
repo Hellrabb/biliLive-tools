@@ -1,5 +1,5 @@
 import type { DanmuItem, SC, Gift } from "@biliLive-tools/types";
-import type { DanmuStats } from "../../src/autoClip/types";
+import type { DanmuStats, HighlightSegment } from "../../src/autoClip/types";
 
 /**
  * Build a minimal DanmuStats object for testing.
@@ -115,4 +115,23 @@ export function generateDanmakuCluster(
     items.push(makeDanmu(centerSec + offset, `${text} ${i}`));
   }
   return items;
+}
+
+/**
+ * Create a minimal HighlightSegment for testing.
+ * All fields have sensible defaults; overrides are shallow-merged.
+ */
+export function makeHighlight(overrides: Partial<HighlightSegment> = {}): HighlightSegment {
+  return {
+    timeRange: [120, 300],
+    bestRange: [125, 295],
+    score: 8,
+    title: "Test Highlight",
+    tags: [],
+    highlightType: "hype",
+    reason: "test",
+    signalSources: ["danmakuDensity"],
+    isHighlight: true,
+    ...overrides,
+  };
 }

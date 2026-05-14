@@ -1,22 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { understandContent } from "../../src/autoClip/contentUnderstanding.js";
-import type { HighlightSegment } from "../../src/autoClip/types.js";
 import type { AutoClipEnhancementConfig } from "@biliLive-tools/types";
-
-function makeHighlight(overrides: Partial<HighlightSegment> = {}): HighlightSegment {
-  return {
-    timeRange: [120, 300],
-    bestRange: [125, 295],
-    score: 8,
-    title: "极限反杀",
-    tags: ["操作"],
-    highlightType: "impressive",
-    reason: "弹幕爆发",
-    signalSources: ["danmakuDensity"],
-    isHighlight: true,
-    ...overrides,
-  };
-}
+import { makeHighlight } from "./mockData.js";
 
 describe("understandContent", () => {
   it("should return empty maps when both ASR and visual disabled", async () => {

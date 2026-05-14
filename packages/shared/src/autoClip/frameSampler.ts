@@ -1,9 +1,7 @@
 import { spawn } from "node:child_process";
 import pLimit from "p-limit";
 import logger from "../utils/log.js";
-
-const FRAME_CONCURRENCY = 3;
-const FRAME_EXTRACT_TIMEOUT_MS = 30_000;
+import { FRAME_CONCURRENCY, FRAME_EXTRACT_TIMEOUT_MS } from "./constants.js";
 
 /**
  * Extract frames from a video at given timestamps.
