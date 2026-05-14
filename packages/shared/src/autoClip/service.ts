@@ -304,6 +304,8 @@ export class AutoClipService {
       } else if (exportResult.failed.length > 0) {
         autoClipModel.updateStatus(resultId, "failed");
         logger.error(`AutoClip: 全部导出失败 (${exportResult.failed.length} 个片段)`);
+      } else {
+        logger.warn("AutoClip: export produced no results (both success and failed are empty)");
       }
     } catch (err: any) {
       logger.error(`AutoClip: autoExportAndUpload 失败 — ${err.message || err}`);
