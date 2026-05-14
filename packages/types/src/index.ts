@@ -1255,6 +1255,15 @@ export interface AutoClipEnhancementConfig {
   visualEnabled: boolean;
   /** 边界智能精修，默认 true */
   boundaryRefineEnabled?: boolean;
+  /** 边界精修配置参数 */
+  boundaryRefine?: {
+    /** 最大调整幅度 (秒)，默认 30 */
+    maxAdjustSec?: number;
+    /** 最小片段时长 (秒)，默认 15 */
+    minClipDuration?: number;
+    /** 边界前后采样窗口 (秒)，默认 60 */
+    contextWindowSec?: number;
+  };
 }
 
 export interface AutoClipExportConfig {
