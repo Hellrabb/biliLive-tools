@@ -14,9 +14,12 @@ import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern, T
 
 function checkAborted(signal?: AbortSignal, phase?: string): void {
   if (signal?.aborted) {
-    const err = new Error("AutoClip pipeline aborted");
-    (err as any).phase = phase;
-    throw err;
+    try {
+      signal.throwIfAborted();
+    } catch (err: any) {
+      (err as any).phase = phase;
+      throw err;
+    }
   }
 }
 
