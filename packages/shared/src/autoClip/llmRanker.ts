@@ -38,8 +38,8 @@ SC 记录：
   "tags": ["标签1", "标签2"],
   "highlightType": "funny/impressive/touching/hype/troll/not_highlight",
   "reason": "简短原因（最多20字）",
-  "bestClipStart": 窗口内的起始秒数,
-  "bestClipEnd": 窗口内的结束秒数
+  "bestClipStart": 高光起始的绝对秒数（相对于视频开始，不是相对于窗口）,
+  "bestClipEnd": 高光结束的绝对秒数（相对于视频开始，不是相对于窗口）
 }
 
 注意：忽略抽奖刷屏和付费引流弹幕
