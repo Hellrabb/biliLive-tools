@@ -163,6 +163,12 @@ export async function exportClips(
       outputName = `${namingPrefix}_${outputName}`;
     }
 
+    // Truncate to safe filename length (reserve headroom for extension + timestamp suffix)
+    const MAX_FILENAME_BYTES = 200;
+    if (outputName.length > MAX_FILENAME_BYTES) {
+      outputName = outputName.slice(0, MAX_FILENAME_BYTES - 3) + "...";
+    }
+
     // Prevent filename collisions — append timestamp if file already exists
     let outputPath = path.join(
       savePath,
