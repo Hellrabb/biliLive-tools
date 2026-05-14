@@ -90,7 +90,7 @@
                     <n-switch v-model:value="editingPreset.config.llm.enabled" />
                   </n-form-item>
                   <n-form-item label="LLM Provider">
-                    <n-select v-model:value="editingPreset.config.llm.provider" :options="[{label:'Qwen',value:'qwen'},{label:'Ollama',value:'ollama'}]" style="width:150px" />
+                    <n-select v-model:value="editingPreset.config.llm.provider" :options="[{label:'Qwen (阿里云百炼)', value:'qwen'},{label:'阿里云 DashScope', value:'aliyun'},{label:'OpenAI 兼容', value:'openai'},{label:'Ollama (本地)', value:'ollama'}]" style="width:200px" />
                   </n-form-item>
                   <n-form-item label="Model ID">
                     <n-input v-model:value="editingPreset.config.llm.modelId" style="width:200px" />
@@ -106,6 +106,10 @@
                   </n-form-item>
                   <n-form-item label="弹幕采样上限">
                     <n-input-number v-model:value="editingPreset.config.llm.danmakuSampleMax" :step="10" min="10" />
+                  </n-form-item>
+                  <n-form-item label="上下文窗口">
+                    <n-input-number v-model:value="editingPreset.config.llm.contextWindowSec" :step="5" :min="10" :max="120" />
+                    <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="Prompt 模板">
                     <n-input
@@ -135,6 +139,9 @@
                   </n-form-item>
                   <n-form-item label="压制弹幕到视频">
                     <n-switch v-model:value="editingPreset.config.export.burnDanmaku" />
+                  </n-form-item>
+                  <n-form-item v-if="editingPreset.config.export.burnDanmaku" label="弹幕预设">
+                    <n-select v-model:value="editingPreset.config.export.danmuPresetId" :options="danmuPresetOptions" style="width:200px" clearable placeholder="选择弹幕压制预设" />
                   </n-form-item>
                   <n-form-item label="上传到B站">
                     <n-switch v-model:value="editingPreset.config.export.uploadToBili" />
@@ -234,8 +241,9 @@
 <script setup lang="ts">
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
 import { NSpace, NButton } from "naive-ui";
-import { autoClipPresetApi } from "@renderer/apis/presets";
+import { autoClipPresetApi, danmuPresetApi } from "@renderer/apis/presets";
 import { useConfirm } from "@renderer/hooks";
+import { useNotice } from "@renderer/hooks/useNotice";
 import { cloneDeep } from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
 
@@ -284,6 +292,10 @@ const filterRuleColumns = [
 ];
 
 const confirm = useConfirm();
+const notice = useNotice();
+
+const danmuPresetOptions = ref<{ label: string; value: string }[]>([]);
+const initialSnapshot = ref<string>("");
 
 const defaultConfig = ref<AutoClipConfig | null>(null);
 
@@ -291,7 +303,7 @@ async function fetchDefaultConfig() {
   try {
     defaultConfig.value = await autoClipPresetApi.getDefaultConfig();
   } catch {
-    // API unavailable — leave null; createPreset will be disabled
+    notice.warning("无法加载默认配置，请检查后端服务");
     defaultConfig.value = null;
   }
 }
@@ -305,6 +317,16 @@ async function loadPresets() {
   } catch { /* preset file doesn't exist yet */ }
 }
 
+async function loadDanmuPresets() {
+  try {
+    const res = await danmuPresetApi.list();
+    danmuPresetOptions.value = (res || []).map((p: any) => ({
+      label: p.name || p.id,
+      value: p.id,
+    }));
+  } catch { /* non-critical, presets may not be configured */ }
+}
+
 function selectPreset(id: string) {
   selectedId.value = id;
   const p = presets.value.find((x) => x.id === id);
@@ -314,6 +336,7 @@ function selectPreset(id: string) {
     if (!editingPreset.value.config.llm.titleStyleConfig) {
       editingPreset.value.config.llm.titleStyleConfig = { maxLength: 30, minLength: 20 };
     }
+    initialSnapshot.value = JSON.stringify(editingPreset.value);
   }
 }
 
@@ -327,11 +350,33 @@ function createPreset() {
   presets.value.push(newPreset);
   selectedId.value = newPreset.id;
   editingPreset.value = cloneDeep(newPreset);
+  initialSnapshot.value = JSON.stringify(editingPreset.value);
 }
 
 async function savePreset() {
   if (!editingPreset.value) return;
+  // Frontend validation
+  if (!editingPreset.value.name || !editingPreset.value.name.trim()) {
+    notice.error("预设名称不能为空");
+    return;
+  }
+  if (editingPreset.value.config.llm.enabled) {
+    if (!editingPreset.value.config.llm.modelId) {
+      notice.error("LLM 已启用但未填写 Model ID");
+      return;
+    }
+    if (editingPreset.value.config.llm.topK < 1) {
+      notice.error("Top-K 不能小于 1");
+      return;
+    }
+  }
+  if (editingPreset.value.config.signal.minWindowDuration < 10) {
+    notice.error("最短候选窗口不能小于 10 秒");
+    return;
+  }
   await autoClipPresetApi.save(editingPreset.value);
+  // After save, update snapshot to reflect saved state
+  initialSnapshot.value = JSON.stringify(editingPreset.value);
   await loadPresets();
   emit("updated");
 }
@@ -355,9 +400,19 @@ function copyPreset() {
   presets.value.push(copy);
   selectedId.value = copy.id;
   editingPreset.value = cloneDeep(copy);
+  initialSnapshot.value = JSON.stringify(editingPreset.value);
 }
 
-function closeDialog() {
+async function closeDialog() {
+  if (editingPreset.value && JSON.stringify(editingPreset.value) !== initialSnapshot.value) {
+    const [ok] = await confirm.warning({
+      title: "未保存的修改",
+      content: "确定关闭？修改将丢失。",
+      positiveText: "确定关闭",
+      negativeText: "继续编辑",
+    });
+    if (!ok) return;
+  }
   visible.value = false;
 }
 
@@ -371,6 +426,7 @@ watch(visible, async (v) => {
   if (v) {
     await fetchDefaultConfig();
     await loadPresets();
+    await loadDanmuPresets();
   }
 });
 </script>
