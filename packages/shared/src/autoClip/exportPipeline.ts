@@ -110,7 +110,7 @@ export async function exportClips(
       const { v4: uuid } = await import("uuid");
       const task = await convertXml2Ass(
         { input: danmuPath, output: uuid() },
-        presetCtx.danmuConfig as Record<string, unknown>,
+        presetCtx.danmuConfig as any,
         { temp: true, saveRadio: 2, savePath: "", override: true },
       );
       // Wait for task completion (promisify event-based task)
