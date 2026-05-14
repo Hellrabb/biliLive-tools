@@ -258,17 +258,30 @@ export async function exportClips(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-export async function getVideoDuration(videoPath: string): Promise<number> {
+export async function getVideoDuration(
+  videoPath: string,
+  timeoutMs = 30_000,
+): Promise<number> {
   const { readVideoMeta } = await import("../task/video.js");
-  const meta = await Promise.race([
-    readVideoMeta(videoPath),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`getVideoDuration timeout (30s) for: ${videoPath}`)), 30_000),
-    ),
-  ]);
-  const duration = meta?.format?.duration;
-  if (!duration || duration <= 0) {
-    throw new Error(`Cannot determine video duration for: ${videoPath}`);
+
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`getVideoDuration timeout (${timeoutMs / 1000}s) for: ${videoPath}`)),
+      timeoutMs,
+    );
+  });
+
+  try {
+    const meta = await Promise.race([readVideoMeta(videoPath), timeout]);
+    clearTimeout(timer!);
+    const duration = meta?.format?.duration;
+    if (!duration || duration <= 0) {
+      throw new Error(`Cannot determine video duration for: ${videoPath}`);
+    }
+    return duration;
+  } catch (err) {
+    clearTimeout(timer!);
+    throw err;
   }
-  return duration;
 }
