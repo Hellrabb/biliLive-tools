@@ -44,6 +44,11 @@
       <n-radio-button value="failed">失败 ({{ counts.failed }})</n-radio-button>
     </n-radio-group>
 
+    <div v-if="loading" style="display:flex; flex-direction:column; align-items:center; padding: 60px 0;">
+      <n-spin size="large" />
+      <p style="margin-top: 16px; color: #999;">正在加载切片数据...</p>
+    </div>
+
     <n-empty v-if="!loading && clips.length === 0" description="暂无切片数据" style="margin:40px 0">
       <template #extra>
         <n-button type="primary" @click="manualAnalyze" :disabled="analyzing">手动分析第一个视频</n-button>
@@ -119,6 +124,7 @@ defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
 import { NButton, NSpace, NTag, NDivider, NDataTable } from "naive-ui";
 import request from "@renderer/apis/request";
+import { batchApproveAndExport as batchApproveAndExportApi } from "@renderer/apis/presets/autoClip";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 import { useNotice } from "@renderer/hooks/useNotice";
 
@@ -126,12 +132,13 @@ import type { AutoClipClipRow } from "@biliLive-tools/types";
 
 interface ClipRow extends AutoClipClipRow {
   previewTitle: string;
-  previewScore: number;
+  previewScore: number | null;
   highlightCount: number;
 }
 
 const router = useRouter();
 const notice = useNotice();
+const dialog = useDialog();
 const loading = ref(false);
 const analyzing = ref(false);
 const clips = ref<ClipRow[]>([]);
@@ -229,8 +236,8 @@ async function refreshList() {
         preset_id: r.preset_id,
         llmFallback: r.llmFallback ?? false,
         highlights,
-        previewTitle: first.title || "Untitled",
-        previewScore: first.score ?? 0,
+        previewTitle: highlights.length ? (first.title || "（无标题）") : "（无高光片段）",
+        previewScore: highlights.length ? (first.score ?? 0) : null,
         highlightCount: highlights.length,
       } as ClipRow;
     });
@@ -318,7 +325,6 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
       consecutive404s = 0;
       if (resultRes.data) {
         if (resultRes.data.status === "analyzing") {
-          attempt++;
           delay = Math.min(delay * 1.3, 10000);
           continue;
         }
@@ -375,9 +381,18 @@ async function confirmManualAnalyze() {
 
     let result = await pollTaskResult(taskId, 60);
     if (result === 'timeout') {
-      const continueWaiting = window.confirm(
-        "分析已超过 5 分钟。\n\n[确定] 继续等待 3 分钟\n[取消] 刷新列表查看当前结果"
-      );
+      const continueWaiting = await new Promise<boolean>((resolve) => {
+        dialog.info({
+          title: "分析超时",
+          content: "分析已超过 5 分钟。是否继续等待 3 分钟？",
+          positiveText: "继续等待",
+          negativeText: "刷新列表",
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+          onMaskClick: () => resolve(false),
+        });
+      });
       if (continueWaiting) {
         notice.info("继续等待分析结果...");
         result = await pollTaskResult(taskId, 36);
@@ -444,10 +459,24 @@ async function batchApproveAndExport() {
     return;
   }
 
+  const confirmed = await new Promise<boolean>((resolve) => {
+    dialog.warning({
+      title: "确认批量导出",
+      content: `即将批准并导出 ${pendingIds.length} 个切片，每个切片将消耗 LLM token 和计算资源。确定继续？`,
+      positiveText: "确认导出",
+      negativeText: "取消",
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false),
+      onMaskClick: () => resolve(false),
+    });
+  });
+  if (!confirmed) return;
+
   batchExporting.value = true;
   try {
     notice.info(`正在批量导出 ${pendingIds.length} 个切片...`);
-    const res = await request.post("/auto-clip/clips/batch-approve-and-export", { ids: pendingIds });
+    const res = await batchApproveAndExportApi(pendingIds);
     const results: Array<{ id: string; status: string; exportedPaths: string[] }> = res.data?.results ?? [];
     const succeeded = results.filter((r) => r.status === "exported").length;
     const failed = results.filter((r) => r.status === "failed" || r.status === "skipped").length;
