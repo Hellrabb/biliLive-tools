@@ -118,18 +118,34 @@ export class AutoClipService {
     }
 
     // 3. Run pipeline
-    const result = await runAutoClipPipeline({
-      videoPath,
-      danmuPath,
-      presetConfig,
-      sendMessage,
-      sendMultimodalMessage,
-      recognizeASR,
-      onProgress,
-      id,
-      ffmpegPath: sysFfmpegPath,
-      signal,
-    });
+    let result: AutoClipResult;
+    try {
+      result = await runAutoClipPipeline({
+        videoPath,
+        danmuPath,
+        presetConfig,
+        sendMessage,
+        sendMultimodalMessage,
+        recognizeASR,
+        onProgress,
+        id,
+        ffmpegPath: sysFfmpegPath,
+        signal,
+      });
+    } catch (err: any) {
+      if (signal?.aborted) {
+        return {
+          id: params.id ?? "",
+          videoPath,
+          danmuPath,
+          highlights: [],
+          suspiciousPatterns: [],
+          skipped: true,
+          skippedReason: "cancelled",
+        };
+      }
+      throw err;
+    }
 
     // Pattern-based filter rule dedup provides best-effort mitigation
     // against concurrent analyses on the same preset. A true TOCTOU fix
@@ -203,6 +219,7 @@ export class AutoClipService {
         output_name: effectiveOutputName,
         highlight_count: highlightCount,
         first_title: firstTitle,
+        retry_count: 0,
       });
 
       if (result.skipped) {
