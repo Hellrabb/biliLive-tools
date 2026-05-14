@@ -2,6 +2,17 @@
   <div style="padding: 16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <h2 style="margin:0">自动切片管理</h2>
+      <n-alert
+        v-if="componentError"
+        type="error"
+        style="margin-bottom:12px"
+        closable
+        @close="componentError = null"
+      >
+        <template #header>页面异常</template>
+        {{ componentError }}
+        <n-button size="small" @click="componentError = null; refreshList()" style="margin-left: 12px">重试</n-button>
+      </n-alert>
       <n-space>
         <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
           {{ analyzing ? '分析中...' : '+ 手动分析' }}
@@ -135,6 +146,15 @@ const pollAbort = ref<AbortController | null>(null);
 const currentTaskId = ref<string | null>(null);
 const batchExporting = ref(false);
 const currentPagePendingCount = computed(() => clips.value.filter((c) => c.status === "pending").length);
+
+const componentError = ref<string | null>(null);
+
+onErrorCaptured((err: Error) => {
+  console.error("AutoClipManagement error:", err);
+  componentError.value = err.message || "页面加载异常";
+  notice.error("页面发生异常，请尝试刷新");
+  return false; // prevent error propagation
+});
 
 const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 });
 
