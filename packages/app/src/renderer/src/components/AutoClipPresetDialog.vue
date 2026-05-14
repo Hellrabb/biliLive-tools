@@ -139,8 +139,17 @@
                   <n-form-item label="上传到B站">
                     <n-switch v-model:value="editingPreset.config.export.uploadToBili" />
                   </n-form-item>
-                  <n-form-item label="保存路径">
+                  <n-form-item
+                    label="保存路径"
+                    :rule="{
+                      trigger: ['blur'],
+                      validator: validateSavePath,
+                    }"
+                  >
                     <n-input v-model:value="editingPreset.config.export.savePath" placeholder="留空使用录制保存路径" />
+                    <template #feedback>
+                      <span style="font-size:12px;color:#999">留空则使用录制视频所在目录</span>
+                    </template>
                   </n-form-item>
                   <n-form-item label="文件命名模板">
                     <n-input v-model:value="editingPreset.config.export.namingTemplate" />
@@ -350,6 +359,12 @@ function copyPreset() {
 
 function closeDialog() {
   visible.value = false;
+}
+
+function validateSavePath(_rule: unknown, value: string): boolean | Error {
+  if (!value || value.trim() === "") return true;
+  if (/\.\./.test(value)) return new Error("路径不能包含 ..");
+  return true;
 }
 
 watch(visible, async (v) => {
