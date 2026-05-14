@@ -15,6 +15,8 @@ const router = new Router({ prefix: "/auto-clip" });
 /** Maximum concurrent analysis runs */
 const MAX_CONCURRENT_RUNS = 5;
 const activeRuns = new Set<string>();
+/** Active analysis AbortControllers, keyed by taskId */
+const activeAborts = new Map<string, AbortController>();
 
 /** Per-client rate limiting for /run endpoint. Prevents abuse of LLM analysis. */
 const runRateLimit = new Map<string, number>();
@@ -308,6 +310,9 @@ router.post("/run", async (ctx) => {
   });
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
+  const abortController = new AbortController();
+  activeAborts.set(taskId, abortController);
+
   (async () => {
     try {
       const service: AutoClipService = container.resolve("autoClipService");
@@ -319,6 +324,7 @@ router.post("/run", async (ctx) => {
         skipAutoExport: true,
         id: taskId,
         outputName: outputName || undefined,
+        signal: abortController.signal,
         onProgress: (_stage, _pct, message) => {
           logger.info(`[AutoClip ${taskId}] ${message}`);
         },
@@ -326,17 +332,35 @@ router.post("/run", async (ctx) => {
 
       logger.info(`[AutoClip ${taskId}] completed`);
     } catch (error: any) {
-      logger.error(`[AutoClip ${taskId}] failed:`, error);
+      if (error?.name === "AbortError" || abortController.signal.aborted) {
+        logger.info(`[AutoClip ${taskId}] cancelled by user`);
+      } else {
+        logger.error(`[AutoClip ${taskId}] failed:`, error);
+      }
       try {
         // Don't delete — update to terminal state so frontend polling resolves
         autoClipModel.updateStatus(taskId, "failed");
       } catch { /* ignore cleanup errors */ }
     } finally {
       activeRuns.delete(taskId);
+      activeAborts.delete(taskId);
     }
   })();
 
   ctx.body = { taskId, status: "processing" };
+});
+
+// POST /auto-clip/cancel/:id — 取消正在进行的分析
+router.post("/cancel/:id", async (ctx) => {
+  const { id } = ctx.params;
+  const abortController = activeAborts.get(id);
+  if (!abortController) {
+    ctx.status = 404;
+    ctx.body = { error: "未找到该分析任务或任务已结束" };
+    return;
+  }
+  abortController.abort();
+  ctx.body = { status: "cancelled" };
 });
 
 router.get("/result/:id", async (ctx) => {
