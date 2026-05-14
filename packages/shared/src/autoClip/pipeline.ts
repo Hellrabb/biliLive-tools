@@ -137,7 +137,7 @@ export async function runAutoClipPipeline(
   checkAborted(signal, "filter");
 
   // 2. Layer 1: Signal detection
-  const candidates = detectSignals(stats, presetConfig.signal);
+  const candidates = detectSignals(stats, presetConfig.signal, presetConfig.llm.danmakuSampleMax);
 
   if (candidates.length === 0) {
     onProgress?.("skip", 100, "No highlight signals detected, skipping");
