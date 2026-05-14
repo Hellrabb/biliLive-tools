@@ -20,6 +20,7 @@ export interface AutoClipResultRow {
   output_name: string | null; // custom naming prefix for manual clip
   highlight_count: number;
   first_title: string | null;
+  retry_count: number;
 }
 
 export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
@@ -50,7 +51,8 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         llm_fallback INTEGER NOT NULL DEFAULT 0,
         output_name TEXT,
         highlight_count INTEGER NOT NULL DEFAULT 0,
-        first_title TEXT
+        first_title TEXT,
+        retry_count INTEGER NOT NULL DEFAULT 0
       ) STRICT;
     `;
     super.createTable(sql);
@@ -114,6 +116,11 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
         name: "add_highlight_count_and_first_title",
         sql: `ALTER TABLE auto_clip_results ADD COLUMN highlight_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
+      },
+      {
+        version: 4,
+        name: "add_retry_count",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0`,
       },
     ];
 
@@ -234,8 +241,21 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
 
   markExported(id: string, exportedPaths: string[]) {
     return this.db
-      .prepare("UPDATE auto_clip_results SET status = 'exported', exported_at = datetime('now'), exported_paths = ? WHERE id = ?")
+      .prepare("UPDATE auto_clip_results SET status = 'exported', retry_count = 0, exported_at = datetime('now'), exported_paths = ? WHERE id = ?")
       .run(JSON.stringify(exportedPaths), id);
+  }
+
+  incrementRetry(id: string): boolean {
+    const row = this.db.prepare(
+      "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
+    ).get(id) as { retry_count: number } | undefined;
+    const count = row?.retry_count ?? 0;
+    if (count >= 3) {
+      this.db.prepare("UPDATE auto_clip_results SET status = 'failed' WHERE id = ?").run(id);
+      logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
+      return false;
+    }
+    return true;
   }
 
   markUploaded(id: string, biliAids: string[]) {
