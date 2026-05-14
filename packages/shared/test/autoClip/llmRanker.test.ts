@@ -506,9 +506,15 @@ describe("rankCandidates", () => {
     ];
 
     const scores = [3, 9, 6];
+    // Absolute timestamps within each candidate window: [0,30], [40,80], [90,140]
+    const clipStarts = [5, 45, 95];
+    const clipEnds = [25, 75, 135];
     let callIdx = 0;
     const sendMessage = async (_prompt: string) => {
-      const score = scores[callIdx++]!;
+      const score = scores[callIdx]!;
+      const start = clipStarts[callIdx]!;
+      const end = clipEnds[callIdx]!;
+      callIdx++;
       return JSON.stringify({
         isHighlight: true,
         score,
@@ -516,8 +522,8 @@ describe("rankCandidates", () => {
         tags: [],
         highlightType: "funny",
         reason: "test",
-        bestClipStart: 5 + score,
-        bestClipEnd: 15 + score,
+        bestClipStart: start,
+        bestClipEnd: end,
       });
     };
 
@@ -536,7 +542,11 @@ describe("rankCandidates", () => {
 
     let callIdx = 0;
     const sendMessage = async (_prompt: string) => {
-      const score = 5 + callIdx++;
+      const score = 5 + callIdx;
+      // Absolute timestamps within each candidate window: [i*30, i*30+25]
+      const start = callIdx * 30 + 5;
+      const end = callIdx * 30 + 20;
+      callIdx++;
       return JSON.stringify({
         isHighlight: true,
         score,
@@ -544,8 +554,8 @@ describe("rankCandidates", () => {
         tags: [],
         highlightType: "funny",
         reason: "test",
-        bestClipStart: 5,
-        bestClipEnd: 20,
+        bestClipStart: start,
+        bestClipEnd: end,
       });
     };
 
@@ -572,6 +582,9 @@ describe("rankCandidates", () => {
 
     let callCount = 0;
     const sendMessage = async (_prompt: string) => {
+      // Absolute timestamps within each candidate window: upper candidates start at higher offsets
+      const start = callCount * 30 + 5;
+      const end = callCount * 30 + 20;
       callCount++;
       return JSON.stringify({
         isHighlight: true,
@@ -580,8 +593,8 @@ describe("rankCandidates", () => {
         tags: [],
         highlightType: "funny",
         reason: "test",
-        bestClipStart: 5,
-        bestClipEnd: 20,
+        bestClipStart: start,
+        bestClipEnd: end,
       });
     };
 
@@ -632,17 +645,23 @@ describe("rankCandidates", () => {
       }),
     ];
 
-    const sendMessage = async (_prompt: string) =>
-      JSON.stringify({
+    let sigCallIdx = 0;
+    const sendMessage = async (_prompt: string) => {
+      // Absolute timestamps within each candidate window: [0,10], [20,40]
+      const start = sigCallIdx === 0 ? 2 : 22;
+      const end = sigCallIdx === 0 ? 9 : 38;
+      sigCallIdx++;
+      return JSON.stringify({
         isHighlight: true,
         score: 5,
         title: "x",
         tags: [],
         highlightType: "hype",
         reason: "x",
-        bestClipStart: 2,
-        bestClipEnd: 9,
+        bestClipStart: start,
+        bestClipEnd: end,
       });
+    };
 
     const result = await rankCandidates(candidates, config, sendMessage, mockDanmaku);
     expect(result).toHaveLength(2);
