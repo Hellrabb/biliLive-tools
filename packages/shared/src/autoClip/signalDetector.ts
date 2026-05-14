@@ -398,6 +398,7 @@ export function mergeAndDeduplicate(
 export function detectSignals(
   stats: DanmuStats,
   config: AutoClipSignalConfig,
+  danmakuSampleMax = 20,
 ): CandidateWindow[] {
   const { danmu, sc, gift } = stats;
   const duration = stats.duration;
@@ -510,7 +511,7 @@ export function detectSignals(
     const seenTexts = new Set<string>();
     const danmakuSample: DanmuSample[] = [];
     for (const d of windowDanmu) {
-      if (danmakuSample.length >= 20) break;
+      if (danmakuSample.length >= danmakuSampleMax) break;
       const txt = d.text ?? "";
       if (seenTexts.has(txt)) continue;
       seenTexts.add(txt);

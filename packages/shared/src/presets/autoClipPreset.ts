@@ -22,7 +22,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     maxTokens: 1000,
     topK: 5,
     maxCandidatesPerVideo: 15,
-    danmakuSampleMax: 200,
+    danmakuSampleMax: 20,
       contextWindowSec: 30,
       titleStylePrompt: "",
       titleStyleConfig: {
