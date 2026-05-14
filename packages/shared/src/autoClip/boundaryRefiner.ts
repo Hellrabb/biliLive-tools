@@ -206,26 +206,27 @@ function clamp(v: number, min: number, max: number): number {
 function resolveOverlaps(
   highlights: HighlightSegment[],
 ): HighlightSegment[] {
-  for (let i = 0; i < highlights.length - 1; i++) {
-    const curr = highlights[i]!;
-    const next = highlights[i + 1]!;
+  const working = highlights.map((h) => ({
+    ...h,
+    timeRange: [...h.timeRange] as [number, number],
+  }));
+  for (let i = 0; i < working.length - 1; i++) {
+    const curr = working[i]!;
+    const next = working[i + 1]!;
     const overlap = curr.timeRange[1] - next.timeRange[0];
 
     if (overlap <= 0) {
-      // No overlap — nothing to resolve
       continue;
     }
 
     if (overlap <= 3) {
-      // Minor overlap: trim current end
       curr.timeRange = [curr.timeRange[0], next.timeRange[0] - 1];
       curr.bestRange = [curr.timeRange[0], next.timeRange[0] - 1];
     } else {
-      // Significant overlap: merge clips — keep best metadata from both
       const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
       const mergedEnd = Math.max(curr.timeRange[1], next.timeRange[1]);
       const useCurr = curr.score >= next.score;
-      highlights[i] = {
+      working[i] = {
         ...curr,
         timeRange: [mergedStart, mergedEnd],
         bestRange: [mergedStart, mergedEnd],
@@ -236,9 +237,9 @@ function resolveOverlaps(
         reason: useCurr ? curr.reason : next.reason,
         signalSources: [...new Set([...curr.signalSources, ...next.signalSources])],
       };
-      highlights.splice(i + 1, 1);
-      i--; // re-check this position
+      working.splice(i + 1, 1);
+      i--;
     }
   }
-  return highlights;
+  return working;
 }
