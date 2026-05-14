@@ -256,8 +256,6 @@ export class AutoClipService {
         (_stage, _pct, msg) => logger.info(`AutoClip export: ${msg}`),
       );
 
-      const exportedPaths = exportResult.success.map((s) => s.path);
-
       // Log danmaku status for diagnostics
       if (exportResult.danmakuStatus === "failed") {
         logger.warn(`AutoClip: 弹幕渲染失败 — ${exportResult.danmakuError}`);
@@ -265,9 +263,9 @@ export class AutoClipService {
         logger.warn(`AutoClip: 弹幕渲染跳过 — ${exportResult.danmakuError}`);
       }
 
-      if (exportedPaths.length > 0) {
-        autoClipModel.markExported(resultId, exportedPaths);
-        logger.info(`AutoClip: 导出完成 ${exportedPaths.length} 个文件`);
+      if (exportResult.success.length > 0) {
+        autoClipModel.markExported(resultId, exportResult.success.map((s) => s.path));
+        logger.info(`AutoClip: 导出完成 ${exportResult.success.length} 个文件`);
 
         if (exportResult.failed.length > 0) {
           logger.warn(`AutoClip: ${exportResult.failed.length} 个切片导出失败`);
@@ -276,14 +274,14 @@ export class AutoClipService {
         const videoCutCfg = appConfig.videoCut ?? {};
         // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
         if ((videoCutCfg.autoClipUpload ?? false) && (presetConfig.export.uploadToBili ?? false)) {
-          await this.uploadToBili(exportedPaths, highlights, appConfig);
+          await this.uploadToBili(exportResult.success, appConfig);
         }
 
         try {
           const { sendNotify } = await import("../notify.js");
           await sendNotify(
             "autoClip 切片完成",
-            `录制 ${path.basename(videoPath)} 自动切片完成，共 ${exportedPaths.length} 个高光片段`,
+            `录制 ${path.basename(videoPath)} 自动切片完成，共 ${exportResult.success.length} 个高光片段`,
           );
         } catch {
           // notification may not be configured
@@ -298,8 +296,7 @@ export class AutoClipService {
   }
 
   private async uploadToBili(
-    exportedPaths: string[],
-    highlights: HighlightSegment[],
+    exportedResults: { path: string; highlight: HighlightSegment }[],
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
   ) {
     try {
@@ -329,9 +326,7 @@ export class AutoClipService {
         // fallback to DEFAULT_BILIUP_CONFIG
       }
 
-      for (let i = 0; i < exportedPaths.length; i++) {
-        const expPath = exportedPaths[i]!;
-        const highlight = highlights[i];
+      for (const { path: expPath, highlight } of exportedResults) {
         const title = highlight?.title || path.parse(expPath).name;
         await biliApi.addMedia(
           [{ path: expPath, title }],
@@ -339,7 +334,7 @@ export class AutoClipService {
           uid,
         );
       }
-      logger.info(`AutoClip: 已添加 ${exportedPaths.length} 个B站上传任务到队列`);
+      logger.info(`AutoClip: 已添加 ${exportedResults.length} 个B站上传任务到队列`);
     } catch (uploadError) {
       logger.error("AutoClip: 自动上传B站失败", uploadError);
     }
