@@ -64,7 +64,7 @@ api.interceptors.response.use(
       window.localStorage.removeItem("key");
       router.push("/login");
     }
-    return Promise.reject(error?.response?.data ?? error?.response?.status);
+    return Promise.reject(error);
   },
 );
 
