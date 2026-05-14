@@ -142,6 +142,7 @@ export class AutoClipService {
           suspiciousPatterns: [],
           skipped: true,
           skippedReason: "cancelled",
+          llmFallback: false,
         };
       }
       throw err;
