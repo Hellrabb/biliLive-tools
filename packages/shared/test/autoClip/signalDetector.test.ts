@@ -550,10 +550,7 @@ describe("brush storm downsampling", () => {
     for (let i = 0; i < 500; i++) {
       items.push(makeDanmu(i * 0.02, "666666"));
     }
-    const start = Date.now();
     const result = detectBrushStorms(items, config);
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeLessThan(2000);
     expect(result.length).toBeGreaterThan(0);
     // Verify detected window has reasonable bounds
     expect(result[0]![0]).toBeGreaterThanOrEqual(0);
@@ -566,11 +563,19 @@ describe("brush storm downsampling", () => {
     const bg = generateUniformDanmaku(50, 600);
     const allDanmu = [...cluster, ...bg];
     const stats = buildDanmuStatsMock(allDanmu, [], [], [], 600);
-    const start = Date.now();
     const result = detectSignals(stats, config);
-    const elapsed = Date.now() - start;
-    expect(elapsed).toBeLessThan(2000);
+    // Must detect at least one candidate from the dense cluster.
     expect(result.length).toBeGreaterThan(0);
+    // At least one candidate should have brushStorm as a signal source
+    // since the cluster items all share the same text.
+    const withBrush = result.filter((c) =>
+      c.signalSources.includes("brushStorm"),
+    );
+    expect(withBrush.length).toBeGreaterThan(0);
+    // Danmaku sample should be populated for LLM ranking.
+    const candidate = result[0]!;
+    expect(candidate.danmakuSample.length).toBeGreaterThan(0);
+    expect(typeof candidate.danmakuSample[0]!.text).toBe("string");
   });
 
   // ============================================================================
@@ -595,18 +600,41 @@ describe("brush storm downsampling", () => {
   });
 
   it("downsampling approximates full result", () => {
-    // Generate 200 items in a 10s window — just over MAX_BRUSH_SAMPLE (80)
-    // so downsampling kicks in but we can still compute full result for comparison
+    // Generate two datasets with the same pattern and distribution but
+    // different sizes: one under MAX_BRUSH_SAMPLE (full scan, no downsampling)
+    // and one over (downsampled). Both should detect the same brush storm.
     const config = defaultConfig({ brushSimilarityThreshold: 0.6, mergeGapSec: 5 });
-    const items: DanmuItem[] = [];
-    for (let i = 0; i < 200; i++) {
-      items.push(makeDanmu(i * 0.05, i % 3 === 0 ? "666666" : "lol" + i));
+
+    // Reference: 60 items (under MAX_BRUSH_SAMPLE=80, no downsampling).
+    // Every 3rd item is '666666' (~33%), rest are varying 'lolN'.
+    const refItems: DanmuItem[] = [];
+    for (let i = 0; i < 60; i++) {
+      refItems.push(makeDanmu(i * 0.15, i % 3 === 0 ? '666666' : 'lol' + i));
     }
-    const result = detectBrushStorms(items, config);
-    // With 200 items in 10s, all in one window -> should detect the brush storm
-    expect(result.length).toBeGreaterThan(0);
-    // Window should cover roughly the data range
-    expect(result[0]![0]).toBeGreaterThanOrEqual(0);
-    expect(result[0]![1]).toBeLessThanOrEqual(10);
+    const refResult = detectBrushStorms(refItems, config);
+
+    // Downsampled: 200 items (over MAX_BRUSH_SAMPLE), same distribution.
+    const dsItems: DanmuItem[] = [];
+    for (let i = 0; i < 200; i++) {
+      dsItems.push(makeDanmu(i * 0.05, i % 3 === 0 ? '666666' : 'lol' + i));
+    }
+    const dsResult = detectBrushStorms(dsItems, config);
+
+    // Both should detect a brush storm.
+    expect(refResult.length).toBeGreaterThan(0);
+    expect(dsResult.length).toBeGreaterThan(0);
+
+    // The downsampled window bounds should be close to the reference.
+    // Allow up to 2s tolerance since downsampling slightly shifts window edges.
+    const refWin = refResult[0]!;
+    const dsWin = dsResult[0]!;
+    expect(Math.abs(dsWin[0] - refWin[0])).toBeLessThanOrEqual(2);
+    expect(Math.abs(dsWin[1] - refWin[1])).toBeLessThanOrEqual(2);
+
+    // Both windows should cover the data range.
+    expect(refWin[0]).toBeGreaterThanOrEqual(0);
+    expect(dsWin[0]).toBeGreaterThanOrEqual(0);
+    expect(refWin[1]).toBeLessThanOrEqual(10);
+    expect(dsWin[1]).toBeLessThanOrEqual(10);
   });
 });

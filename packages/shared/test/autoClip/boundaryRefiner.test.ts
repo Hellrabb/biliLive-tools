@@ -1,27 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
-
-function makeHighlight(overrides: Partial<{ start: number; end: number; title: string; score: number }> = {}): import("../../src/autoClip/types.js").HighlightSegment {
-  const start = overrides.start ?? 100;
-  const end = overrides.end ?? 200;
-  return {
-    timeRange: [start, end],
-    bestRange: [start, end],
-    score: overrides.score ?? 7,
-    title: overrides.title ?? "Test Highlight",
-    tags: [],
-    highlightType: "hype",
-    reason: "test",
-    signalSources: ["danmakuDensity"],
-    isHighlight: true,
-  };
-}
+import { makeHighlight } from "./mockData.js";
 
 describe("refineBoundaries constraint checks", () => {
 
   it("should clamp adjustments to maxAdjustSec", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 100, end: 200 })];
+    const highlights = [makeHighlight({ timeRange: [100, 200], bestRange: [100, 200] })];
     const asrMap = new Map([[0, "some asr text"]]);
     const frameMap = new Map<number, string>();
 
@@ -49,7 +34,7 @@ describe("refineBoundaries constraint checks", () => {
   it("should preserve original boundaries when adjusted clip is too short", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 100, end: 120 })]; // 20s clip
+    const highlights = [makeHighlight({ timeRange: [100, 120], bestRange: [100, 120] })]; // 20s clip
     const asrMap = new Map([[0, "test asr"]]);
     const frameMap = new Map<number, string>();
 
@@ -77,7 +62,7 @@ describe("refineBoundaries constraint checks", () => {
   it("should clamp to video bounds [0, duration]", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 5, end: 50 })];
+    const highlights = [makeHighlight({ timeRange: [5, 50], bestRange: [5, 50] })];
     const asrMap = new Map([[0, "test"]]);
     const frameMap = new Map<number, string>();
 
@@ -104,7 +89,7 @@ describe("refineBoundaries constraint checks", () => {
   it("should skip adjustments with confidence=low", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 100, end: 200 })];
+    const highlights = [makeHighlight({ timeRange: [100, 200], bestRange: [100, 200] })];
     const asrMap = new Map([[0, "test"]]);
     const frameMap = new Map<number, string>();
 
@@ -132,8 +117,8 @@ describe("refineBoundaries constraint checks", () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
     const highlights = [
-      makeHighlight({ start: 100, end: 200 }),
-      makeHighlight({ start: 250, end: 350 }),
+      makeHighlight({ timeRange: [100, 200], bestRange: [100, 200] }),
+      makeHighlight({ timeRange: [250, 350], bestRange: [250, 350] }),
     ];
     const asrMap = new Map([[0, "a"], [1, "b"]]);
     const frameMap = new Map<number, string>();
@@ -164,8 +149,8 @@ describe("refineBoundaries constraint checks", () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
     const highlights = [
-      makeHighlight({ start: 100, end: 200, title: "Clip A", score: 7 }),
-      makeHighlight({ start: 150, end: 300, title: "Clip B", score: 9 }),
+      makeHighlight({ timeRange: [100, 200], bestRange: [100, 200], title: "Clip A", score: 7 }),
+      makeHighlight({ timeRange: [150, 300], bestRange: [150, 300], title: "Clip B", score: 9 }),
     ];
     highlights[0]!.tags = ["funny"];
     highlights[0]!.highlightType = "hype";
@@ -207,7 +192,7 @@ describe("refineBoundaries constraint checks", () => {
   it("should return original highlights when LLM call throws", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 50, end: 150 })];
+    const highlights = [makeHighlight({ timeRange: [50, 150], bestRange: [50, 150] })];
     const asrMap = new Map([[0, "test"]]);
     const frameMap = new Map<number, string>();
 
@@ -225,7 +210,7 @@ describe("refineBoundaries constraint checks", () => {
   it("should skip when both ASR and frame data are empty", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 50, end: 150 })];
+    const highlights = [makeHighlight({ timeRange: [50, 150], bestRange: [50, 150] })];
     const mockSend = vi.fn();
 
     const result = await refineBoundaries(

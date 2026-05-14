@@ -5,6 +5,7 @@ import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import logger from "../utils/log.js";
 import { sampleFrames } from "./frameSampler.js";
+import { ASR_PADDING_SEC, ASR_CONCURRENCY } from "./constants.js";
 import type { HighlightSegment } from "./types.js";
 import type { AutoClipEnhancementConfig } from "@biliLive-tools/types";
 
@@ -28,9 +29,6 @@ export interface ContentUnderstandingDeps {
 // ---------------------------------------------------------------------------
 // Audio extraction
 // ---------------------------------------------------------------------------
-
-/** Seconds of audio padding around clip boundaries for ASR context */
-const ASR_PADDING_SEC = 3;
 
 function extractAudioSegment(
   videoPath: string,
@@ -109,9 +107,8 @@ export async function understandContent(
     : (videoPath: string, timestamps: number[]) => sampleFrames(videoPath, timestamps, deps.ffmpegPath);
 
   // Process highlights in parallel with concurrency control
-  const CONCURRENCY = 3;
   const { default: pLimit } = await import("p-limit");
-  const limit = pLimit(CONCURRENCY);
+  const limit = pLimit(ASR_CONCURRENCY);
 
   const tasks = highlights.map((h, i) =>
     limit(async () => {

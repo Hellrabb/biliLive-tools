@@ -7,6 +7,7 @@ import type {
   HighlightSegment,
   TimeWindow,
 } from "./types.js";
+import { MAX_SURROUNDING_ITEMS } from "./constants.js";
 import logger from "../utils/log.js";
 import { LLM_CONCURRENCY } from "./constants.js";
 import { sanitizeForPrompt, sanitizeDanmakuList } from "./promptSanitizer.js";
@@ -58,9 +59,6 @@ const VALID_HIGHLIGHT_TYPES = new Set([
   "troll",
   "not_highlight",
 ]);
-
-
-const MAX_SURROUNDING_ITEMS = 10;
 
 // ---------------------------------------------------------------------------
 // buildLLMPrompt

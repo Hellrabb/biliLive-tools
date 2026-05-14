@@ -1,25 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { generateStyledTitles, buildTitlePrompt, parseTitleResponse } from "../../src/autoClip/titleStyler.js";
-import type { HighlightSegment } from "../../src/autoClip/types.js";
-
-function makeHighlight(overrides: Partial<HighlightSegment> = {}): HighlightSegment {
-  return {
-    timeRange: [120, 300],
-    bestRange: [125, 295],
-    score: 8,
-    title: "主播完成了极限反杀操作",
-    tags: ["操作", "高能"],
-    highlightType: "impressive",
-    reason: "弹幕爆发+SC大额打赏",
-    signalSources: ["danmakuDensity"],
-    isHighlight: true,
-    ...overrides,
-  };
-}
+import { makeHighlight } from "./mockData.js";
 
 describe("buildTitlePrompt", () => {
   it("should use adaptive prompt for first clip (impressive type)", () => {
-    const h = makeHighlight();
+    const h = makeHighlight({ highlightType: "impressive" });
     const prompt = buildTitlePrompt(h, undefined, "弹幕疯狂刷666");
     expect(prompt).toContain("大气震撼");
     expect(prompt).toContain("冲击力的意象");

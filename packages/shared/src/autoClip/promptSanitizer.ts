@@ -1,4 +1,5 @@
-const MAX_LENGTH = 200;
+import { PROMPT_MAX_LENGTH } from "./constants.js";
+
 const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
 /**
@@ -15,8 +16,8 @@ export function sanitizeForPrompt(text: string): string {
   let out = text.trim();
   if (out.length === 0) return "";
 
-  if (out.length > MAX_LENGTH) {
-    out = out.slice(0, MAX_LENGTH);
+  if (out.length > PROMPT_MAX_LENGTH) {
+    out = out.slice(0, PROMPT_MAX_LENGTH);
   }
 
   out = out.replace(CONTROL_CHARS, " ");
