@@ -325,6 +325,7 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
       consecutive404s = 0;
       if (resultRes.data) {
         if (resultRes.data.status === "analyzing") {
+          attempt++;
           delay = Math.min(delay * 1.3, 10000);
           continue;
         }
