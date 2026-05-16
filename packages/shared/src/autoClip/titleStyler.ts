@@ -67,7 +67,7 @@ export function buildTitlePrompt(
 
   // If customPrompt is provided, use it as the template (overrides built-in templates)
   if (config?.customPrompt) {
-    const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight!;
+    const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight ?? "";
     return config.customPrompt
       .replace(/\{min\}/g, String(min))
       .replace(/\{max\}/g, String(max))
@@ -78,7 +78,7 @@ export function buildTitlePrompt(
       .replace(/\{style_guide\}/g, styleGuide);
   }
 
-  const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight!;
+  const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight ?? "";
 
   return ADAPTIVE_PROMPT_BASE
     .replace(/\{min\}/g, String(min))
