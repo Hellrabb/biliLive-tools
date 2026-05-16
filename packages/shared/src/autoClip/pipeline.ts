@@ -90,7 +90,7 @@ export async function runAutoClipPipeline(
         onProgress?.("filter", 25, `Detected ${suspiciousPatterns.length} suspicious danmaku patterns`);
 
         if (sendMessage) {
-          const reviewResult = await llmReviewPatterns(suspiciousPatterns, sendMessage);
+          const reviewResult = await llmReviewPatterns(suspiciousPatterns, sendMessage, signal);
           suspiciousPatterns = reviewResult.patterns.map((p) => ({
             text: p.text,
             count: suspiciousPatterns!.find((sp) => sp.text === p.text)?.count ?? 0,

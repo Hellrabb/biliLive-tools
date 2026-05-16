@@ -240,6 +240,7 @@ export interface LLMReviewResult {
 export async function llmReviewPatterns(
   patterns: SuspiciousPattern[],
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
+  signal?: AbortSignal,
 ): Promise<LLMReviewResult> {
   if (patterns.length === 0) {
     return { patterns: [], newRules: [] };
@@ -273,8 +274,14 @@ Return ONLY valid JSON (no markdown, no extra text):
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_REQUEST_TIMEOUT_MS);
+
+    // Race external pipeline signal against internal timeout
+    const onExternalAbort = () => controller.abort();
+    signal?.addEventListener("abort", onExternalAbort, { once: true });
+
     const raw = await sendMessage(prompt, controller.signal);
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onExternalAbort);
 
     const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
     if (parsedJson && Array.isArray(parsedJson.results)) {
