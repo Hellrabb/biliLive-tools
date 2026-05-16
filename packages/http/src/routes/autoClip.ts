@@ -597,13 +597,19 @@ router.post("/clip/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
-function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; title?: string; score?: number; isHighlight?: boolean } {
+function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; timeRange: [number, number]; title?: string; score?: number; isHighlight?: boolean } {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
-  if (!Array.isArray(obj.bestRange) || obj.bestRange.length !== 2) return false;
-  if (typeof obj.bestRange[0] !== "number" || typeof obj.bestRange[1] !== "number") return false;
-  if (!Number.isFinite(obj.bestRange[0]) || !Number.isFinite(obj.bestRange[1])) return false;
-  return true;
+
+  const isValidRange = (key: string): boolean => {
+    const r = obj[key];
+    if (!Array.isArray(r) || r.length !== 2) return false;
+    if (typeof r[0] !== "number" || typeof r[1] !== "number") return false;
+    if (!Number.isFinite(r[0]) || !Number.isFinite(r[1])) return false;
+    return true;
+  };
+
+  return isValidRange("bestRange") && isValidRange("timeRange");
 }
 
 async function doExportClips(
