@@ -19,6 +19,21 @@ function itemSec(item: DanmuItem): number {
   return item.timestamp ?? item.ts / 1000;
 }
 
+/** Binary search: find the first index where getSec >= target */
+function lowerBound<T>(items: T[], targetSec: number, getSec: (item: T) => number): number {
+  let lo = 0;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (getSec(items[mid]!) < targetSec) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
 /**
  * Longest-common-substring similarity (ratio).
  * Classic DP O(m*n), returns maxSubLen / min(a.length, b.length).
@@ -407,6 +422,11 @@ export function detectSignals(
   const giftWindows = detectGiftBursts(gift, config);
   const brushWindows = detectBrushStorms(danmu, config);
 
+  // Pre-sort for efficient window extraction (avoids O(N) filter per window)
+  const sortedDanmu = [...danmu].sort((a, b) => itemSec(a) - itemSec(b));
+  const sortedSc = [...sc].sort((a, b) => itemSec(a) - itemSec(b));
+  const sortedGift = [...gift].sort((a, b) => itemSec(a) - itemSec(b));
+
   // 2. Collect all windows with their signal source labels
   interface LabeledWindow {
     window: TimeWindow;
@@ -443,16 +463,22 @@ export function detectSignals(
     }
     const signalSources = [...signalSourcesSet];
 
-    // Collect items within the window
-    const windowDanmu = danmu.filter((d) => {
+    // Collect items within the window using binary search + slice
+    const danmuStart = lowerBound(sortedDanmu, start, itemSec);
+    const danmuEnd = lowerBound(sortedDanmu, end, itemSec);
+    const windowDanmu = sortedDanmu.slice(danmuStart, danmuEnd).filter((d) => {
       const s = itemSec(d);
       return s >= start && s <= end;
     });
-    const windowSc = sc.filter((d) => {
+    const scStart = lowerBound(sortedSc, start, itemSec);
+    const scEnd = lowerBound(sortedSc, end, itemSec);
+    const windowSc = sortedSc.slice(scStart, scEnd).filter((d) => {
       const s = itemSec(d);
       return s >= start && s <= end;
     });
-    const windowGift = gift.filter((d) => {
+    const giftStart = lowerBound(sortedGift, start, itemSec);
+    const giftEnd = lowerBound(sortedGift, end, itemSec);
+    const windowGift = sortedGift.slice(giftStart, giftEnd).filter((d) => {
       const s = itemSec(d);
       return s >= start && s <= end;
     });
