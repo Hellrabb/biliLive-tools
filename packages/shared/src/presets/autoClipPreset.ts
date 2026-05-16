@@ -57,4 +57,37 @@ export class AutoClipPreset extends CommonPreset<AutoClipConfig> {
   constructor({ globalConfig }: { globalConfig: Pick<GlobalConfig, "autoClipPresetPath"> }) {
     super(globalConfig.autoClipPresetPath, AUTO_CLIP_DEFAULT_CONFIG);
   }
+
+  /**
+   * Atomically append danmaku filter rules to a preset.
+   * Only inserts rules whose pattern is not already present.
+   * Returns the count of newly inserted rules.
+   */
+  async appendFilterRules(
+    presetId: string,
+    newRules: Array<{ pattern: string; mode: "exact" | "contains" | "regex"; source: "auto"; enabled: boolean }>,
+  ): Promise<number> {
+    const existing = await this.get(presetId);
+    if (!existing) return 0;
+
+    const existingPatterns = new Set(
+      (existing.config.danmakuFilter?.rules ?? []).map((r) => r.pattern),
+    );
+    const toInsert = newRules.filter((r) => !existingPatterns.has(r.pattern));
+    if (toInsert.length === 0) return 0;
+
+    const now = Date.now();
+    const { v4: uuidv4 } = await import("uuid");
+    const rules = toInsert.map((r) => ({ ...r, id: uuidv4(), createdAt: now }));
+
+    const updatedConfig = {
+      ...existing.config,
+      danmakuFilter: {
+        ...existing.config.danmakuFilter,
+        rules: [...(existing.config.danmakuFilter?.rules ?? []), ...rules],
+      },
+    };
+    await this.save({ id: presetId, name: existing.name, config: updatedConfig });
+    return rules.length;
+  }
 }
