@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
 import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
-import { LLM_REQUEST_TIMEOUT_MS } from "./constants.js";
+import { LLM_REQUEST_TIMEOUT_MS, MAX_REGEX_PATTERN_LENGTH } from "./constants.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { sanitizeForPrompt } from "./promptSanitizer.js";
 
@@ -163,11 +163,21 @@ export function applyFilter<T extends { text?: string }>(
         matchFn = (text: string) => text.includes(rule.pattern);
         break;
       case "regex": {
+        const pattern = rule.pattern;
+        if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
+          logger.warn(`AutoClip: regex pattern too long (${pattern.length} chars), skipping rule ${rule.id}`);
+          continue;
+        }
+        // Reject patterns with nested quantifiers — common ReDoS vector
+        if (/[+*?]\)[+*?]/.test(pattern)) {
+          logger.warn(`AutoClip: potentially unsafe regex pattern, skipping rule ${rule.id}`);
+          continue;
+        }
         try {
-          const re = new RegExp(rule.pattern);
+          const re = new RegExp(pattern);
           matchFn = (text: string) => re.test(text);
         } catch {
-          logger.warn(`AutoClip: invalid regex pattern in filter rule ${rule.id}: ${rule.pattern}`);
+          logger.warn(`AutoClip: invalid regex pattern in filter rule ${rule.id}: ${pattern}`);
           continue;
         }
         break;

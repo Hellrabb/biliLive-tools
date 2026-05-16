@@ -30,3 +30,6 @@ export const FRAME_EXTRACT_TIMEOUT_MS = 30_000;
 
 /** prompt 注入防护: 文本最大长度 (字符) */
 export const PROMPT_MAX_LENGTH = 200;
+
+/** Maximum characters allowed in a user-supplied regex filter pattern to prevent ReDoS */
+export const MAX_REGEX_PATTERN_LENGTH = 100;

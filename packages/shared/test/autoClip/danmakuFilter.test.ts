@@ -161,4 +161,30 @@ describe("applyFilter", () => {
     const totalRemoved = result.breakdown.reduce((sum: number, b: { removed: number }) => sum + b.removed, 0);
     expect(totalRemoved).toBe(result.removed);
   });
+
+  it("rejects regex patterns over MAX_REGEX_PATTERN_LENGTH", () => {
+    const longPattern = "a".repeat(101);
+    const danmu = [{ text: "hello" }];
+    const config: DanmakuFilterConfig = {
+      enabled: true,
+      rules: [{ id: "1", pattern: longPattern, mode: "regex", source: "manual", enabled: true, createdAt: 0 }],
+    };
+    const result = applyFilter(danmu, config);
+    expect(result.filtered).toHaveLength(1);
+    expect(result.removed).toBe(0);
+  });
+
+  it("rejects regex with nested quantifiers (ReDoS guard)", () => {
+    const danmu = [{ text: "hello" }];
+    const patterns = ["(a+)+", "(a+)*", "([a-z]+)+"];
+    for (const p of patterns) {
+      const config: DanmakuFilterConfig = {
+        enabled: true,
+        rules: [{ id: "1", pattern: p, mode: "regex", source: "manual", enabled: true, createdAt: 0 }],
+      };
+      const result = applyFilter(danmu, config);
+      expect(result.filtered).toHaveLength(1);
+      expect(result.removed).toBe(0);
+    }
+  });
 });
