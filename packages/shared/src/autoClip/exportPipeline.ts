@@ -264,7 +264,8 @@ export async function getVideoDuration(
 ): Promise<number> {
   const { readVideoMeta } = await import("../task/video.js");
 
-  let timer: ReturnType<typeof setTimeout>;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
       () => reject(new Error(`getVideoDuration timeout (${timeoutMs / 1000}s) for: ${videoPath}`)),
@@ -274,14 +275,14 @@ export async function getVideoDuration(
 
   try {
     const meta = await Promise.race([readVideoMeta(videoPath), timeout]);
-    clearTimeout(timer!);
+    if (timer !== undefined) clearTimeout(timer);
     const duration = meta?.format?.duration;
     if (!duration || duration <= 0) {
       throw new Error(`Cannot determine video duration for: ${videoPath}`);
     }
     return duration;
   } catch (err) {
-    clearTimeout(timer!);
+    if (timer !== undefined) clearTimeout(timer);
     throw err;
   }
 }
