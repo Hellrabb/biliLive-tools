@@ -33,3 +33,8 @@ export const PROMPT_MAX_LENGTH = 200;
 
 /** Maximum characters allowed in a user-supplied regex filter pattern to prevent ReDoS */
 export const MAX_REGEX_PATTERN_LENGTH = 100;
+
+/** Maximum characters of ASR text per clip in boundary refiner prompt */
+export const MAX_ASR_CHARS_PER_CLIP = 300;
+/** Maximum characters of frame descriptions per clip in boundary refiner prompt */
+export const MAX_FRAME_CHARS_PER_CLIP = 300;

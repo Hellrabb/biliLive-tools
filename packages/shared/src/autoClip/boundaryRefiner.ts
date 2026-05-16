@@ -1,5 +1,6 @@
 import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment, BoundaryRefineResult } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
+import { MAX_ASR_CHARS_PER_CLIP, MAX_FRAME_CHARS_PER_CLIP } from "./constants.js";
 import logger from "../utils/log.js";
 
 export async function refineBoundaries(
@@ -102,14 +103,20 @@ function buildUserPrompt(
     const asrText = asrMap.get(i);
     if (asrText) {
       parts.push("--- 语音转文字 (ASR) ---");
-      parts.push(asrText);
+      const truncated = asrText.length > MAX_ASR_CHARS_PER_CLIP
+        ? asrText.slice(0, MAX_ASR_CHARS_PER_CLIP) + "..."
+        : asrText;
+      parts.push(truncated);
       parts.push("");
     }
 
     const frames = frameMap.get(i);
     if (frames) {
       parts.push("--- 关键帧描述 ---");
-      parts.push(frames);
+      const truncated = frames.length > MAX_FRAME_CHARS_PER_CLIP
+        ? frames.slice(0, MAX_FRAME_CHARS_PER_CLIP) + "..."
+        : frames;
+      parts.push(truncated);
       parts.push("");
     }
   }
