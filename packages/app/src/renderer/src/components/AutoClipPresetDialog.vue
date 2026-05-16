@@ -327,7 +327,18 @@ async function loadDanmuPresets() {
   } catch { /* non-critical, presets may not be configured */ }
 }
 
-function selectPreset(id: string) {
+async function selectPreset(id: string) {
+  // Guard against unsaved changes — same logic as closeDialog
+  if (editingPreset.value && JSON.stringify(editingPreset.value) !== initialSnapshot.value) {
+    const [ok] = await confirm.warning({
+      title: "未保存的修改",
+      content: "切换预设将丢失当前修改，是否继续？",
+      positiveText: "放弃修改并切换",
+      negativeText: "继续编辑",
+    });
+    if (!ok) return;
+  }
+
   selectedId.value = id;
   const p = presets.value.find((x) => x.id === id);
   if (p) {
