@@ -31,6 +31,7 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     this.createTable();
     this.createIndexes();
     this.runMigrations();
+    this.resetStaleAnalyzing();
   }
 
   createTable() {
@@ -282,5 +283,18 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
       counts.all += row.count;
     }
     return counts;
+  }
+
+  /**
+   * On startup, reset any "analyzing" rows left over from a previous
+   * crash. These represent abandoned analyses that will never complete.
+   */
+  private resetStaleAnalyzing() {
+    const result = this.db.prepare(
+      "UPDATE auto_clip_results SET status = 'failed' WHERE status = 'analyzing'"
+    ).run();
+    if (result.changes > 0) {
+      logger.warn(`AutoClip: reset ${result.changes} stale "analyzing" rows to "failed" (probable crash recovery)`);
+    }
   }
 }
