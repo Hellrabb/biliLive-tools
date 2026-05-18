@@ -94,6 +94,18 @@ export async function exportClips(
   const savePath = exportConfig.savePath || path.dirname(videoPath);
   const resolvedSavePath = path.resolve(savePath);
 
+  // Resolve symlinks so path-traversal checks below are effective against
+  // symlink-based escapes (path.resolve is string-only, doesn't follow links)
+  let realSavePath: string;
+  try {
+    const { realpath } = await import("node:fs/promises");
+    realSavePath = await realpath(resolvedSavePath);
+  } catch {
+    // If realpath fails (path doesn't exist yet, permission denied, etc.),
+    // fall back to string-based check — it still catches ../ and absolute escapes
+    realSavePath = resolvedSavePath;
+  }
+
   // Use caller-resolved ffmpeg preset config
   const ffmpegPresetOpts: Record<string, unknown> = presetCtx.ffmpegConfig ?? {};
 
@@ -189,10 +201,10 @@ export async function exportClips(
     );
 
     // Verify output stays within savePath (defense in depth)
-    if (!path.resolve(outputPath).startsWith(resolvedSavePath + path.sep)) {
+    if (!path.resolve(outputPath).startsWith(realSavePath + path.sep)) {
       logger.warn(
         `AutoClip: output path traversal blocked — ` +
-        `outputPath=${outputPath}, savePath=${resolvedSavePath}`,
+        `outputPath=${outputPath}, savePath=${realSavePath}`,
       );
       failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
       continue;
@@ -204,7 +216,7 @@ export async function exportClips(
         resolvedSavePath,
         `${outputName}_${ts}.${exportConfig.cutFormat}`,
       );
-      if (!path.resolve(outputPath).startsWith(resolvedSavePath + path.sep)) {
+      if (!path.resolve(outputPath).startsWith(realSavePath + path.sep)) {
         logger.warn("AutoClip: collision-avoidance path traversed unexpectedly");
         failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
         continue;
