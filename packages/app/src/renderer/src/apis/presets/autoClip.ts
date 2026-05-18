@@ -15,7 +15,7 @@ const save = async (preset: AutoClipPresetType) => {
   if (preset.id) {
     return request.put(`/auto-clip/presets/${preset.id}`, preset);
   }
-  return request.post("/auto-clip/preset", preset);
+  return request.post("/auto-clip/presets", preset);
 };
 
 const remove = async (id: string) => {
