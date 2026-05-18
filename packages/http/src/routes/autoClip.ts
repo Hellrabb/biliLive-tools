@@ -158,7 +158,7 @@ router.get("/presets/:id", async (ctx) => {
   ctx.body = await preset.get(ctx.params.id);
 });
 
-router.post("/preset", async (ctx) => {
+router.post("/presets", async (ctx) => {
   const clientIp = (ctx.ip ?? ctx.request.ip ?? "unknown").toString();
   if (!checkPresetMutationRateLimit(clientIp)) {
     ctx.status = 429;
