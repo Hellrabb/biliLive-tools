@@ -54,16 +54,17 @@ describe("sendWithTimeout (real timers)", () => {
     ).rejects.toThrow("Network failure");
   });
 
-  it("converts AbortError from sendMessage to timeout error", async () => {
+  it("passes through AbortError when not caused by internal controller", async () => {
     const abortErr = new Error("The operation was aborted");
     abortErr.name = "AbortError";
     const sendMessage = vi.fn().mockImplementation(() => {
       return Promise.reject(abortErr);
     });
 
+    // Signal is NOT aborted here, so the error passes through unchanged
     await expect(
       sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 }),
-    ).rejects.toThrow("LLM request timeout");
+    ).rejects.toThrow("The operation was aborted");
   });
 
   it("passes internal AbortSignal to sendMessage", async () => {
@@ -179,5 +180,45 @@ describe("sendWithTimeout (fake timers)", () => {
 
     // Should reject exactly once
     await expect(promise).rejects.toThrow();
+  });
+});
+
+// ============================================================================
+// sendWithTimeout AbortError handling (controller.signal.aborted check)
+// ============================================================================
+
+describe("sendWithTimeout AbortError handling", () => {
+  it("reports 'LLM request timeout' when internal AbortController triggers abort", async () => {
+    const sendMessage = (_prompt: string, signal?: AbortSignal) =>
+      new Promise<string>((_, reject) => {
+        const onAbort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        signal?.addEventListener("abort", onAbort);
+      });
+
+    const promise = sendWithTimeout(sendMessage, "test", { timeoutMs: 10 });
+    await expect(promise).rejects.toThrow("LLM request timeout");
+  });
+
+  it("passes through AbortError when not caused by internal controller", async () => {
+    const sendMessage = (_prompt: string, _signal?: AbortSignal) => {
+      const err = Object.assign(new Error("fetch aborted by network"), { name: "AbortError" });
+      return Promise.reject(err);
+    };
+
+    const promise = sendWithTimeout(sendMessage, "test", { timeoutMs: 30000 });
+    await expect(promise).rejects.toThrow("fetch aborted by network");
+  });
+
+  it("rejects with 'AutoClip pipeline aborted' when external signal fires", async () => {
+    const sendMessage = () => new Promise<string>(() => {});
+    const externalController = new AbortController();
+
+    const promise = sendWithTimeout(sendMessage, "test", {
+      timeoutMs: 30000,
+      externalSignal: externalController.signal,
+    });
+
+    setTimeout(() => externalController.abort(), 10);
+    await expect(promise).rejects.toThrow("AutoClip pipeline aborted");
   });
 });

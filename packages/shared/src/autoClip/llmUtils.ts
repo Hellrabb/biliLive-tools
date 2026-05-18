@@ -66,7 +66,11 @@ export function sendWithTimeout(
         if (!settled) {
           cleanup();
           if (err?.name === "AbortError") {
-            reject(new Error("LLM request timeout"));
+            if (controller.signal.aborted) {
+              reject(new Error("LLM request timeout"));
+            } else {
+              reject(err);
+            }
           } else {
             reject(err);
           }
