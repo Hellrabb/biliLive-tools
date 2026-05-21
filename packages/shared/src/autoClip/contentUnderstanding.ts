@@ -65,6 +65,10 @@ function extractAudioSegment(
       unlink(outputPath).catch(() => {});
     };
     signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+      // proc.close fires after SIGKILL; resolve/reject handled by close handler
+    }
 
     proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
 
