@@ -123,8 +123,16 @@
 defineOptions({ name: "AutoClipManagement" });
 import { useRouter } from "vue-router";
 import { NButton, NSpace, NTag, NDivider, NDataTable } from "naive-ui";
-import request from "@renderer/apis/request";
-import { batchApproveAndExport as batchApproveAndExportApi } from "@renderer/apis/presets/autoClip";
+import {
+  batchApproveAndExport as batchApproveAndExportApi,
+  getClips,
+  getResult,
+  runAnalysis,
+  cancelAnalysis,
+  approveAndExport,
+  deleteClip as deleteClipApi,
+  getCounts,
+} from "@renderer/apis/presets/autoClip";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 import { useNotice } from "@renderer/hooks/useNotice";
 
@@ -208,22 +216,16 @@ async function refreshList() {
   try {
     const offset = (currentPage.value - 1) * pageSize.value;
     const [clipsRes, countsRes] = await Promise.all([
-      request.get("/auto-clip/clips", {
-        params: {
-          status: filterStatus.value || undefined,
-          limit: pageSize.value,
-          offset,
-        },
-      }),
-      request.get("/auto-clip/clips/counts"),
+      getClips({ status: filterStatus.value || undefined, limit: pageSize.value, offset }),
+      getCounts(),
     ]);
 
     // Update global counts
-    const c = countsRes.data;
+    const c = countsRes;
     counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, analyzing: c.analyzing ?? 0, approved: c.approved ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0, failed: c.failed ?? 0 };
 
-    const raw = clipsRes.data?.data ?? [];
-    totalCount.value = clipsRes.data?.total ?? raw.length;
+    const raw = clipsRes?.data ?? [];
+    totalCount.value = clipsRes?.total ?? raw.length;
     clips.value = raw.map((r: any) => {
       const highlights = r.highlights || [];
       const first = highlights[0] ?? {};
@@ -258,13 +260,13 @@ async function approveClip(row: ClipRow) {
   exportingId.value = row.id;
   try {
     notice.info(`正在导出 ${row.highlightCount} 个切片...`);
-    const res = await request.post(`/auto-clip/clip/${row.id}/approve-and-export`);
-    const exportedPaths = res.data?.exportedPaths ?? [];
+    const res = await approveAndExport(row.id);
+    const exportedPaths = res?.exportedPaths ?? [];
     if (exportedPaths.length > 0) {
       notice.success(`导出完成，共 ${exportedPaths.length} 个文件`);
     }
-    if (res.data?.failedCount > 0) {
-      notice.warning(`${res.data.failedCount} 个切片导出失败`);
+    if (res?.failedCount > 0) {
+      notice.warning(`${res.failedCount} 个切片导出失败`);
     }
     await refreshList();
   } catch (e: any) {
@@ -276,7 +278,7 @@ async function approveClip(row: ClipRow) {
 
 async function deleteClip(row: ClipRow) {
   try {
-    await request.post(`/auto-clip/clip/${row.id}/delete`);
+    await deleteClipApi(row.id);
     notice.success("已删除");
     await refreshList();
   } catch (e: any) {
@@ -321,20 +323,20 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
     if (abortController.signal.aborted) return 'aborted';
 
     try {
-      const resultRes = await request.get(`/auto-clip/result/${taskId}`);
+      const resultRes = await getResult(taskId);
       consecutive404s = 0;
-      if (resultRes.data) {
-        if (resultRes.data.status === "analyzing") {
+      if (resultRes) {
+        if (resultRes.status === "analyzing") {
           attempt++;
           delay = Math.min(delay * 1.3, 10000);
           continue;
         }
-        if (resultRes.data.status === "failed") {
+        if (resultRes.status === "failed") {
           notice.error("分析失败，请稍后重试");
           await refreshList();
           return 'failed';
         }
-        if (resultRes.data.highlights?.length > 0) {
+        if (resultRes.highlights?.length > 0) {
           notice.success("分析完成，请查看结果");
         } else {
           notice.info("分析完成，未检测到高光片段");
@@ -366,12 +368,8 @@ async function confirmManualAnalyze() {
   analyzing.value = true;
   notice.info("正在分析中，请稍候...");
   try {
-    const res = await request.post("/auto-clip/run", {
-      videoPath,
-      danmuPath,
-      outputName: outputName.value || undefined,
-    });
-    const taskId = res.data?.taskId;
+    const res = await runAnalysis({ videoPath, danmuPath, outputName: outputName.value || undefined });
+    const taskId = res?.taskId;
 
     if (!taskId) {
       notice.error("启动分析失败: 未返回 taskId");
@@ -416,7 +414,7 @@ async function confirmManualAnalyze() {
 async function cancelAnalysis() {
   if (!currentTaskId.value) return;
   try {
-    await request.post(`/auto-clip/cancel/${currentTaskId.value}`);
+    await cancelAnalysis(currentTaskId.value);
     pollAbort.value?.abort();
     notice.info("已取消分析");
     analyzing.value = false;
