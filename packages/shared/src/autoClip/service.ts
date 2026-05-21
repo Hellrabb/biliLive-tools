@@ -132,7 +132,7 @@ export class AutoClipService {
         ffmpegPath: sysFfmpegPath,
         signal,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (signal?.aborted) {
         return {
           id: params.id ?? "",
@@ -313,8 +313,9 @@ export class AutoClipService {
       } else {
         logger.warn("AutoClip: export produced no results (both success and failed are empty)");
       }
-    } catch (err: any) {
-      logger.error(`AutoClip: autoExportAndUpload 失败 — ${err.message || err}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`AutoClip: autoExportAndUpload 失败 — ${msg}`);
       try {
         autoClipModel.updateStatus(resultId, "failed");
       } catch { /* ignore DB errors during rollback */ }
