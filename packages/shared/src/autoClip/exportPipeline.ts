@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { AwilixContainer } from "awilix";
 import logger from "../utils/log.js";
 
 import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
@@ -33,15 +34,16 @@ export async function resolveExportPresets(exportCfg: {
   danmuPresetId?: string;
 }): Promise<ExportPresetContext> {
   const result: ExportPresetContext = {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let diContainer: any;
+  let diContainer: AwilixContainer | undefined;
 
   if (exportCfg.ffmpegPresetId) {
     try {
       if (!diContainer) {
         ({ container: diContainer } = await import("../index.js"));
       }
-      const ffmpegPreset = diContainer.resolve("ffmpegPreset");
+      const ffmpegPreset = diContainer.resolve("ffmpegPreset") as {
+        get: (id: string) => Promise<{ config?: unknown }>;
+      };
       const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
       if (preset?.config) {
         result.ffmpegConfig = preset.config as Record<string, unknown>;
@@ -58,7 +60,10 @@ export async function resolveExportPresets(exportCfg: {
       if (!diContainer) {
         ({ container: diContainer } = await import("../index.js"));
       }
-      const danmuPreset = diContainer.resolve("danmuPreset");
+      const danmuPreset = diContainer.resolve("danmuPreset") as {
+        get: (id: string) => Promise<{ config?: unknown }>;
+        defaultConfig?: Record<string, unknown>;
+      };
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
       result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as Record<string, unknown>;
       logger.info(`AutoClip: danmaku preset resolved (keys: ${Object.keys(result.danmuConfig ?? {}).length})`);
