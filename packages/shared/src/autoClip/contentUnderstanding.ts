@@ -21,7 +21,7 @@ export interface ContentUnderstandingDeps {
   /** Frame sampler (mockable, defaults to frameSampler) */
   sampleFrames?: typeof sampleFrames;
   /** Audio extractor (mockable, defaults to ffmpeg-based) */
-  extractAudio?: (videoPath: string, bestRange: [number, number]) => Promise<string>;
+  extractAudio?: (videoPath: string, bestRange: [number, number], signal?: AbortSignal) => Promise<string>;
   /** Path to ffmpeg binary (defaults to "ffmpeg") */
   ffmpegPath?: string;
 }
@@ -34,8 +34,13 @@ function extractAudioSegment(
   videoPath: string,
   [start, end]: [number, number],
   ffmpegPath = "ffmpeg",
+  signal?: AbortSignal,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(new Error("AutoClip pipeline aborted"));
+    }
+
     const padStart = Math.max(0, start - ASR_PADDING_SEC);
     const duration = (end - start) + ASR_PADDING_SEC * 2;
     const outputPath = path.join(tmpdir(), `autoclip_asr_${uuidv4()}.wav`);
@@ -55,9 +60,16 @@ function extractAudioSegment(
     const proc = spawn(ffmpegPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
 
+    const onAbort = () => {
+      proc.kill("SIGKILL");
+      unlink(outputPath).catch(() => {});
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
 
     proc.on("close", (code) => {
+      signal?.removeEventListener("abort", onAbort);
       if (code === 0) {
         resolve(outputPath);
       } else {
@@ -65,7 +77,10 @@ function extractAudioSegment(
       }
     });
 
-    proc.on("error", reject);
+    proc.on("error", (err) => {
+      signal?.removeEventListener("abort", onAbort);
+      reject(err);
+    });
   });
 }
 
@@ -100,8 +115,10 @@ export async function understandContent(
   if (!doASR && !doVisual) return { asrMap, frameMap };
 
   const doExtractAudio = deps.extractAudio
-    ? (videoPath: string, range: [number, number]) => (deps.extractAudio!)(videoPath, range)
-    : (videoPath: string, range: [number, number]) => extractAudioSegment(videoPath, range, deps.ffmpegPath);
+    ? (videoPath: string, range: [number, number], signal?: AbortSignal) =>
+        (deps.extractAudio!)(videoPath, range, signal)
+    : (videoPath: string, range: [number, number], signal?: AbortSignal) =>
+        extractAudioSegment(videoPath, range, deps.ffmpegPath, signal);
   const doSampleFrames = deps.sampleFrames
     ? (videoPath: string, timestamps: number[]) => deps.sampleFrames!(videoPath, timestamps, deps.ffmpegPath)
     : (videoPath: string, timestamps: number[]) => sampleFrames(videoPath, timestamps, deps.ffmpegPath);
@@ -116,7 +133,7 @@ export async function understandContent(
       // --- ASR ---
       if (doASR) {
         try {
-          const audioPath = await doExtractAudio(videoPath, h.bestRange);
+          const audioPath = await doExtractAudio(videoPath, h.bestRange, signal);
           try {
             const result = await deps.recognizeASR!(audioPath);
             if (result?.text) {

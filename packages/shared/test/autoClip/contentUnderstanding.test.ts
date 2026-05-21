@@ -39,7 +39,7 @@ describe("understandContent", () => {
           calledWith = audioPath;
           return { text: "主播完成反杀" };
         },
-        extractAudio: async () => "/tmp/test.wav",
+        extractAudio: async (_videoPath?: string, _range?: [number, number], _signal?: AbortSignal) => "/tmp/test.wav",
       },
     );
     expect(result.asrMap.get(0)).toBe("主播完成反杀");
@@ -79,7 +79,7 @@ describe("understandContent", () => {
           if (callCount === 1) throw new Error("ASR failed");
           return { text: "成功" };
         },
-        extractAudio: async () => "/tmp/test.wav",
+        extractAudio: async (_videoPath?: string, _range?: [number, number], _signal?: AbortSignal) => "/tmp/test.wav",
       },
     );
     expect(result.asrMap.get(0)).toBeUndefined();
