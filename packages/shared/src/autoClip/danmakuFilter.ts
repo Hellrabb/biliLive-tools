@@ -2,9 +2,10 @@ import { v4 as uuidv4 } from "uuid";
 import type { SuspiciousPattern } from "./types.js";
 import type { DanmakuFilterRule, DanmakuFilterConfig } from "@biliLive-tools/types";
 import logger from "../utils/log.js";
-import { LLM_REQUEST_TIMEOUT_MS, MAX_REGEX_PATTERN_LENGTH } from "./constants.js";
+import { MAX_REGEX_PATTERN_LENGTH } from "./constants.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { sanitizeForPrompt } from "./promptSanitizer.js";
+import { sendWithTimeout } from "./llmUtils.js";
 
 export interface DetectSuspiciousOptions {
   minOccurrence: number;
@@ -272,23 +273,19 @@ Return ONLY valid JSON (no markdown, no extra text):
   let parsed: Array<{ index: number; verdict: string; reason: string }> = [];
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), LLM_REQUEST_TIMEOUT_MS);
-
-    // Race external pipeline signal against internal timeout
-    const onExternalAbort = () => controller.abort();
-    signal?.addEventListener("abort", onExternalAbort, { once: true });
-
-    const raw = await sendMessage(prompt, controller.signal);
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", onExternalAbort);
+    const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
 
     const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
     if (parsedJson && Array.isArray(parsedJson.results)) {
       parsed = parsedJson.results;
     }
   } catch (err) {
-    logger.warn("AutoClip: LLM review of suspicious patterns failed, using statistical fallback", err);
+    const isTimeout = err instanceof Error && err.message === "LLM request timeout";
+    if (isTimeout) {
+      logger.warn("AutoClip: LLM review of suspicious patterns timed out, using statistical fallback");
+    } else {
+      logger.warn("AutoClip: LLM review of suspicious patterns failed, using statistical fallback", err);
+    }
   }
 
   if (parsed.length === 0) {
