@@ -488,7 +488,7 @@ router.get("/clips/counts", async (ctx) => {
   ctx.body = autoClipModel.getStatusCounts();
 });
 
-router.get("/clip/:id", async (ctx) => {
+router.get("/clips/:id", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
@@ -508,7 +508,7 @@ router.get("/clip/:id", async (ctx) => {
   }
 });
 
-router.post("/clip/:id/approve", async (ctx) => {
+router.post("/clips/:id/approve", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
@@ -524,8 +524,8 @@ router.post("/clip/:id/approve", async (ctx) => {
   ctx.body = { status: "approved" };
 });
 
-// POST /auto-clip/clip/:id/approve-and-export — 原子操作：批准并导出
-router.post("/clip/:id/approve-and-export", async (ctx) => {
+// POST /auto-clip/clips/:id/approve-and-export — 原子操作：批准并导出
+router.post("/clips/:id/approve-and-export", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
@@ -556,8 +556,8 @@ router.post("/clip/:id/approve-and-export", async (ctx) => {
   }
 });
 
-// POST /auto-clip/clip/:id/re-export — 重新导出切片
-router.post("/clip/:id/re-export", async (ctx) => {
+// POST /auto-clip/clips/:id/re-export — 重新导出切片
+router.post("/clips/:id/re-export", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;
@@ -582,7 +582,7 @@ router.post("/clip/:id/re-export", async (ctx) => {
   }
 });
 
-router.post("/clip/:id/delete", async (ctx) => {
+router.post("/clips/:id/delete", async (ctx) => {
   const result = autoClipModel.getResultById(ctx.params.id);
   if (!result) {
     ctx.status = 404;

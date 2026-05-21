@@ -31,12 +31,53 @@ export async function batchApproveAndExport(ids: string[]) {
   return request.post("/auto-clip/clips/batch-approve-and-export", { ids });
 }
 
-const getCounts = async (): Promise<{
+export async function getCounts(): Promise<{
   all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number;
-}> => {
+}> {
   const res = await request.get("/auto-clip/clips/counts");
   return res.data;
-};
+}
+
+export interface ClipListParams {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function getClips(params: ClipListParams) {
+  const res = await request.get("/auto-clip/clips", { params });
+  return res.data;
+}
+
+export async function getResult(taskId: string) {
+  const res = await request.get(`/auto-clip/result/${taskId}`);
+  return res.data;
+}
+
+export async function runAnalysis(payload: {
+  videoPath: string;
+  danmuPath: string;
+  presetId?: string;
+  outputName?: string;
+}) {
+  const res = await request.post("/auto-clip/run", payload);
+  return res.data;
+}
+
+export async function cancelAnalysis(taskId: string) {
+  const res = await request.post(`/auto-clip/cancel/${taskId}`);
+  return res.data;
+}
+
+export async function approveAndExport(clipId: string) {
+  const res = await request.post(`/auto-clip/clips/${clipId}/approve-and-export`);
+  return res.data;
+}
+
+export async function deleteClip(clipId: string) {
+  const res = await request.post(`/auto-clip/clips/${clipId}/delete`);
+  return res.data;
+}
 
 const autoClipPresetApi = { list, get, save, remove, getDefaultConfig, getCounts };
 export default autoClipPresetApi;
