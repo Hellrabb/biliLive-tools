@@ -230,7 +230,7 @@ router.get("/default-config", async (ctx) => {
   try {
     const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
     ctx.body = AUTO_CLIP_DEFAULT_CONFIG;
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error("AutoClip default-config error:", error);
     ctx.status = 500;
     ctx.body = { error: "服务器内部错误" };
@@ -307,8 +307,12 @@ router.post("/run", async (ctx) => {
       ctx.body = { error: `弹幕文件过大 (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB)，上限 50 MB` };
       return;
     }
-  } catch (err: any) {
-    if (err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module")) {
+  } catch (err: unknown) {
+    const isModuleNotFound = err instanceof Error && (
+      (err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND" ||
+      err.message.includes("Cannot find module")
+    );
+    if (isModuleNotFound) {
       // fs-extra unavailable — fallback to Node.js built-in fs
       const { access, constants } = await import("node:fs/promises");
       try {
@@ -387,8 +391,8 @@ router.post("/run", async (ctx) => {
       });
 
       logger.info(`[AutoClip ${taskId}] completed`);
-    } catch (error: any) {
-      if (error?.name === "AbortError" || abortController.signal.aborted) {
+    } catch (error: unknown) {
+      if ((error instanceof Error && error.name === "AbortError") || abortController.signal.aborted) {
         logger.info(`[AutoClip ${taskId}] cancelled by user`);
       } else {
         logger.error(`[AutoClip ${taskId}] failed:`, error);
@@ -549,7 +553,7 @@ router.post("/clips/:id/approve-and-export", async (ctx) => {
       result.preset_id,
       "AutoClip export",
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error("AutoClip approve-and-export error:", error);
     ctx.status = 500;
     ctx.body = { error: "服务器内部错误" };
@@ -575,7 +579,7 @@ router.post("/clips/:id/re-export", async (ctx) => {
       result.preset_id,
       "AutoClip re-export",
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error("AutoClip re-export error:", error);
     ctx.status = 500;
     ctx.body = { error: "服务器内部错误" };
@@ -723,7 +727,8 @@ async function doExportClips(
       danmakuStatus: exportResult.danmakuStatus,
       danmakuError: exportResult.danmakuError,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`${logPrefix}: exportClips threw:`, err);
     if (autoClipModel.incrementRetry(resultId)) {
       autoClipModel.updateStatus(resultId, "pending");
@@ -732,9 +737,9 @@ async function doExportClips(
       status: "failed",
       exportedPaths: [],
       failedCount: highlights.length,
-      errors: [err.message || String(err)],
+      errors: [errMsg],
       danmakuStatus: "skipped",
-      danmakuError: `Export threw before danmaku processing: ${err.message || String(err)}`,
+      danmakuError: `Export threw before danmaku processing: ${errMsg}`,
     };
   }
 }
@@ -788,8 +793,9 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
           exportedPaths: exportResult.exportedPaths,
           errors: exportResult.errors,
         };
-      } catch (err: any) {
-        return { id, status: "failed" as const, exportedPaths: [] as string[], errors: [err.message || String(err)] };
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        return { id, status: "failed" as const, exportedPaths: [] as string[], errors: [errMsg] };
       }
     }),
   );
