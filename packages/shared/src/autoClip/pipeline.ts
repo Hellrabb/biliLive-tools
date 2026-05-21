@@ -12,15 +12,8 @@ import logger from "../utils/log.js";
 import type { AutoClipConfig, DanmakuFilterRule } from "@biliLive-tools/types";
 import type { AutoClipResult, DanmuStats, HighlightSegment, SuspiciousPattern, TitleStyleConfig } from "./types.js";
 
-function checkAborted(signal?: AbortSignal, phase?: string): void {
-  if (signal?.aborted) {
-    try {
-      signal.throwIfAborted();
-    } catch (err: any) {
-      (err as any).phase = phase;
-      throw err;
-    }
-  }
+function checkAborted(signal?: AbortSignal): void {
+  signal?.throwIfAborted();
 }
 
 export type ProgressCallback = (stage: string, pct: number, message: string) => void;
@@ -58,7 +51,7 @@ export async function runAutoClipPipeline(
   // 1. Parse danmaku
   const parsed = await parseDanmu(danmuPath);
 
-  checkAborted(signal, "parse");
+  checkAborted(signal);
 
   const duration = await getVideoDuration(videoPath);
 
@@ -134,7 +127,7 @@ export async function runAutoClipPipeline(
     }
   }
 
-  checkAborted(signal, "filter");
+  checkAborted(signal);
 
   // 2. Layer 1: Signal detection
   const candidates = detectSignals(stats, presetConfig.signal, presetConfig.llm.danmakuSampleMax);
@@ -190,7 +183,7 @@ export async function runAutoClipPipeline(
     }));
   }
 
-  checkAborted(signal, "rank");
+  checkAborted(signal);
 
   // Build TitleStyleConfig from presetConfig.llm
   const titleStyleConfig: TitleStyleConfig | undefined =
@@ -269,7 +262,7 @@ export async function runAutoClipPipeline(
     }
   }
 
-  checkAborted(signal, "enhance");
+  checkAborted(signal);
 
   onProgress?.("done", 100, `Complete: ${highlights.length} highlights`);
   return {
