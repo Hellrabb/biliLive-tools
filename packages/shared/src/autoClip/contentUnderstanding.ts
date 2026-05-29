@@ -15,7 +15,7 @@ import type { AutoClipEnhancementConfig } from "@biliLive-tools/types";
 
 export interface ContentUnderstandingDeps {
   /** ASR recognize function (injected to avoid circular deps) */
-  recognizeASR?: (audioPath: string) => Promise<{ text: string }>;
+  recognizeASR?: (audioPath: string, signal?: AbortSignal) => Promise<{ text: string }>;
   /** Multimodal message sender for frame description */
   sendMultimodalMessage?: (prompt: string, images: string[], signal?: AbortSignal) => Promise<string>;
   /** Frame sampler (mockable, defaults to frameSampler) */
@@ -141,7 +141,7 @@ export async function understandContent(
         try {
           const audioPath = await doExtractAudio(videoPath, h.bestRange, signal);
           try {
-            const result = await deps.recognizeASR!(audioPath);
+            const result = await deps.recognizeASR!(audioPath, signal);
             if (result?.text) {
               asrMap.set(i, result.text);
             }
