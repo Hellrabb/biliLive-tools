@@ -79,6 +79,7 @@ function extractOneFrame(
     // Double-check after registration to close race window
     if (signal?.aborted) {
       onAbort();
+      signal?.removeEventListener("abort", onAbort);
       return;
     }
 
