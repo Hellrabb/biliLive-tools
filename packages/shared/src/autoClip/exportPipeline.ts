@@ -316,3 +316,194 @@ export async function getVideoDuration(
     throw err;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shared export helper — used by HTTP routes (manual export / re-export)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate and normalize a highlight object from JSON.parse.
+ * Patches missing required fields to safe defaults.
+ * Returns true if the object has valid bestRange and timeRange.
+ */
+export function validateAndNormalizeHighlight(h: unknown): h is HighlightSegment {
+  if (!h || typeof h !== "object") return false;
+  const obj = h as Record<string, unknown>;
+
+  const isValidRange = (key: string): boolean => {
+    const r = obj[key];
+    if (!Array.isArray(r) || r.length !== 2) return false;
+    if (typeof r[0] !== "number" || typeof r[1] !== "number") return false;
+    if (!Number.isFinite(r[0]) || !Number.isFinite(r[1])) return false;
+    return true;
+  };
+
+  if (!isValidRange("bestRange") || !isValidRange("timeRange")) return false;
+
+  if (typeof obj.score !== "number") (obj as Record<string, unknown>).score = 5;
+  if (typeof obj.title !== "string") (obj as Record<string, unknown>).title = "Untitled";
+  if (!Array.isArray(obj.tags)) (obj as Record<string, unknown>).tags = [];
+  if (typeof obj.highlightType !== "string") (obj as Record<string, unknown>).highlightType = "hype";
+  if (typeof obj.reason !== "string") (obj as Record<string, unknown>).reason = "";
+  if (!Array.isArray(obj.signalSources)) (obj as Record<string, unknown>).signalSources = [];
+  if (typeof obj.isHighlight !== "boolean") (obj as Record<string, unknown>).isHighlight = true;
+
+  return true;
+}
+
+export interface ExportClipByIdResult {
+  status: string;
+  exportedPaths: string[];
+  failedCount: number;
+  errors: string[];
+  danmakuStatus?: string;
+  danmakuError?: string;
+}
+
+export interface ExportClipByIdDeps {
+  getPreset: (id: string) => Promise<{ config?: { export?: AutoClipConfig["export"] } } | undefined>;
+  getAppConfig: () => { videoCut?: { autoClipPresetId?: string } };
+  getResultById: (id: string) => { output_name?: string | null } | undefined;
+  updateStatus: (id: string, status: string) => void;
+  markExported: (id: string, exportedPaths: string[]) => void;
+  incrementRetry: (id: string) => boolean;
+}
+
+/**
+ * Export clips for a given result row.
+ * Resolves the export preset, validates highlights, runs exportClips,
+ * and updates the DB status accordingly.
+ */
+export async function doExportClips(
+  resultId: string,
+  videoPath: string,
+  danmuPath: string,
+  highlights: unknown[],
+  presetId: string | null,
+  logPrefix: string,
+  deps: ExportClipByIdDeps,
+  signal?: AbortSignal,
+): Promise<ExportClipByIdResult> {
+  const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
+  let exportSignal = signal;
+  let exportTimer: ReturnType<typeof setTimeout> | undefined;
+  if (!exportSignal) {
+    const ctrl = new AbortController();
+    exportTimer = setTimeout(() => {
+      ctrl.abort();
+      exportTimer = undefined;
+    }, EXPORT_TIMEOUT_MS);
+    exportSignal = ctrl.signal;
+  }
+
+  const { AUTO_CLIP_DEFAULT_CONFIG } = await import("../presets/autoClipPreset.js");
+
+  let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
+
+  async function tryLoadExportConfig(pid: string | null): Promise<boolean> {
+    if (!pid) return false;
+    try {
+      const p = await deps.getPreset(pid);
+      if (p?.config?.export) {
+        exportConfig = p.config.export;
+        return true;
+      }
+    } catch { /* fall through */ }
+    return false;
+  }
+
+  const loaded = await tryLoadExportConfig(presetId);
+
+  if (!loaded) {
+    const config = deps.getAppConfig();
+    const globalPresetId = config?.videoCut?.autoClipPresetId;
+    if (globalPresetId && globalPresetId !== presetId) {
+      await tryLoadExportConfig(globalPresetId);
+    }
+  }
+
+  const effectiveConfig = {
+    ...exportConfig,
+    savePath: resolveSavePath(exportConfig, videoPath),
+  };
+
+  const presetCtx = await resolveExportPresets(exportConfig);
+
+  deps.updateStatus(resultId, "exporting");
+
+  let exportedPaths: string[] = [];
+  let failedCount = 0;
+  let errors: string[] = [];
+
+  try {
+    const validHighlights = highlights.filter(validateAndNormalizeHighlight);
+    const skipped = highlights.length - validHighlights.length;
+    if (skipped > 0) {
+      logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
+    }
+    if (validHighlights.length === 0) {
+      deps.updateStatus(resultId, "pending");
+      return {
+        status: "failed",
+        exportedPaths: [],
+        failedCount: highlights.length,
+        errors: ["All highlights have invalid shape — cannot export"],
+        danmakuStatus: "skipped",
+        danmakuError: "Export aborted before danmaku processing",
+      };
+    }
+
+    const dbRecord = deps.getResultById(resultId);
+    const namingPrefix = dbRecord?.output_name || undefined;
+
+    const exportResult = await exportClips(
+      videoPath,
+      danmuPath,
+      validHighlights,
+      effectiveConfig,
+      presetCtx,
+      (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
+      namingPrefix,
+      exportSignal,
+    );
+
+    exportedPaths = exportResult.success.map((s) => s.path);
+    failedCount = exportResult.failed.length;
+    errors = exportResult.failed.map((f) => f.error);
+
+    if (exportedPaths.length > 0) {
+      deps.markExported(resultId, exportedPaths);
+    } else {
+      if (deps.incrementRetry(resultId)) {
+        deps.updateStatus(resultId, "pending");
+      }
+    }
+
+    return {
+      status: exportedPaths.length > 0 ? "exported" : "failed",
+      exportedPaths,
+      failedCount,
+      errors,
+      danmakuStatus: exportResult.danmakuStatus,
+      danmakuError: exportResult.danmakuError,
+    };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error(`${logPrefix}: exportClips threw:`, err);
+
+    if (deps.incrementRetry(resultId)) {
+      deps.updateStatus(resultId, "pending");
+    }
+
+    return {
+      status: "failed",
+      exportedPaths: [],
+      failedCount: highlights.length,
+      errors: [errMsg],
+      danmakuStatus: "failed",
+      danmakuError: errMsg,
+    };
+  } finally {
+    if (exportTimer !== undefined) clearTimeout(exportTimer);
+  }
+}

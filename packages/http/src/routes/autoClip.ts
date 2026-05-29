@@ -3,8 +3,10 @@ import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
-import { resolveExportPresets } from "@biliLive-tools/shared/autoClip/pipeline.js";
-import type { HighlightSegment } from "@biliLive-tools/shared/autoClip/types.js";
+import {
+  doExportClips,
+} from "@biliLive-tools/shared/autoClip/pipeline.js";
+import type { ExportClipByIdDeps } from "@biliLive-tools/shared/autoClip/pipeline.js";
 import { container } from "../index.js";
 import type { AutoClipService } from "@biliLive-tools/shared/autoClip/service.js";
 
@@ -72,6 +74,18 @@ interface AutoClipPresetInstance {
 function getAutoClipPreset(): AutoClipPresetInstance {
   return container.resolve("autoClipPreset") as AutoClipPresetInstance;
 }
+
+const exportDeps: ExportClipByIdDeps = {
+  getPreset: async (id: string) => {
+    const preset = getAutoClipPreset();
+    return preset.get(id);
+  },
+  getAppConfig: () => container.resolve("appConfig") as { videoCut?: { autoClipPresetId?: string } },
+  getResultById: (id: string) => autoClipModel.getResultById(id) ?? undefined,
+  updateStatus: (id: string, status: string) => { autoClipModel.updateStatus(id, status); },
+  markExported: (id: string, paths: string[]) => { autoClipModel.markExported(id, paths); },
+  incrementRetry: (id: string) => autoClipModel.incrementRetry(id),
+};
 
 // ---------------------------------------------------------------------------
 // Preset validation
@@ -559,6 +573,7 @@ router.post("/clips/:id/approve-and-export", async (ctx) => {
       highlights,
       result.preset_id,
       "AutoClip export",
+      exportDeps,
     );
   } catch (error: unknown) {
     logger.error("AutoClip approve-and-export error:", error);
@@ -585,6 +600,7 @@ router.post("/clips/:id/re-export", async (ctx) => {
       highlights,
       result.preset_id,
       "AutoClip re-export",
+      exportDeps,
     );
   } catch (error: unknown) {
     logger.error("AutoClip re-export error:", error);
@@ -603,178 +619,6 @@ router.post("/clips/:id/delete", async (ctx) => {
   autoClipModel.deleteResult(ctx.params.id);
   ctx.body = { status: "deleted" };
 });
-
-// ---------------------------------------------------------------------------
-// Shared export helper — used by approve-and-export and re-export
-// ---------------------------------------------------------------------------
-
-function validateAndNormalizeHighlight(h: unknown): h is HighlightSegment {
-  if (!h || typeof h !== "object") return false;
-  const obj = h as Record<string, unknown>;
-
-  const isValidRange = (key: string): boolean => {
-    const r = obj[key];
-    if (!Array.isArray(r) || r.length !== 2) return false;
-    if (typeof r[0] !== "number" || typeof r[1] !== "number") return false;
-    if (!Number.isFinite(r[0]) || !Number.isFinite(r[1])) return false;
-    return true;
-  };
-
-  if (!isValidRange("bestRange") || !isValidRange("timeRange")) return false;
-
-  // Patch missing required fields to safe defaults so downstream code doesn't crash
-  if (typeof obj.score !== "number") (obj as Record<string, unknown>).score = 5;
-  if (typeof obj.title !== "string") (obj as Record<string, unknown>).title = "Untitled";
-  if (!Array.isArray(obj.tags)) (obj as Record<string, unknown>).tags = [];
-  if (typeof obj.highlightType !== "string") (obj as Record<string, unknown>).highlightType = "hype";
-  if (typeof obj.reason !== "string") (obj as Record<string, unknown>).reason = "";
-  if (!Array.isArray(obj.signalSources)) (obj as Record<string, unknown>).signalSources = [];
-  if (typeof obj.isHighlight !== "boolean") (obj as Record<string, unknown>).isHighlight = true;
-
-  return true;
-}
-
-async function doExportClips(
-  resultId: string,
-  videoPath: string,
-  danmuPath: string,
-  highlights: unknown[],
-  presetId: string | null,
-  logPrefix: string,
-  signal?: AbortSignal,
-): Promise<{
-  status: string;
-  exportedPaths: string[];
-  failedCount: number;
-  errors: string[];
-  danmakuStatus?: string;
-  danmakuError?: string;
-}> {
-  // 10-minute timeout for manual export operations when no external signal provided
-  const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
-  let exportSignal = signal;
-  let exportTimer: ReturnType<typeof setTimeout> | undefined;
-  if (!exportSignal) {
-    const ctrl = new AbortController();
-    exportTimer = setTimeout(() => ctrl.abort(), EXPORT_TIMEOUT_MS);
-    exportSignal = ctrl.signal;
-  }
-
-  const { exportClips, resolveSavePath } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
-  const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
-
-  let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
-
-  async function tryLoadExportConfig(pid: string | null): Promise<boolean> {
-    if (!pid) return false;
-    try {
-      const preset = getAutoClipPreset();
-      const p = await preset.get(pid);
-      if (p?.config?.export) {
-        exportConfig = p.config.export;
-        return true;
-      }
-    } catch { /* fall through */ }
-    return false;
-  }
-
-  const loaded = await tryLoadExportConfig(presetId);
-
-  if (!loaded) {
-    // Fallback to global autoClipPresetId (same logic as service.ts analyzeAndSave)
-    const config = container.resolve("appConfig") as { videoCut?: { autoClipPresetId?: string } };
-    const globalPresetId = config?.videoCut?.autoClipPresetId;
-    if (globalPresetId && globalPresetId !== presetId) {
-      await tryLoadExportConfig(globalPresetId);
-    }
-  }
-
-  const effectiveConfig = {
-    ...exportConfig,
-    savePath: resolveSavePath(exportConfig, videoPath),
-  };
-
-  const presetCtx = await resolveExportPresets(exportConfig);
-
-  // Mark as exporting so UI can show progress during long export operations
-  autoClipModel.updateStatus(resultId, "exporting");
-
-  let exportedPaths: string[] = [];
-  let failedCount = 0;
-  let errors: string[] = [];
-
-  try {
-    // Validate highlights shape before passing to exportClips
-    const validHighlights = highlights.filter(validateAndNormalizeHighlight);
-    const skipped = highlights.length - validHighlights.length;
-    if (skipped > 0) {
-      logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
-    }
-    if (validHighlights.length === 0) {
-      autoClipModel.updateStatus(resultId, "pending");
-      return {
-        status: "failed",
-        exportedPaths: [],
-        failedCount: highlights.length,
-        errors: ["All highlights have invalid shape — cannot export"],
-        danmakuStatus: "skipped",
-        danmakuError: "Export aborted before danmaku processing",
-      };
-    }
-
-    // Read custom naming prefix from DB record (for manual clip)
-    const dbRecord = autoClipModel.getResultById(resultId);
-    const namingPrefix = dbRecord?.output_name || undefined;
-
-    const exportResult = await exportClips(
-      videoPath,
-      danmuPath,
-      validHighlights,
-      effectiveConfig,
-      presetCtx,
-      (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
-      namingPrefix,
-      exportSignal,
-    );
-
-    exportedPaths = exportResult.success.map((s) => s.path);
-    failedCount = exportResult.failed.length;
-    errors = exportResult.failed.map((f) => f.error);
-
-    if (exportedPaths.length > 0) {
-      autoClipModel.markExported(resultId, exportedPaths);
-    } else {
-      if (autoClipModel.incrementRetry(resultId)) {
-        autoClipModel.updateStatus(resultId, "pending");
-      }
-    }
-
-    return {
-      status: exportedPaths.length > 0 ? "exported" : "failed",
-      exportedPaths,
-      failedCount,
-      errors,
-      danmakuStatus: exportResult.danmakuStatus,
-      danmakuError: exportResult.danmakuError,
-    };
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    logger.error(`${logPrefix}: exportClips threw:`, err);
-    if (autoClipModel.incrementRetry(resultId)) {
-      autoClipModel.updateStatus(resultId, "pending");
-    }
-    return {
-      status: "failed",
-      exportedPaths: [],
-      failedCount: highlights.length,
-      errors: [errMsg],
-      danmakuStatus: "skipped",
-      danmakuError: `Export threw before danmaku processing: ${errMsg}`,
-    };
-  } finally {
-    if (exportTimer !== undefined) clearTimeout(exportTimer);
-  }
-}
 
 // POST /auto-clip/clips/batch-approve-and-export — 批量批准并导出
 router.post("/clips/batch-approve-and-export", async (ctx) => {
@@ -818,6 +662,7 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
           highlights,
           result.preset_id,
           "AutoClip batch export",
+          exportDeps,
         );
         return {
           id,
