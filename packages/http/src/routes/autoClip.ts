@@ -608,7 +608,7 @@ router.post("/clips/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
-function isHighlightSegment(h: unknown): h is HighlightSegment {
+function validateAndNormalizeHighlight(h: unknown): h is HighlightSegment {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
 
@@ -694,7 +694,7 @@ async function doExportClips(
 
   try {
     // Validate highlights shape before passing to exportClips
-    const validHighlights = highlights.filter(isHighlightSegment) as HighlightSegment[];
+    const validHighlights = highlights.filter(validateAndNormalizeHighlight);
     const skipped = highlights.length - validHighlights.length;
     if (skipped > 0) {
       logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
