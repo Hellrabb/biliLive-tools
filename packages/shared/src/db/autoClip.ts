@@ -248,16 +248,19 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
   }
 
   incrementRetry(id: string): boolean {
-    const row = this.db.prepare(
-      "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
-    ).get(id) as { retry_count: number } | undefined;
-    const count = row?.retry_count ?? 0;
-    if (count >= 3) {
-      this.db.prepare("UPDATE auto_clip_results SET status = 'failed' WHERE id = ?").run(id);
-      logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
-      return false;
-    }
-    return true;
+    const txn = this.db.transaction(() => {
+      const row = this.db.prepare(
+        "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
+      ).get(id) as { retry_count: number } | undefined;
+      const count = row?.retry_count ?? 0;
+      if (count >= 3) {
+        this.db.prepare("UPDATE auto_clip_results SET status = 'failed' WHERE id = ?").run(id);
+        logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
+        return false;
+      }
+      return true;
+    });
+    return txn();
   }
 
   markUploaded(id: string, biliAids: string[]) {
