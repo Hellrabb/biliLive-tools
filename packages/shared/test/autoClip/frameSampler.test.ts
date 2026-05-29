@@ -164,4 +164,28 @@ describe("sampleFrames", () => {
 
     expect(mockSpawn.mock.calls[0][0]).toBe("/custom/ffmpeg");
   });
+
+  it("returns empty array when signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort(); // abort before calling
+
+    const frames = await sampleFrames("/fake/video.mp4", [10], "ffmpeg", controller.signal);
+    expect(frames).toEqual([]);
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
+  it("kills ffmpeg process when signal is aborted mid-extraction", async () => {
+    const controller = new AbortController();
+    const proc = createMockProc({ exitCode: 0, stdoutChunks: [FAKE_JPEG] });
+    mockSpawn.mockReturnValue(proc);
+
+    const framesPromise = sampleFrames("/fake/video.mp4", [10], "ffmpeg", controller.signal);
+
+    // Abort before the mock process close microtask fires
+    controller.abort();
+
+    const frames = await framesPromise;
+    expect(frames).toEqual([]);
+    expect(proc.kill).toHaveBeenCalledWith("SIGKILL");
+  });
 });

@@ -12,15 +12,17 @@ export async function sampleFrames(
   videoPath: string,
   timestampsSeconds: number[],
   ffmpegPath = "ffmpeg",
+  signal?: AbortSignal,
 ): Promise<string[]> {
   if (timestampsSeconds.length === 0) return [];
+  if (signal?.aborted) return [];
 
   const limit = pLimit(FRAME_CONCURRENCY);
 
   const tasks = timestampsSeconds.map((ts) =>
     limit(async () => {
       try {
-        return await extractOneFrame(videoPath, ts, ffmpegPath);
+        return await extractOneFrame(videoPath, ts, ffmpegPath, signal);
       } catch (err) {
         logger.warn(`frameSampler: failed to extract frame at ${ts}s: ${err}`);
         return null;
@@ -42,8 +44,13 @@ function extractOneFrame(
   videoPath: string,
   timestampSec: number,
   ffmpegPath: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(new Error("AutoClip pipeline aborted"));
+    }
+
     const args = [
       "-ss", String(timestampSec),
       "-i", videoPath,
@@ -63,6 +70,18 @@ function extractOneFrame(
       reject(new Error(`Frame extraction timed out after ${FRAME_EXTRACT_TIMEOUT_MS}ms at ${timestampSec}s`));
     }, FRAME_EXTRACT_TIMEOUT_MS);
 
+    const onAbort = () => {
+      proc.kill("SIGKILL");
+      clearTimeout(timer);
+      reject(new Error("AutoClip pipeline aborted"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    // Double-check after registration to close race window
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
     const chunks: Buffer[] = [];
     let stderr = "";
 
@@ -76,6 +95,7 @@ function extractOneFrame(
 
     proc.on("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       if (code !== 0 || chunks.length === 0) {
         reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-200)}`));
         return;
@@ -86,6 +106,7 @@ function extractOneFrame(
 
     proc.on("error", (err) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(err);
     });
   });

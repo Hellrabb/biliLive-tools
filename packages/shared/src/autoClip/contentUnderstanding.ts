@@ -19,7 +19,7 @@ export interface ContentUnderstandingDeps {
   /** Multimodal message sender for frame description */
   sendMultimodalMessage?: (prompt: string, images: string[], signal?: AbortSignal) => Promise<string>;
   /** Frame sampler (mockable, defaults to frameSampler) */
-  sampleFrames?: typeof sampleFrames;
+  sampleFrames?: (videoPath: string, timestamps: number[], ffmpegPath?: string, signal?: AbortSignal) => Promise<string[]>;
   /** Audio extractor (mockable, defaults to ffmpeg-based) */
   extractAudio?: (videoPath: string, bestRange: [number, number], signal?: AbortSignal) => Promise<string>;
   /** Path to ffmpeg binary (defaults to "ffmpeg") */
@@ -124,8 +124,10 @@ export async function understandContent(
     : (videoPath: string, range: [number, number], signal?: AbortSignal) =>
         extractAudioSegment(videoPath, range, deps.ffmpegPath, signal);
   const doSampleFrames = deps.sampleFrames
-    ? (videoPath: string, timestamps: number[]) => deps.sampleFrames!(videoPath, timestamps, deps.ffmpegPath)
-    : (videoPath: string, timestamps: number[]) => sampleFrames(videoPath, timestamps, deps.ffmpegPath);
+    ? (videoPath: string, timestamps: number[], signal?: AbortSignal) =>
+        deps.sampleFrames!(videoPath, timestamps, deps.ffmpegPath, signal)
+    : (videoPath: string, timestamps: number[], signal?: AbortSignal) =>
+        sampleFrames(videoPath, timestamps, deps.ffmpegPath, signal);
 
   // Process highlights in parallel with concurrency control
   const { default: pLimit } = await import("p-limit");
@@ -158,7 +160,7 @@ export async function understandContent(
             h.bestRange[0] + 1,
             (h.bestRange[0] + h.bestRange[1]) / 2,
           ];
-          const frames = await doSampleFrames(videoPath, timestamps);
+          const frames = await doSampleFrames(videoPath, timestamps, signal);
           if (frames.length > 0) {
             const description = await deps.sendMultimodalMessage!(
               FRAME_DESCRIPTION_PROMPT,
