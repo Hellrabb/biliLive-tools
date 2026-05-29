@@ -90,6 +90,7 @@ export async function exportClips(
   presetCtx: ExportPresetContext,
   onProgress?: ProgressCallback,
   namingPrefix?: string,
+  signal?: AbortSignal,
 ): Promise<ExportClipsResult> {
   const success: ExportClipsResult["success"] = [];
   const failed: ExportClipsResult["failed"] = [];
@@ -171,6 +172,9 @@ export async function exportClips(
   const { pathExists } = await import("fs-extra");
 
   for (let i = 0; i < highlights.length; i++) {
+    if (signal?.aborted) {
+      break;
+    }
     const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
     const namingTemplate = exportConfig.namingTemplate ?? "{{title}}_{{index}}";
