@@ -85,7 +85,7 @@ export class AutoClipService {
     });
 
     // Build ASR recognize function for Phase 1.5 speech-to-text
-    let recognizeASR: ((audioPath: string) => Promise<{ text: string }>) | undefined;
+    let recognizeASR: ((audioPath: string, signal?: AbortSignal) => Promise<{ text: string }>) | undefined;
     if (presetConfig.enhancement?.asrEnabled) {
       try {
         const { recognize } = await import("../ai/asr/index.js");
@@ -99,7 +99,7 @@ export class AutoClipService {
             logger.info(`AutoClip: auto-discovered ASR model "${asrModel.modelName}" (${asrModelId})`);
           }
         }
-        recognizeASR = async (audioPath: string) => {
+        recognizeASR = async (audioPath: string, _signal?: AbortSignal) => {
           const result = await recognize(audioPath, asrModelId);
           return { text: result.text };
         };
