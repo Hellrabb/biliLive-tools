@@ -103,11 +103,10 @@ export async function understandContent(
   signal?: AbortSignal,
 ): Promise<{ asrMap: Map<number, string>; frameMap: Map<number, string> }> {
   // Debounced cleanup of stale ASR temp files from previous runs.
-  // Gate prevents concurrent cleanup sweeps across parallel pipeline runs.
-  if (!cleanupGate) {
-    cleanupGate = true;
-    setImmediate(() => {
-      cleanupStaleASRTempFiles().finally(() => { cleanupGate = false; });
+  // Promise lock ensures only one in-flight sweep at a time.
+  if (!cleanupPromise) {
+    cleanupPromise = cleanupStaleASRTempFiles().finally(() => {
+      cleanupPromise = null;
     });
   }
 
@@ -215,5 +214,6 @@ export async function cleanupStaleASRTempFiles(): Promise<void> {
   }
 }
 
-// Cleanup gate — prevents concurrent cleanup sweeps across parallel pipeline runs
-let cleanupGate = false;
+// Cleanup gate — prevents duplicate cleanup sweeps across parallel pipeline runs.
+// Uses a Promise lock so concurrent synchronous callers share the same sweep.
+let cleanupPromise: Promise<void> | null = null;
