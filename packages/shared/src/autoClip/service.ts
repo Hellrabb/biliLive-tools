@@ -263,7 +263,8 @@ export class AutoClipService {
   ) {
     try {
       const exportCfg = presetConfig.export;
-      const savePath = exportCfg.savePath || path.dirname(videoPath);
+      const { resolveSavePath } = await import("./exportPipeline.js");
+      const savePath = resolveSavePath(exportCfg, videoPath);
 
       const presetCtx = await resolveExportPresets(exportCfg);
       logger.info(`AutoClip: 开始自动导出 ${highlights.length} 个切片...`);

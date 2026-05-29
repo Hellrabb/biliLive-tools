@@ -2,7 +2,7 @@ import path from "node:path";
 import type { AwilixContainer } from "awilix";
 import logger from "../utils/log.js";
 
-import type { AutoClipConfig, VideoCodec, audioCodec } from "@biliLive-tools/types";
+import type { AutoClipConfig, VideoCodec, audioCodec, DanmuConfig } from "@biliLive-tools/types";
 import type { AutoClipResult, HighlightSegment } from "./types.js";
 import type { ProgressCallback } from "./pipeline.js";
 
@@ -96,7 +96,7 @@ export async function exportClips(
   let danmakuStatus: DanmakuStatus = "skipped";
   let danmakuError: string | undefined;
 
-  const savePath = exportConfig.savePath || path.dirname(videoPath);
+  const savePath = resolveSavePath(exportConfig, videoPath);
   const resolvedSavePath = path.resolve(savePath);
 
   // Resolve symlinks so path-traversal checks below are effective against
@@ -127,7 +127,7 @@ export async function exportClips(
       const { v4: uuid } = await import("uuid");
       const task = await convertXml2Ass(
         { input: danmuPath, output: uuid() },
-        presetCtx.danmuConfig as any,
+        presetCtx.danmuConfig as DanmuConfig,
         { temp: true, saveRadio: 2, savePath: "", override: true },
       );
       // Wait for task completion (promisify event-based task)
@@ -173,7 +173,8 @@ export async function exportClips(
   for (let i = 0; i < highlights.length; i++) {
     const h = highlights[i]!;
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
-    let outputName = exportConfig.namingTemplate
+    const namingTemplate = exportConfig.namingTemplate ?? "{{title}}_{{index}}";
+    let outputName = namingTemplate
       .split("{{title}}").join(safeTitle)
       .split("{{index}}").join(String(i + 1));
 
@@ -269,6 +270,14 @@ export async function exportClips(
   }
 
   return { success, failed, danmakuStatus, danmakuError };
+}
+
+/** Resolve effective savePath from export config, falling back to video directory */
+export function resolveSavePath(
+  exportConfig: { savePath?: string },
+  videoPath: string,
+): string {
+  return exportConfig.savePath || path.dirname(videoPath);
 }
 
 // ---------------------------------------------------------------------------

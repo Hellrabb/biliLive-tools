@@ -278,4 +278,5 @@ export {
   type ExportPresetContext,
   resolveExportPresets,
   exportClips,
+  resolveSavePath,
 } from "./exportPipeline.js";
