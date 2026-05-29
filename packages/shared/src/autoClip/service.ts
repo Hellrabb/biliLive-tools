@@ -345,7 +345,8 @@ export class AutoClipService {
 
         // Look for a preset explicitly named for autoClip, otherwise use safe default
         const autoClipBiliPreset = presets.find(
-          (p: any) => p.name?.includes("autoClip") || p.name?.includes("自动切片")
+          (p: { name?: string; config?: unknown }) =>
+            p.name?.includes("autoClip") || p.name?.includes("自动切片")
         );
         if (autoClipBiliPreset?.config) {
           biliupConfig = autoClipBiliPreset.config;
