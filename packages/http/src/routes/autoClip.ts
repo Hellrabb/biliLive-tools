@@ -641,6 +641,7 @@ async function doExportClips(
   highlights: unknown[],
   presetId: string | null,
   logPrefix: string,
+  signal?: AbortSignal,
 ): Promise<{
   status: string;
   exportedPaths: string[];
@@ -649,6 +650,15 @@ async function doExportClips(
   danmakuStatus?: string;
   danmakuError?: string;
 }> {
+  // 10-minute timeout for manual export operations when no external signal provided
+  const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
+  let exportSignal = signal;
+  if (!exportSignal) {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), EXPORT_TIMEOUT_MS);
+    exportSignal = ctrl.signal;
+  }
+
   const { exportClips, resolveSavePath } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
   const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
 
@@ -723,6 +733,7 @@ async function doExportClips(
       presetCtx,
       (_stage, _pct, msg) => logger.info(`${logPrefix}: ${msg}`),
       namingPrefix,
+      exportSignal,
     );
 
     exportedPaths = exportResult.success.map((s) => s.path);
