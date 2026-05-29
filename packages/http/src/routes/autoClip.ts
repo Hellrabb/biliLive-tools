@@ -653,9 +653,10 @@ async function doExportClips(
   // 10-minute timeout for manual export operations when no external signal provided
   const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
   let exportSignal = signal;
+  let exportTimer: ReturnType<typeof setTimeout> | undefined;
   if (!exportSignal) {
     const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), EXPORT_TIMEOUT_MS);
+    exportTimer = setTimeout(() => ctrl.abort(), EXPORT_TIMEOUT_MS);
     exportSignal = ctrl.signal;
   }
 
@@ -770,6 +771,8 @@ async function doExportClips(
       danmakuStatus: "skipped",
       danmakuError: `Export threw before danmaku processing: ${errMsg}`,
     };
+  } finally {
+    if (exportTimer !== undefined) clearTimeout(exportTimer);
   }
 }
 
