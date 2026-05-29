@@ -141,6 +141,13 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     if (typeof exp.cutFormat !== "string" || !["mp4", "flv"].includes(exp.cutFormat as string)) {
       errors.push({ field: "config.export.cutFormat", message: 'cutFormat 必须是 "mp4" 或 "flv"' });
     }
+    if (exp.savePath && typeof exp.savePath === "string") {
+      const dangerousPrefixes = ["/etc", "/proc", "/sys", "/dev", "/boot", "/root"];
+      const resolved = path.resolve(exp.savePath);
+      if (dangerousPrefixes.some(p => resolved.startsWith(p + path.sep) || resolved === p)) {
+        errors.push({ field: "config.export.savePath", message: "保存路径不能指向系统目录" });
+      }
+    }
   }
 
   return errors;
@@ -469,7 +476,7 @@ router.get("/clips", async (ctx) => {
   });
 
   ctx.body = {
-    data: data.reduce((acc: any[], r) => {
+    data: data.reduce<Record<string, unknown>[]>((acc, r) => {
       const { llm_fallback, ...rest } = r;
       try {
         acc.push({
@@ -601,7 +608,7 @@ router.post("/clips/:id/delete", async (ctx) => {
 // Shared export helper — used by approve-and-export and re-export
 // ---------------------------------------------------------------------------
 
-function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; timeRange: [number, number]; title?: string; score?: number; isHighlight?: boolean } {
+function isHighlightSegment(h: unknown): h is HighlightSegment {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
 
@@ -613,7 +620,18 @@ function isHighlightSegment(h: unknown): h is { bestRange: [number, number]; tim
     return true;
   };
 
-  return isValidRange("bestRange") && isValidRange("timeRange");
+  if (!isValidRange("bestRange") || !isValidRange("timeRange")) return false;
+
+  // Patch missing required fields to safe defaults so downstream code doesn't crash
+  if (typeof obj.score !== "number") (obj as Record<string, unknown>).score = 5;
+  if (typeof obj.title !== "string") (obj as Record<string, unknown>).title = "Untitled";
+  if (!Array.isArray(obj.tags)) (obj as Record<string, unknown>).tags = [];
+  if (typeof obj.highlightType !== "string") (obj as Record<string, unknown>).highlightType = "hype";
+  if (typeof obj.reason !== "string") (obj as Record<string, unknown>).reason = "";
+  if (!Array.isArray(obj.signalSources)) (obj as Record<string, unknown>).signalSources = [];
+  if (typeof obj.isHighlight !== "boolean") (obj as Record<string, unknown>).isHighlight = true;
+
+  return true;
 }
 
 async function doExportClips(
@@ -631,7 +649,7 @@ async function doExportClips(
   danmakuStatus?: string;
   danmakuError?: string;
 }> {
-  const { exportClips } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
+  const { exportClips, resolveSavePath } = await import("@biliLive-tools/shared/autoClip/pipeline.js");
   const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
 
   let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
@@ -653,7 +671,7 @@ async function doExportClips(
 
   if (!loaded) {
     // Fallback to global autoClipPresetId (same logic as service.ts analyzeAndSave)
-    const config = container.resolve("appConfig") as any;
+    const config = container.resolve("appConfig") as { videoCut?: { autoClipPresetId?: string } };
     const globalPresetId = config?.videoCut?.autoClipPresetId;
     if (globalPresetId && globalPresetId !== presetId) {
       await tryLoadExportConfig(globalPresetId);
@@ -662,7 +680,7 @@ async function doExportClips(
 
   const effectiveConfig = {
     ...exportConfig,
-    savePath: exportConfig.savePath || path.dirname(videoPath),
+    savePath: resolveSavePath(exportConfig, videoPath),
   };
 
   const presetCtx = await resolveExportPresets(exportConfig);
@@ -707,9 +725,9 @@ async function doExportClips(
       namingPrefix,
     );
 
-    exportedPaths = exportResult.success.map((s: any) => s.path);
+    exportedPaths = exportResult.success.map((s) => s.path);
     failedCount = exportResult.failed.length;
-    errors = exportResult.failed.map((f: any) => f.error);
+    errors = exportResult.failed.map((f) => f.error);
 
     if (exportedPaths.length > 0) {
       autoClipModel.markExported(resultId, exportedPaths);
