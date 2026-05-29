@@ -102,10 +102,13 @@ export async function understandContent(
   deps: ContentUnderstandingDeps,
   signal?: AbortSignal,
 ): Promise<{ asrMap: Map<number, string>; frameMap: Map<number, string> }> {
-  // Lazy one-time cleanup of stale ASR temp files from previous runs
-  if (!cleanupRan) {
-    cleanupRan = true;
-    setImmediate(() => { cleanupStaleASRTempFiles(); });
+  // Debounced cleanup of stale ASR temp files from previous runs.
+  // Gate prevents concurrent cleanup sweeps across parallel pipeline runs.
+  if (!cleanupGate) {
+    cleanupGate = true;
+    setImmediate(() => {
+      cleanupStaleASRTempFiles().finally(() => { cleanupGate = false; });
+    });
   }
 
   const asrMap = new Map<number, string>();
@@ -212,5 +215,5 @@ export async function cleanupStaleASRTempFiles(): Promise<void> {
   }
 }
 
-// Cleanup runs lazily on first understandContent call instead of at import time
-let cleanupRan = false;
+// Cleanup gate — prevents concurrent cleanup sweeps across parallel pipeline runs
+let cleanupGate = false;

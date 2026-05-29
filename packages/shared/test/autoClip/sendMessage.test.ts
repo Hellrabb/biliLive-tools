@@ -80,12 +80,20 @@ function makePresetConfig(overrides?: Partial<AutoClipConfig>): AutoClipConfig {
       contextWindowSec: 30,
     },
     enhancement: {
-      refineBoundaries: false,
-      maxAdjustSec: 30,
+      asrEnabled: false,
+      visualEnabled: false,
+      boundaryRefineEnabled: false,
     },
     export: {
-      exportFormat: "mp4",
+      cutFormat: "mp4",
+      encoder: "libx264",
+      audioCodec: "copy",
+      ffmpegPresetId: "",
+      burnDanmaku: false,
+      danmuPresetId: "",
+      uploadToBili: false,
       savePath: "/tmp",
+      namingTemplate: "{{title}}_{{index}}",
     },
     danmakuFilter: {
       enabled: false,
