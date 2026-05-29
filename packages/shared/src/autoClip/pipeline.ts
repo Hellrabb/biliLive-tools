@@ -276,7 +276,11 @@ export {
   type DanmakuStatus,
   type ExportClipsResult,
   type ExportPresetContext,
+  type ExportClipByIdResult,
+  type ExportClipByIdDeps,
   resolveExportPresets,
   exportClips,
   resolveSavePath,
+  doExportClips,
+  validateAndNormalizeHighlight,
 } from "./exportPipeline.js";
