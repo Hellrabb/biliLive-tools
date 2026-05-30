@@ -1053,11 +1053,13 @@ export const validateBiliupConfig = (config: BiliupConfig): [boolean, string | n
   return [true, null];
 };
 
+const DEFAULT_PASSKEY = "7d628cb145deba521d5b0195924c466cae6559289cf5a335624ad8e6d7ef0085";
+
 function getPassKey() {
   if (process.env.BILILIVE_TOOLS_BILIKEY) {
     return process.env.BILILIVE_TOOLS_BILIKEY;
   }
-  return "7d628cb145deba521d5b0195924c466cae6559289cf5a335624ad8e6d7ef0085";
+  return DEFAULT_PASSKEY;
 }
 
 // 迁移B站登录信息
@@ -1089,9 +1091,32 @@ export const writeUser = async (data: BiliUser) => {
 };
 
 // 解码用户数据并增加expires参数
-const decodeUser = (data: string) => {
+// 当自定义 key 解密失败时，自动回退到默认 key 兼容历史数据
+const decodeUser = (data: string, mid?: number) => {
   const passKey = getPassKey();
-  const user = JSON.parse(decrypt(data, passKey));
+  let user: any;
+  let needsMigration = false;
+
+  try {
+    user = JSON.parse(decrypt(data, passKey));
+  } catch {
+    if (process.env.BILILIVE_TOOLS_BILIKEY) {
+      try {
+        user = JSON.parse(decrypt(data, DEFAULT_PASSKEY));
+        needsMigration = true;
+      } catch (e: any) {
+        throw new Error(`用户数据解密失败，加密密钥不匹配: ${e.message}`);
+      }
+    } else {
+      throw new Error(`用户数据解密失败: 数据可能已损坏`);
+    }
+  }
+
+  // 回退解密成功后，用新 key 重新加密迁移
+  if (needsMigration && mid !== undefined) {
+    writeUser({ ...user, mid }).catch(() => {});
+  }
+
   let expires = 0;
   try {
     expires = JSON.parse(user.rawAuth ?? "{}")?.cookie_info?.cookies?.find(
@@ -1110,13 +1135,27 @@ const decodeUser = (data: string) => {
 // 读取用户数据
 export const readUser = (mid: number): BiliUser | undefined => {
   const users = appConfig.getAll().bilibiliUser || {};
-  return users[mid] ? decodeUser(users[mid]) : undefined;
+  if (!users[mid]) return undefined;
+  try {
+    return decodeUser(users[mid], mid);
+  } catch (e: any) {
+    log.error("读取用户数据失败", { mid, error: e.message });
+    return undefined;
+  }
 };
 
 // 读取用户列表
 export const readUserList = (): BiliUser[] => {
   const users = appConfig.getAll().bilibiliUser || {};
-  return Object.values(users).map((item: string) => decodeUser(item));
+  const result: BiliUser[] = [];
+  for (const [mid, item] of Object.entries(users)) {
+    try {
+      result.push(decodeUser(item as string, Number(mid)));
+    } catch (e: any) {
+      log.error("读取用户数据失败", { mid, error: e.message });
+    }
+  }
+  return result;
 };
 
 const updateUserInfo = async (uid: number) => {
