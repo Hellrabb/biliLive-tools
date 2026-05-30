@@ -15,7 +15,10 @@ export function getModel(modelId: string | undefined, iConfig?: AppConfig) {
     config = appConfig.getAll();
   }
 
-  const model = config.ai.models.find((m) => m.modelId === modelId);
+  let model = config.ai.models.find((m) => m.modelId === modelId);
+  if (!model) {
+    model = config.ai.models.find((m) => m.modelName === modelId);
+  }
   if (!model) {
     throw new Error(`找不到模型：${modelId}`);
   }
