@@ -128,7 +128,7 @@ import {
   getClips,
   getResult,
   runAnalysis,
-  cancelAnalysis,
+  cancelAnalysis as cancelAnalysisApi,
   approveAndExport,
   deleteClip as deleteClipApi,
   getCounts,
@@ -414,7 +414,7 @@ async function confirmManualAnalyze() {
 async function cancelAnalysis() {
   if (!currentTaskId.value) return;
   try {
-    await cancelAnalysis(currentTaskId.value);
+    await cancelAnalysisApi(currentTaskId.value);
     pollAbort.value?.abort();
     notice.info("已取消分析");
     analyzing.value = false;

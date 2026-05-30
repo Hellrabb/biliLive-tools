@@ -1,6 +1,12 @@
 import request from "../request";
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(s: string): boolean {
+  return UUID_RE.test(s);
+}
+
 const list = async (): Promise<AutoClipPresetType[]> => {
   const res = await request.get("/auto-clip/presets");
   return res.data;
@@ -12,7 +18,7 @@ const get = async (id: string): Promise<AutoClipPresetType> => {
 };
 
 const save = async (preset: AutoClipPresetType) => {
-  if (preset.id) {
+  if (preset.id && isValidUUID(preset.id)) {
     return request.put(`/auto-clip/presets/${preset.id}`, preset);
   }
   return request.post("/auto-clip/presets", preset);

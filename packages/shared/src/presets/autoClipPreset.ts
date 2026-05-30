@@ -40,7 +40,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     encoder: "libx264",
     audioCodec: "copy",
     ffmpegPresetId: "default",
-    burnDanmaku: false,
+    burnDanmaku: true,
     danmuPresetId: "default",
     uploadToBili: false,
     savePath: "",
