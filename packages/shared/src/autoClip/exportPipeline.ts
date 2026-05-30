@@ -170,6 +170,10 @@ export async function exportClips(
   // Dynamic import for cut once
   const { cut } = await import("../task/video.js");
   const { pathExists } = await import("fs-extra");
+  const cutTasks: Array<{
+    emitter: { on: (event: string, cb: (...args: any[]) => void) => void };
+    status: string;
+  }> = [];
 
   for (let i = 0; i < highlights.length; i++) {
     if (signal?.aborted) {
@@ -240,7 +244,7 @@ export async function exportClips(
     );
 
     try {
-      await cut(
+      const task = await cut(
         { videoFilePath: videoPath, assFilePath: assPath },
         outputPath,
         {
@@ -256,11 +260,37 @@ export async function exportClips(
         },
         { saveType: 2, savePath, override: true },
       );
+      cutTasks.push(task);
       success.push({ path: outputPath, highlight: h });
     } catch (error) {
       logger.error(`AutoClip export error for highlight ${i}:`, error);
       failed.push({ highlight: h, error: String(error) });
     }
+  }
+
+  // Wait for all ffmpeg cut tasks to settle before cleaning up the temp ASS file.
+  // mergeAssMp4 queues ffmpeg via taskQueue.addTask(task, false) and returns
+  // immediately — the tasks run asynchronously, so we must wait here.
+  if (cutTasks.length > 0) {
+    await Promise.allSettled(
+      cutTasks.map(
+        (task) =>
+          new Promise<void>((resolve) => {
+            if (task.status === "completed" || task.status === "error") {
+              resolve();
+              return;
+            }
+            let settled = false;
+            const done = () => {
+              if (settled) return;
+              settled = true;
+              resolve();
+            };
+            task.emitter.on("task-end", done);
+            task.emitter.on("task-error", done);
+          }),
+      ),
+    );
   }
 
   // Clean up temp ASS file after all clips are exported
