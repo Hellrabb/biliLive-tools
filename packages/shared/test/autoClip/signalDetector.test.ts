@@ -599,6 +599,62 @@ describe("brush storm downsampling", () => {
     expect(result).toEqual([[10, 30], [40, 50]]);
   });
 
+  // ============================================================================
+  // M2: clipped windows should be re-merged when adjacent after clipping
+  // ============================================================================
+
+  it("should re-merge after clipping when adjacent windows come within mergeGapSec through minWindowDuration drops", () => {
+    // Three windows where the middle one is too short (dropped) and
+    // adjacent windows are clipped, leaving them close enough to re-merge.
+    const config = defaultConfig({
+      mergeGapSec: 10,
+      maxWindowDuration: 60,
+      minWindowDuration: 10,
+    });
+    // [0, 15] is short but > min(10) → kept as-is
+    // [17, 25] is short and < min(10) → dropped
+    // [30, 120] is long, clipped to center 75 → [45, 105]
+    // After drop+clip: [0, 15] and [45, 105] → gap=30 > 10, separate.
+    // But with re-merge, verify the invariant that no remaining windows
+    // are within mergeGapSec of each other.
+    const windows: [number, number][] = [
+      [0, 15],
+      [17, 25],
+      [30, 120],
+    ];
+    const result = mergeAndDeduplicate(windows, config);
+    // Verify post-clip invariant: output windows should never be
+    // within mergeGapSec of each other (they should be re-merged if so).
+    for (let i = 0; i < result.length - 1; i++) {
+      const gap = result[i + 1]![0] - result[i]![1];
+      expect(gap).toBeGreaterThan(config.mergeGapSec);
+    }
+  });
+
+  it("should invoke re-merge entry even when all windows survive clipping", () => {
+    // Verify the re-merge code path is reachable:
+    // two separate window groups survive clipping and remain separate.
+    const config = defaultConfig({
+      mergeGapSec: 10,
+      maxWindowDuration: 40,
+      minWindowDuration: 5,
+    });
+    const windows: [number, number][] = [
+      [0, 80],
+      [150, 250],
+    ];
+    const result = mergeAndDeduplicate(windows, config);
+    // [0, 80] clipped to center 40 → [20, 60]
+    // [150, 250] clipped to center 200 → [180, 220]
+    // gap = 180-60 = 120 > 10 → two separate windows
+    expect(result).toHaveLength(2);
+    // Verify clip placements
+    expect(result[0]![0]).toBe(20);
+    expect(result[0]![1]).toBe(60);
+    expect(result[1]![0]).toBe(180);
+    expect(result[1]![1]).toBe(220);
+  });
+
   it("downsampling approximates full result", () => {
     // Generate two datasets with the same pattern and distribution but
     // different sizes: one under MAX_BRUSH_SAMPLE (full scan, no downsampling)

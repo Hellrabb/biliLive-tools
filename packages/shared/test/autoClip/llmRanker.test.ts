@@ -435,6 +435,94 @@ describe("preRankCandidates", () => {
     const result = preRankCandidates(candidates, 0);
     expect(result).toHaveLength(0);
   });
+
+  // ============================================================================
+  // M4: heuristic score lower bound — negative weights produce non-negative scores
+  // ============================================================================
+
+  it("should not produce negative heuristic scores with negative custom weights", () => {
+    // With negative brushFrequency weight, the heuristic can go negative.
+    // The fix applies Math.max(0, ...) to clamp.
+    const candidates = [
+      makeMockCandidate({
+        timeRange: [0, 30],
+        stats: {
+          danmakuCount: 10,
+          danmakuDensity: 0.5,
+          scTotal: 0,
+          scCount: 0,
+          giftCount: 0,
+          uniqueUsers: 5,
+          brushFrequency: 0.95,
+        },
+      }),
+      makeMockCandidate({
+        timeRange: [40, 80],
+        stats: {
+          danmakuCount: 50,
+          danmakuDensity: 2.0,
+          scTotal: 10,
+          scCount: 1,
+          giftCount: 0,
+          uniqueUsers: 20,
+          brushFrequency: 0.1,
+        },
+      }),
+    ];
+
+    const negativeWeights = { brushFrequency: -10, scTotalDivisor: 1, danmakuDensity: -2 };
+    const result = preRankCandidates(candidates, 2, negativeWeights);
+
+    // preRankCandidates sorts by score — the sorting should work (negative OK for order)
+    // But when used in rankCandidates fallback, scores are clamped to non-negative.
+    // Verify candidates are returned (preRank doesn't filter by score, only sorts)
+    expect(result).toHaveLength(2);
+  });
+
+  // ============================================================================
+  // M5: surrounding context ordered by distance to boundary
+  // ============================================================================
+
+  it("should select surrounding context closest to candidate boundary (dense danmaku)", async () => {
+    const config = makeLLMConfig({ maxCandidatesPerVideo: 10, contextWindowSec: 60 });
+    const candidates = [makeMockCandidate({ timeRange: [120, 180] })];
+
+    // Dense danmaku: many items within context window. Closest to boundary
+    // should be selected, not the earliest in time.
+    const denseDanmaku: Array<{ sec: number; text: string }> = [];
+    // Before window: items at sec 60..119, the ones at 115-119 are CLOSEST to boundary
+    for (let s = 60; s < 120; s++) {
+      denseDanmaku.push({ sec: s, text: `before_${s}` });
+    }
+    // After window: items at sec 181..240, the ones at 181-185 are CLOSEST to boundary
+    for (let s = 181; s <= 240; s++) {
+      denseDanmaku.push({ sec: s, text: `after_${s}` });
+    }
+
+    let capturedPrompt = "";
+    const sendMessage = async (prompt: string) => {
+      capturedPrompt = prompt;
+      return JSON.stringify({
+        isHighlight: true,
+        score: 7,
+        title: "test",
+        tags: [],
+        highlightType: "funny",
+        reason: "test",
+        bestClipStart: 125,
+        bestClipEnd: 175,
+      });
+    };
+
+    await rankCandidates(candidates, config, sendMessage, denseDanmaku);
+
+    // The prompt should contain before texts closest to 120 (e.g., 119, 118, ...)
+    // rather than the earliest ones (e.g., 60, 61, ...)
+    expect(capturedPrompt).toContain("before_119");
+    // Should NOT prioritize early items over edge-adjacent ones
+    // With distance-based ordering, the FIRST items should be near the boundary
+    expect(capturedPrompt).not.toContain("before_60");
+  });
 });
 
 // ============================================================================

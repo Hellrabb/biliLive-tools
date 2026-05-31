@@ -229,8 +229,15 @@ function resolveOverlaps(
 
     if (overlap <= 3) {
       const newEnd = Math.max(curr.timeRange[0], next.timeRange[0] - 1);
-      curr.timeRange = [curr.timeRange[0], newEnd];
-      curr.bestRange = [curr.timeRange[0], newEnd];
+      // L7: guard against degenerate end — ensure clip retains positive duration
+      if (newEnd < curr.timeRange[0]) {
+        // keep at least 1s duration to avoid zero-length clips
+        curr.timeRange = [curr.timeRange[0], curr.timeRange[0] + 1];
+        curr.bestRange = [curr.timeRange[0], curr.timeRange[0] + 1];
+      } else {
+        curr.timeRange = [curr.timeRange[0], newEnd];
+        curr.bestRange = [curr.timeRange[0], newEnd];
+      }
     } else {
       const mergedStart = Math.min(curr.timeRange[0], next.timeRange[0]);
       const mergedEnd = Math.max(curr.timeRange[1], next.timeRange[1]);

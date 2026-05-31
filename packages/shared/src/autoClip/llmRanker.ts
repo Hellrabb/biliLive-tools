@@ -300,21 +300,28 @@ function buildCandidateContext(
   const beforeTexts: string[] = [];
   const afterTexts: string[] = [];
 
+  // Collect all danmaku in context windows with distance to boundary
+  const beforeCandidates: Array<{ text: string; dist: number }> = [];
+  const afterCandidates: Array<{ text: string; dist: number }> = [];
+
   for (const d of allDanmaku) {
     if (d.sec >= start - contextWindowSec && d.sec < start) {
-      if (beforeTexts.length < MAX_SURROUNDING_ITEMS) {
-        beforeTexts.push(d.text);
-      }
+      beforeCandidates.push({ text: d.text, dist: start - d.sec });
     }
     if (d.sec > end && d.sec <= end + contextWindowSec) {
-      if (afterTexts.length < MAX_SURROUNDING_ITEMS) {
-        afterTexts.push(d.text);
-      }
+      afterCandidates.push({ text: d.text, dist: d.sec - end });
     }
-    // Early exit if both buffers are full
-    if (beforeTexts.length >= MAX_SURROUNDING_ITEMS && afterTexts.length >= MAX_SURROUNDING_ITEMS) {
-      break;
-    }
+  }
+
+  // Sort by distance to boundary (closest first), then take top N
+  beforeCandidates.sort((a, b) => a.dist - b.dist);
+  afterCandidates.sort((a, b) => a.dist - b.dist);
+
+  for (let i = 0; i < Math.min(MAX_SURROUNDING_ITEMS, beforeCandidates.length); i++) {
+    beforeTexts.push(beforeCandidates[i]!.text);
+  }
+  for (let i = 0; i < Math.min(MAX_SURROUNDING_ITEMS, afterCandidates.length); i++) {
+    afterTexts.push(afterCandidates[i]!.text);
   }
 
   return {
@@ -390,7 +397,7 @@ export async function rankCandidates(
       // LLM call failed — use heuristic fallback score with configured weights
       logger.warn(`AutoClip LLM call failed for candidate ${i}: ${outcome.reason}`);
       const heuristicWeights = config.heuristicWeights ?? {};
-      const heuristicScore = Math.min(10, computeHeuristicScore(candidate.stats, heuristicWeights));
+      const heuristicScore = Math.max(0, Math.min(10, computeHeuristicScore(candidate.stats, heuristicWeights)));
       const highlightThreshold = config.heuristicWeights?.highlightThreshold ?? 3;
       results.push({
         candidate,

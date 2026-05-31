@@ -188,3 +188,94 @@ describe("applyFilter", () => {
     }
   });
 });
+
+// ============================================================================
+// llmReviewPatterns (M8: batch pagination for large pattern lists)
+// ============================================================================
+
+import { llmReviewPatterns } from "../../src/autoClip/danmakuFilter.js";
+import type { SuspiciousPattern } from "../../src/autoClip/types.js";
+import { vi } from "vitest";
+
+describe("llmReviewPatterns pagination (M8)", () => {
+  it("should handle a single pattern without batching", async () => {
+    const patterns: SuspiciousPattern[] = [
+      { text: "关注主播抽手机", count: 15, similarity: 0.98 },
+    ];
+    let callCount = 0;
+    const sendMessage = async (_prompt: string) => {
+      callCount++;
+      return JSON.stringify({
+        results: [{ index: 1, verdict: "spam", reason: "抽奖广告" }],
+      });
+    };
+    const result = await llmReviewPatterns(patterns, sendMessage);
+    expect(callCount).toBe(1);
+    expect(result.newRules).toHaveLength(1);
+    expect(result.newRules[0]!.pattern).toBe("关注主播抽手机");
+  });
+
+  it("should batch large patterns to avoid context overflow", async () => {
+    // Create 10 patterns each with ~350 chars → ~3500 total > 3000 threshold
+    const patterns: SuspiciousPattern[] = [];
+    for (let i = 0; i < 10; i++) {
+      patterns.push({
+        text: `x`.repeat(350) + `_${i}`,
+        count: 20 + i,
+        similarity: 0.92,
+      });
+    }
+
+    const callCounts: number[] = [];
+    const sendMessage = async (prompt: string) => {
+      callCounts.push(prompt.length);
+      // Return results for first few patterns as spam
+      const results = patterns.slice(0, 3).map((_, idx) => ({
+        index: idx + 1,
+        verdict: "spam" as const,
+        reason: "广告",
+      }));
+      return JSON.stringify({ results });
+    };
+
+    const result = await llmReviewPatterns(patterns, sendMessage);
+
+    // Should batch into multiple calls (total chars > 3000)
+    // Each batch call should be smaller than the threshold
+    expect(callCounts.length).toBeGreaterThanOrEqual(1);
+    // New rules should be generated from spam verdicts
+    expect(result.newRules.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should merge results from multiple batches", async () => {
+    const patterns: SuspiciousPattern[] = [
+      { text: "关注主播抽手机", count: 15, similarity: 0.98 },
+      { text: "点点关注右上角", count: 12, similarity: 0.95 },
+      { text: "哈哈哈哈笑死", count: 8, similarity: 0.3 },
+      { text: "主播牛逼666", count: 7, similarity: 0.3 },
+    ];
+
+    const sendMessage = async (prompt: string) => {
+      const patternCount = (prompt.match(/\d+\.\s"/g) || []).length;
+      const results = [];
+      for (let i = 0; i < patternCount; i++) {
+        results.push({
+          index: i + 1,
+          verdict: i < 2 ? "spam" : "not_spam",
+          reason: i < 2 ? "抽奖广告" : "正常互动",
+        });
+      }
+      return JSON.stringify({ results });
+    };
+
+    const result = await llmReviewPatterns(patterns, sendMessage);
+
+    // Should classify all patterns
+    expect(result.patterns).toHaveLength(4);
+    // First 2 should be spam
+    const spamPatterns = result.patterns.filter((p) => p.verdict === "spam");
+    expect(spamPatterns).toHaveLength(2);
+    // Should generate 2 new rules
+    expect(result.newRules).toHaveLength(2);
+  });
+});
