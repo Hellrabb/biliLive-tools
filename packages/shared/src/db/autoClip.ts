@@ -123,19 +123,29 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         name: "add_retry_count",
         sql: `ALTER TABLE auto_clip_results ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0`,
       },
+      {
+        version: 5,
+        name: "harden_id_constraint",
+        sql: ``,
+      },
     ];
 
     for (const m of migrations) {
       if (!applied.has(m.version)) {
         try {
-          // Check if column already exists (idempotent for DBs that ran the old ad-hoc migration)
-          const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
-          if (cols.some(c => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
-            // Column already exists from old ad-hoc migration, just record version
-          } else if (cols.some(c => c.name === "output_name") && m.name === "add_output_name") {
-            // Column already exists (idempotent)
+          // Migration v5: table rebuild to harden id constraint
+          if (m.name === "harden_id_constraint") {
+            this.migrateV5HardenIdConstraint();
           } else {
-            this.db.exec(m.sql);
+            // Check if column already exists (idempotent for DBs that ran the old ad-hoc migration)
+            const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
+            if (cols.some(c => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
+              // Column already exists from old ad-hoc migration, just record version
+            } else if (cols.some(c => c.name === "output_name") && m.name === "add_output_name") {
+              // Column already exists (idempotent)
+            } else {
+              this.db.exec(m.sql);
+            }
           }
           this.db.prepare("INSERT INTO auto_clip_schema_migrations (version) VALUES (?)").run(m.version);
           logger.info(`AutoClip: applied migration v${m.version} — ${m.name}`);
@@ -144,6 +154,84 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         }
       }
     }
+  }
+
+  /**
+   * Migration v5: harden auto_clip_results.id constraints.
+   *
+   * Cleans any existing rows with empty or NULL id, then rebuilds the
+   * table with explicit NOT NULL and CHECK(id != '') to prevent future
+   * occurrence.
+   *
+   * Idempotent: checks existing DDL before rebuilding.
+   */
+  private migrateV5HardenIdConstraint() {
+    // Step 1: Clean dirty data (always safe, idempotent)
+    const cleaned = this.db.prepare(`
+      UPDATE auto_clip_results
+      SET id = lower(hex(randomblob(16)))
+      WHERE id = '' OR id IS NULL
+    `).run();
+    if (cleaned.changes > 0) {
+      logger.warn(`AutoClip: v5 cleaned ${cleaned.changes} rows with dirty id`);
+    }
+
+    // Step 2: Check if table already has hardened constraints
+    const tableDDL = (
+      this.db.prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_clip_results'"
+      ).get() as { sql: string } | undefined
+    )?.sql ?? "";
+
+    const hasNotNull = /\b"id"\s+TEXT\s+NOT\s+NULL\b/i.test(tableDDL);
+    const hasCheck = /CHECK\s*\(\s*"?"?id"?\s*!=\s*''\s*\)/i.test(tableDDL);
+
+    if (hasNotNull && hasCheck) {
+      // Already hardened, nothing to do
+      return;
+    }
+
+    // Step 3: Rebuild table with hardened constraints
+    const txn = this.db.transaction(() => {
+      // Create new table with explicit NOT NULL and CHECK
+      this.db.exec(`
+        CREATE TABLE auto_clip_results_new (
+          id TEXT NOT NULL PRIMARY KEY CHECK(id != ''),
+          video_path TEXT NOT NULL,
+          danmu_path TEXT NOT NULL,
+          recorder_id TEXT,
+          preset_id TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          highlights TEXT NOT NULL DEFAULT '[]',
+          created_at TEXT NOT NULL,
+          exported_at TEXT,
+          uploaded_at TEXT,
+          exported_paths TEXT,
+          bili_aids TEXT,
+          llm_fallback INTEGER NOT NULL DEFAULT 0,
+          output_name TEXT,
+          highlight_count INTEGER NOT NULL DEFAULT 0,
+          first_title TEXT,
+          retry_count INTEGER NOT NULL DEFAULT 0
+        ) STRICT
+      `);
+
+      // Copy data
+      this.db.exec(`
+        INSERT INTO auto_clip_results_new
+        SELECT * FROM auto_clip_results
+      `);
+
+      // Swap tables
+      this.db.exec("DROP TABLE auto_clip_results");
+      this.db.exec("ALTER TABLE auto_clip_results_new RENAME TO auto_clip_results");
+
+      // Recreate indexes (old indexes were dropped with the table)
+      this.createIndexes();
+    });
+
+    txn();
+    logger.info("AutoClip: v5 hardened id constraint (NOT NULL + CHECK(id != ''))");
   }
 
   private checkIndexExists(indexName: string): boolean {
@@ -258,6 +346,36 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
         return false;
       }
+      return true;
+    });
+    return txn();
+  }
+
+  /**
+   * H3 fix: Atomically increment retry count AND reschedule to "pending"
+   * in a single SQLite transaction. The old pattern of calling incrementRetry
+   * then updateStatus in two non-atomic calls allowed a TOCTOU gap where
+   * the DB state could change between calls.
+   *
+   * @returns true if the result was rescheduled; false if retry limit (3) reached
+   */
+  retryAndReschedule(id: string): boolean {
+    const txn = this.db.transaction(() => {
+      const row = this.db.prepare(
+        "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
+      ).get(id) as { retry_count: number } | undefined;
+      const count = row?.retry_count ?? 0;
+      if (count >= 3) {
+        this.db.prepare(
+          "UPDATE auto_clip_results SET status = 'failed' WHERE id = ?"
+        ).run(id);
+        logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
+        return false;
+      }
+      this.db.prepare(
+        "UPDATE auto_clip_results SET status = 'pending' WHERE id = ?"
+      ).run(id);
+      logger.info(`AutoClip: retry #${count} scheduled for ${id}`);
       return true;
     });
     return txn();

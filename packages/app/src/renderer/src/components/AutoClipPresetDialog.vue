@@ -266,7 +266,7 @@ const filterRuleColumns = [
   { title: "来源", key: "source", width: 60, render: (r: any) => r.source === "auto" ? "自动" : "手动" },
   {
     title: "操作", key: "actions", width: 120,
-    render: (row: any, index: number) => {
+    render: (row: any) => {
       return h(NSpace, {}, () => [
         h(NButton, {
           size: "tiny",
@@ -274,7 +274,10 @@ const filterRuleColumns = [
           ghost: true,
           onClick: () => {
             const rules = editingPreset.value!.config.danmakuFilter.rules;
-            if (rules) rules[index]!.enabled = !rules[index]!.enabled;
+            if (rules) {
+              const idx = rules.findIndex((r: any) => r.id === row.id);
+              if (idx !== -1) rules[idx]!.enabled = !rules[idx]!.enabled;
+            }
           },
         }, () => row.enabled ? "启用" : "禁用"),
         h(NButton, {
@@ -283,7 +286,10 @@ const filterRuleColumns = [
           ghost: true,
           onClick: () => {
             const rules = editingPreset.value!.config.danmakuFilter.rules;
-            if (rules) rules.splice(index, 1);
+            if (rules) {
+              const idx = rules.findIndex((r: any) => r.id === row.id);
+              if (idx !== -1) rules.splice(idx, 1);
+            }
           },
         }, () => "删除"),
       ]);
