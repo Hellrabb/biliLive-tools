@@ -397,7 +397,8 @@ export function mergeAndDeduplicate(
     result.push([start, end]);
   }
 
-  return result;
+  // M2: Re-merge after clipping — clipped windows may now be adjacent
+  return mergeTimeWindows(result, mergeGapSec);
 }
 
 // ---------------------------------------------------------------------------

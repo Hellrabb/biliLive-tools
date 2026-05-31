@@ -207,6 +207,129 @@ describe("refineBoundaries constraint checks", () => {
     expect(result).toEqual(highlights);
   });
 
+  // ============================================================================
+  // M1: resolveOverlaps cascade — backward merge must loop to check deeper levels
+  // ============================================================================
+
+  it("should cascade-check backward after merges involving 4+ overlapping clips", async () => {
+    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+
+    // 4 clips where LLM adjustments create a tight overlap chain
+    // that requires cascading backward merges to fully resolve.
+    const highlights = [
+      makeHighlight({ timeRange: [0, 20], bestRange: [0, 20], score: 3 }),
+      makeHighlight({ timeRange: [30, 100], bestRange: [30, 100], score: 5 }),
+      makeHighlight({ timeRange: [15, 150], bestRange: [15, 150], score: 8 }),
+      makeHighlight({ timeRange: [140, 200], bestRange: [140, 200], score: 2 }),
+    ];
+    const asrMap = new Map([[0, "a"], [1, "b"], [2, "c"], [3, "d"]]);
+    const frameMap = new Map<number, string>();
+
+    // Adjustments cause dense overlaps:
+    // clip0: [0, 20] unchanged
+    // clip1: [30, 100] end +60 → [30, 160]
+    // clip2: [15, 150] start -50, end +60 → [0, 210] (clamped)
+    // clip3: [140, 200] start -10 → [130, 200]
+    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
+      adjustments: [
+        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 0, startReason: "", endReason: "", confidence: "medium" },
+        { highlightIndex: 1, startAdjustment: 0, endAdjustment: 60, startReason: "", endReason: "extend", confidence: "high" },
+        { highlightIndex: 2, startAdjustment: -50, endAdjustment: 60, startReason: "extend back", endReason: "extend forward", confidence: "high" },
+        { highlightIndex: 3, startAdjustment: -10, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
+      ],
+    }));
+
+    const result = await refineBoundaries(
+      highlights, asrMap, frameMap, mockSend,
+      { maxAdjustSec: 50, minClipDuration: 5 },
+      1000,
+    );
+
+    // After cascading resolves all overlaps, the result should have
+    // no overlapping clips and all clips should be properly merged.
+    expect(result.length).toBeGreaterThanOrEqual(1);
+
+    // Verify no two clips overlap
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]!.timeRange[1]).toBeLessThanOrEqual(result[i + 1]!.timeRange[0]);
+    }
+  });
+
+  it("should cascade backward merge with unsorted clip order after adjustments", async () => {
+    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+
+    // 5 clips where adjustments create out-of-order overlaps
+    // that require multiple backward merges to resolve
+    const highlights = [
+      makeHighlight({ timeRange: [0, 30], bestRange: [0, 30], score: 4 }),
+      makeHighlight({ timeRange: [100, 200], bestRange: [100, 200], score: 6 }),
+      makeHighlight({ timeRange: [40, 120], bestRange: [40, 120], score: 9 }),
+      makeHighlight({ timeRange: [180, 250], bestRange: [180, 250], score: 3 }),
+      makeHighlight({ timeRange: [240, 300], bestRange: [240, 300], score: 5 }),
+    ];
+    const asrMap = new Map([[0, "a"], [1, "b"], [2, "c"], [3, "d"], [4, "e"]]);
+    const frameMap = new Map<number, string>();
+
+    // clip1 is index 1 with [100,200] score 6
+    // clip2 is index 2 with [40,120] score 9 — overlaps clip1 after startAdjustment
+    // This creates an out-of-order merge that requires cascade
+    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
+      adjustments: [
+        { highlightIndex: 1, startAdjustment: -70, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
+        { highlightIndex: 2, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
+        { highlightIndex: 3, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
+        { highlightIndex: 4, startAdjustment: -20, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
+      ],
+    }));
+
+    const result = await refineBoundaries(
+      highlights, asrMap, frameMap, mockSend,
+      { maxAdjustSec: 80, minClipDuration: 5 },
+      1000,
+    );
+
+    // All overlapping clips should be resolved — verify no overlaps
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]!.timeRange[1]).toBeLessThanOrEqual(result[i + 1]!.timeRange[0]);
+    }
+  });
+
+  // ============================================================================
+  // L7: newEnd boundary guard — prevent start >= end in resolveOverlaps
+  // ============================================================================
+
+  it("should not produce zero-length clip from minor overlap resolution", async () => {
+    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+
+    // Clips very close together where minor overlap resolution
+    // could produce a degenerate clip.
+    const highlights = [
+      makeHighlight({ timeRange: [100, 130], bestRange: [100, 130], score: 7 }),
+      makeHighlight({ timeRange: [129, 200], bestRange: [129, 200], score: 5 }),
+    ];
+    const asrMap = new Map([[0, "a"], [1, "b"]]);
+    const frameMap = new Map<number, string>();
+
+    // Extend clip1 end just slightly into clip2 start
+    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
+      adjustments: [
+        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 2, startReason: "", endReason: "extend", confidence: "high" },
+      ],
+    }));
+
+    const result = await refineBoundaries(
+      highlights, asrMap, frameMap, mockSend,
+      { maxAdjustSec: 30, minClipDuration: 15 },
+      1000,
+    );
+
+    // Every clip should have positive duration
+    for (const h of result) {
+      expect(h.timeRange[0]).toBeLessThan(h.timeRange[1]);
+      expect(h.timeRange[1] - h.timeRange[0]).toBeGreaterThan(0);
+    }
+  });
+
   it("should skip when both ASR and frame data are empty", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 

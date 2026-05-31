@@ -247,11 +247,32 @@ export async function llmReviewPatterns(
     return { patterns: [], newRules: [] };
   }
 
-  const patternList = patterns
-    .map((p, i) => `${i + 1}. "${sanitizeForPrompt(p.text)}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
-    .join("\n");
+  // M8: Batch patterns to avoid context overflow on small-window models
+  const MAX_BATCH_CHARS = 3000;
+  const batches: SuspiciousPattern[][] = [];
+  let currentBatch: SuspiciousPattern[] = [];
+  let currentChars = 0;
 
-  const prompt = `You are a danmaku spam classifier. Determine if each danmaku pattern is lottery spam (抽奖广告垃圾弹幕) or legitimate audience engagement (正常观众互动).
+  for (const p of patterns) {
+    const itemChars = sanitizeForPrompt(p.text).length + 50; // overhead for index/count/similarity
+    if (currentChars + itemChars > MAX_BATCH_CHARS && currentBatch.length > 0) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentChars = 0;
+    }
+    currentBatch.push(p);
+    currentChars += itemChars;
+  }
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  const buildPrompt = (batch: SuspiciousPattern[], offset: number) => {
+    const list = batch
+      .map((p, i) => `${offset + i + 1}. "${sanitizeForPrompt(p.text)}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
+      .join("\n");
+
+    return `You are a danmaku spam classifier. Determine if each danmaku pattern is lottery spam (抽奖广告垃圾弹幕) or legitimate audience engagement (正常观众互动).
 
 Lottery spam indicators: mentions of raffle/lottery (抽奖/抽/抽送), encouraging follows for rewards (关注抽/关注送/点关注), diamond/coin giveaways (钻石/金币/红包/福利), right-corner UI references (右上角), or any paid-promotion CTAs.
 
@@ -260,24 +281,30 @@ Legitimate indicators: viewer reactions (哈哈哈/666/主播牛逼/？？？/�
 For each pattern, return verdict: "spam" or "not_spam" with a brief reason (max 10 chars in Chinese).
 
 Patterns:
-${patternList}
+${list}
 
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "results": [
-    {"index": 1, "verdict": "spam", "reason": "抽奖引导话术"},
-    {"index": 2, "verdict": "not_spam", "reason": "观众自然反应"}
+    {"index": ${offset + 1}, "verdict": "spam", "reason": "抽奖引导话术"},
+    {"index": ${offset + 2}, "verdict": "not_spam", "reason": "观众自然反应"}
   ]
 }`;
+  };
 
   let parsed: Array<{ index: number; verdict: string; reason: string }> = [];
 
   try {
-    const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
+    let offset = 0;
+    for (const batch of batches) {
+      const prompt = buildPrompt(batch, offset);
+      const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
 
-    const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
-    if (parsedJson && Array.isArray(parsedJson.results)) {
-      parsed = parsedJson.results;
+      const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
+      if (parsedJson && Array.isArray(parsedJson.results)) {
+        parsed.push(...parsedJson.results);
+      }
+      offset += batch.length;
     }
   } catch (err) {
     const isTimeout = err instanceof Error && err.message === "LLM request timeout";
