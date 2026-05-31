@@ -66,6 +66,21 @@ export async function buildSendMessage(
     };
   }
 
+  // H4: openai provider — uses vendor.provider pattern consistent with buildSendMultimodalMessage.
+  // Both llmCfg.provider "openai" and vendor.provider "openai" are handled here.
+  if (llmCfg.provider === "openai" || vendor.provider === "openai") {
+    const { QwenLLM } = await import("../ai/llm/qwen.js");
+    const llm = new QwenLLM({
+      apiKey: vendor.apiKey ?? "",
+      model: model.modelName,
+      baseURL: vendor.baseURL,
+    });
+    return async (prompt: string, signal?: AbortSignal) => {
+      const result = await llm.sendMessage(prompt, undefined, { signal });
+      return result.content;
+    };
+  }
+
   logger.warn(`AutoClip: unknown LLM provider "${llmCfg.provider}", LLM ranking disabled`);
   return undefined;
 }

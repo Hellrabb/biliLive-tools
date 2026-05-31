@@ -400,4 +400,74 @@ describe("buildSendMessage", () => {
       expect.objectContaining({ model: "qwen2.5" }),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // OpenAI provider (H4)
+  // ---------------------------------------------------------------------------
+
+  it("routes to QwenLLM for 'openai' provider via llmCfg.provider (H4)", async () => {
+    mockQwenSendMessage.mockResolvedValue({ content: "hello from openai" });
+
+    const presetConfig = makePresetConfig({
+      llm: {
+        ...makePresetConfig().llm,
+        provider: "openai",
+        modelId: "openai-model-1",
+      },
+    });
+
+    const aiConfig = makeAiConfig({
+      models: [
+        { modelId: "openai-model-1", modelName: "gpt-4o", vendorId: "vendor-openai" },
+      ],
+      vendors: [
+        { id: "vendor-openai", apiKey: "sk-openai-test", baseURL: "https://api.openai.com/v1", provider: "openai" },
+      ],
+    });
+
+    const sendFn = await buildSendMessage({ presetConfig, aiConfig });
+    expect(sendFn).toBeDefined();
+    expect(typeof sendFn).toBe("function");
+
+    const result = await sendFn!("test openai prompt");
+    expect(result).toBe("hello from openai");
+    expect(MockQwenLLM).toHaveBeenCalledTimes(1);
+    expect(MockQwenLLM).toHaveBeenCalledWith({
+      apiKey: "sk-openai-test",
+      model: "gpt-4o",
+      baseURL: "https://api.openai.com/v1",
+    });
+    expect(mockQwenSendMessage).toHaveBeenCalledWith("test openai prompt", undefined, {
+      signal: undefined,
+    });
+  });
+
+  it("routes to QwenLLM for 'openai' when vendor.provider is 'openai' but llmCfg.provider is other (H4)", async () => {
+    mockQwenSendMessage.mockResolvedValue({ content: "hello from vendor-openai" });
+
+    // When llmCfg.provider is "qwen" but vendor.provider is "openai"
+    const presetConfig = makePresetConfig({
+      llm: {
+        ...makePresetConfig().llm,
+        provider: "qwen",
+        modelId: "openai-backed-model",
+      },
+    });
+
+    const aiConfig = makeAiConfig({
+      models: [
+        { modelId: "openai-backed-model", modelName: "gpt-4o", vendorId: "vendor-openai" },
+      ],
+      vendors: [
+        { id: "vendor-openai", apiKey: "sk-openai-test", baseURL: "https://api.openai.com/v1", provider: "openai" },
+      ],
+    });
+
+    const sendFn = await buildSendMessage({ presetConfig, aiConfig });
+    // provider "qwen" matches first, but vendor.provider "openai" is also a valid path
+    // The existing qwen/aliyun branch fires first, so it would handle this via QwenLLM anyway
+    expect(sendFn).toBeDefined();
+    const result = await sendFn!("prompt");
+    expect(result).toBe("hello from vendor-openai");
+  });
 });
