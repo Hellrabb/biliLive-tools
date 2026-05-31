@@ -591,6 +591,13 @@ router.post("/clips/:id/re-export", async (ctx) => {
     return;
   }
 
+  const ALLOWED_REEXPORT_STATUSES = new Set(["pending", "approved", "exported", "failed"]);
+  if (!ALLOWED_REEXPORT_STATUSES.has(result.status)) {
+    ctx.status = 400;
+    ctx.body = { error: `无法重新导出：当前状态为 '${result.status}'` };
+    return;
+  }
+
   try {
     const highlights = JSON.parse(result.highlights);
     ctx.body = await doExportClips(

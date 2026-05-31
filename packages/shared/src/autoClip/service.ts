@@ -343,10 +343,9 @@ export class AutoClipService {
         const videoPreset = container.resolve("videoPreset");
         const presets = await videoPreset.list();
 
-        // Look for a preset explicitly named for autoClip, otherwise use safe default
+        // Match preset by exact name — avoids false matches from substring inclusion
         const autoClipBiliPreset = presets.find(
-          (p: { name?: string; config?: unknown }) =>
-            p.name?.includes("autoClip") || p.name?.includes("自动切片")
+          (p: { name?: string; config?: unknown }) => p.name === "autoClip"
         );
         if (autoClipBiliPreset?.config) {
           biliupConfig = autoClipBiliPreset.config;

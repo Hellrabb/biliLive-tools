@@ -157,7 +157,7 @@ describe("buildLLMPrompt", () => {
   it("should include brush frequency in prompt", () => {
     const ctx = makeMockContext({ stats: { ...makeMockContext().stats, brushFrequency: 0.75 } });
     const prompt = buildLLMPrompt(ctx);
-    expect(prompt).toContain("0.75");
+    expect(prompt).toContain("75%");
   });
 });
 

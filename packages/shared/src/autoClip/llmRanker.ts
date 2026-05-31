@@ -20,7 +20,7 @@ import { sendWithTimeout } from "./llmUtils.js";
 const DEFAULT_PROMPT_TEMPLATE = `你是一个直播高光检测助手。分析以下弹幕数据，判断该片段是否值得切片。
 
 弹幕统计：共 {count} 条，密度 {density} 条/秒，SC 总额 ¥{scTotal}，
-         独立用户 {uniqueUsers} 人，刷屏波次 {brush} 次
+         独立用户 {uniqueUsers} 人，弹幕刷屏比例 {brush}
 
 SC 记录：
 {sc_records}
@@ -101,7 +101,7 @@ export function buildLLMPrompt(
     .replace(/\{density\}/g, String(ctx.stats.danmakuDensity))
     .replace(/\{scTotal\}/g, String(ctx.stats.scTotal))
     .replace(/\{uniqueUsers\}/g, String(ctx.stats.uniqueUsers))
-    .replace(/\{brush\}/g, String(ctx.stats.brushFrequency))
+    .replace(/\{brush\}/g, (ctx.stats.brushFrequency * 100).toFixed(0) + "%")
     .replace(/\{sc_records\}/g, scRecords)
     .replace(/\{before\}/g, before)
     .replace(/\{after\}/g, after)
