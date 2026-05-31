@@ -1,5 +1,6 @@
 import { URL, URLSearchParams } from "url";
 import axios from "axios";
+import axiosRetry from "axios-retry";
 import { isEmpty } from "lodash-es";
 import { assert, get__ac_signature } from "./utils.js";
 import { ABogus } from "./sign.js";
@@ -14,6 +15,11 @@ const requester = axios.create({
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
   },
+});
+
+axiosRetry(requester, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
 });
 
 /**

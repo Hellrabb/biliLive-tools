@@ -41,6 +41,7 @@
   "dependencies": {
     "@bililive-tools/manager": "workspace:^",
     "axios": "catalog:",
+    "axios-retry": "^4.5.0",
     "douyin-danma-listener": "workspace:*",
     "lodash-es": "catalog:",
     "mitt": "catalog:",
