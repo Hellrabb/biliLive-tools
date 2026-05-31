@@ -1,4 +1,5 @@
 import path from "node:path";
+import { v4 as uuidv4 } from "uuid";
 import logger from "../utils/log.js";
 import { runAutoClipPipeline, exportClips, resolveExportPresets } from "./pipeline.js";
 import { buildSendMessage, buildSendMultimodalMessage } from "./sendMessage.js";
@@ -117,6 +118,18 @@ export class AutoClipService {
       // Fallback to "ffmpeg" when config is unavailable (e.g., test env)
     }
 
+    // H2: Compute effective ID before pipeline so cancel response always returns a valid ID.
+    // The pipeline uses `params.id ?? uuidv4()` internally, but we need to know the ID
+    // for the catch block (cancel path) before the pipeline resolves.
+    const effectiveId = id ?? uuidv4();
+
+    // L5: Snapshot videoCut config values BEFORE pipeline to avoid inconsistent behavior
+    // if user changes settings during a long-running pipeline.
+    const videoCutCfg = appConfig.videoCut ?? {};
+    const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
+    const autoExportEnabled = videoCutCfg.autoClipExport ?? false;
+    const autoUploadEnabled = videoCutCfg.autoClipUpload ?? false;
+
     // 3. Run pipeline
     let result: AutoClipResult;
     try {
@@ -128,14 +141,20 @@ export class AutoClipService {
         sendMultimodalMessage,
         recognizeASR,
         onProgress,
-        id,
+        id: effectiveId,
         ffmpegPath: sysFfmpegPath,
         signal,
       });
     } catch (err: unknown) {
-      if (signal?.aborted) {
+      // M6: Capture error immediately to avoid TOCTOU race — if abort fires
+      // between throw and catch, we must NOT swallow a real non-abort error.
+      const capturedErr = err;
+      // Only treat as cancel if the error IS an AbortError thrown by signal.throwIfAborted()
+      const isAbortError =
+        capturedErr instanceof Error && capturedErr.name === "AbortError";
+      if (isAbortError && signal?.aborted) {
         return {
-          id: params.id ?? "",
+          id: effectiveId,
           videoPath,
           danmuPath,
           highlights: [],
@@ -145,7 +164,8 @@ export class AutoClipService {
           llmFallback: false,
         };
       }
-      throw err;
+      // M6: Real errors are re-thrown even if signal fired between throw and catch
+      throw capturedErr;
     }
 
     // Persist newly auto-detected filter rules back to preset.
@@ -184,8 +204,7 @@ export class AutoClipService {
     }
 
     // 4. Persist to DB — always upsert to overwrite any /run placeholder
-    const videoCutCfg = appConfig.videoCut ?? {};
-    const reviewMode = videoCutCfg.autoClipReviewMode ?? true;
+    // L5: Use snapshots captured before pipeline, not re-reading from appConfig
     const status = reviewMode ? "pending" : "approved";
 
     try {
@@ -232,7 +251,7 @@ export class AutoClipService {
         logger.info(`AutoClip: 结果已保存 (${result.highlights.length} highlights, status=${status})`);
       }
 
-      if (!result.skipped && !skipAutoExport && !reviewMode && (videoCutCfg.autoClipExport ?? false) && result.highlights.length > 0) {
+      if (!result.skipped && !skipAutoExport && !reviewMode && autoExportEnabled && result.highlights.length > 0) {
         // Fire-and-forget to avoid blocking DB persist response.
         // Errors are logged internally by autoExportAndUpload.
         this.autoExportAndUpload(
@@ -242,6 +261,7 @@ export class AutoClipService {
           result.highlights,
           presetConfig,
           appConfig,
+          autoUploadEnabled,
         ).catch((err) => {
           logger.error("AutoClip: autoExportAndUpload failed", err);
         });
@@ -260,6 +280,7 @@ export class AutoClipService {
     highlights: HighlightSegment[],
     presetConfig: AutoClipConfig,
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
+    autoUploadEnabled: boolean,
   ) {
     try {
       const exportCfg = presetConfig.export;
@@ -293,9 +314,9 @@ export class AutoClipService {
           logger.warn(`AutoClip: ${exportResult.failed.length} 个切片导出失败`);
         }
 
-        const videoCutCfg = appConfig.videoCut ?? {};
+        // L5: autoUploadEnabled is snapshot from pipeline start
         // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
-        if ((videoCutCfg.autoClipUpload ?? false) && (presetConfig.export.uploadToBili ?? false)) {
+        if (autoUploadEnabled && (presetConfig.export.uploadToBili ?? false)) {
           await this.uploadToBili(exportResult.success, appConfig);
         }
 

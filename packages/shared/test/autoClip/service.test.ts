@@ -213,3 +213,156 @@ describe("AutoClipService.analyzeAndSave — preset fallback", () => {
     expect(bsmCall.presetConfig.llm.modelId).toBe("");
   });
 });
+
+// ---------------------------------------------------------------------------
+// H2 + M6 tests
+// ---------------------------------------------------------------------------
+
+describe("AutoClipService.analyzeAndSave — cancel and error paths", () => {
+  let AutoClipService: any;
+  let buildSendMessage: any;
+  let runAutoClipPipeline: any;
+  let service: any;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    mockGetPreset.mockReset();
+    mockGetAppConfig.mockReset();
+
+    const { buildSendMessage: bsm } = await import("../../src/autoClip/sendMessage.js");
+    const { runAutoClipPipeline: rap } = await import("../../src/autoClip/pipeline.js");
+    buildSendMessage = bsm;
+    runAutoClipPipeline = rap;
+
+    buildSendMessage.mockResolvedValue(async (msg: string) => `LLM: ${msg}`);
+
+    const { AutoClipService: ACS } = await import("../../src/autoClip/service.js");
+    AutoClipService = ACS;
+
+    service = new AutoClipService({
+      getAppConfig: mockGetAppConfig,
+      getPreset: mockGetPreset,
+    });
+  });
+
+  // H2: When pipeline throws due to abort and params.id is undefined (recorder-triggered),
+  // the catch block must return the auto-generated effectiveId, NOT an empty string.
+  it("H2: cancel returns auto-generated ID, not empty string", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    const ctrl = new AbortController();
+    ctrl.abort();
+
+    // Pipeline throws an AbortError, simulating what happens when checkAborted fires
+    const abortErr = new DOMException("The operation was aborted", "AbortError");
+    runAutoClipPipeline.mockRejectedValue(abortErr);
+
+    // caller does NOT provide an id (recorder-triggered path)
+    const result = await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      skipAutoExport: true,
+      signal: ctrl.signal,
+    });
+
+    // H2 fix: id MUST be a non-empty UUID, not ""
+    expect(result.id).toBeTruthy();
+    expect(result.id.length).toBeGreaterThan(0);
+    expect(typeof result.id).toBe("string");
+    // Should be a valid UUID format
+    expect(result.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+
+    // DB must NOT be called with an empty id
+    const { autoClipModel } = await import("../../src/db/index.js");
+    expect(autoClipModel.upsertResult).not.toHaveBeenCalled();
+    expect(autoClipModel.saveResult).not.toHaveBeenCalled();
+  });
+
+  // H2 variant: when caller provides an explicit id, cancel must return it
+  it("H2: cancel returns caller-provided ID when explicit id given", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    const ctrl = new AbortController();
+    ctrl.abort();
+
+    const abortErr = new DOMException("The operation was aborted", "AbortError");
+    runAutoClipPipeline.mockRejectedValue(abortErr);
+
+    const result = await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      skipAutoExport: true,
+      id: "explicit-id-123",
+      signal: ctrl.signal,
+    });
+
+    expect(result.id).toBe("explicit-id-123");
+  });
+
+  // M6: When pipeline throws a REAL error (not abort), and abort signal fires
+  // between throw and catch, the catch must NOT swallow the real error as a cancel.
+  it("M6: real error is not swallowed by late abort signal", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    // Create an abort signal that fires between throw and catch
+    // We simulate this by having the signal be "aborted" when catch runs
+    const ctrl = new AbortController();
+    // Signal IS aborted — simulates abort firing between pipeline throw and catch
+    ctrl.abort();
+
+    // Pipeline throws a REAL error (e.g., LLM timeout)
+    const realError = new Error("LLM request timeout after 30s");
+    runAutoClipPipeline.mockRejectedValue(realError);
+
+    // M6 fix: the call must REJECT with the real error, NOT return a cancel response
+    await expect(
+      service.analyzeAndSave({
+        videoPath: "/fake/v.mp4",
+        danmuPath: "/fake/d.xml",
+        skipAutoExport: true,
+        signal: ctrl.signal,
+      }),
+    ).rejects.toThrow("LLM request timeout after 30s");
+
+    // DB must NOT be polluted
+    const { autoClipModel } = await import("../../src/db/index.js");
+    expect(autoClipModel.upsertResult).not.toHaveBeenCalled();
+  });
+
+  // M6 variant: when pipeline throws an AbortError (true cancel), it should return cancel response
+  it("M6: true abort (AbortError) still returns cancel response", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    const ctrl = new AbortController();
+    ctrl.abort();
+
+    const abortErr = new DOMException("The operation was aborted", "AbortError");
+    runAutoClipPipeline.mockRejectedValue(abortErr);
+
+    const result = await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      skipAutoExport: true,
+      signal: ctrl.signal,
+    });
+
+    expect(result.skipped).toBe(true);
+    expect(result.skippedReason).toBe("cancelled");
+    expect(result.highlights).toEqual([]);
+  });
+});
