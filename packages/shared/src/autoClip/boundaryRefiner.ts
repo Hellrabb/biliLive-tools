@@ -247,7 +247,30 @@ function resolveOverlaps(
         signalSources: [...new Set([...curr.signalSources, ...next.signalSources])],
       };
       working.splice(i + 1, 1);
-      i--;
+      // Check backward overlap with previous clip after merge
+      let backwardMerged = false;
+      if (i > 0) {
+        const prev = working[i - 1]!;
+        const merged = working[i]!;
+        if (prev.timeRange[1] > merged.timeRange[0]) {
+          const pMergeEnd = Math.max(prev.timeRange[1], merged.timeRange[1]);
+          const pUsePrev = prev.score >= merged.score;
+          working[i - 1] = {
+            ...prev,
+            timeRange: [prev.timeRange[0], pMergeEnd],
+            bestRange: [prev.timeRange[0], pMergeEnd],
+            title: `${prev.title} + ${merged.title}`,
+            score: Math.max(prev.score, merged.score),
+            tags: [...new Set([...prev.tags, ...merged.tags])],
+            highlightType: pUsePrev ? prev.highlightType : merged.highlightType,
+            reason: pUsePrev ? prev.reason : merged.reason,
+            signalSources: [...new Set([...prev.signalSources, ...merged.signalSources])],
+          };
+          working.splice(i, 1);
+          backwardMerged = true;
+        }
+      }
+      i -= backwardMerged ? 2 : 1;
     }
   }
   return working;
