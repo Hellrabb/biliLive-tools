@@ -17,6 +17,9 @@
         <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
           {{ analyzing ? '分析中...' : '+ 手动分析' }}
         </n-button>
+        <span v-if="analyzing && pollingProgress" style="color:#999;font-size:13px;margin-left:8px">
+          {{ pollingProgress }}
+        </span>
         <n-button v-if="analyzing" type="warning" size="small" @click="cancelAnalysis" style="margin-left:8px">
           取消分析
         </n-button>
@@ -163,6 +166,7 @@ const batchExporting = ref(false);
 const currentPagePendingCount = computed(() => clips.value.filter((c) => c.status === "pending").length);
 
 const componentError = ref<string | null>(null);
+const pollingProgress = ref<string>("");
 
 onErrorCaptured((err: Error) => {
   console.error("AutoClipManagement error:", err);
@@ -316,6 +320,8 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
   let delay = 1000;
   let attempt = 0;
   let consecutive404s = 0;
+  pollingProgress.value = "";
+
 
   while (attempt < maxAttempts) {
     if (abortController.signal.aborted) return 'aborted';
@@ -328,6 +334,7 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
       if (resultRes) {
         if (resultRes.status === "analyzing") {
           attempt++;
+          pollingProgress.value = `第 ${attempt}/${maxAttempts} 次查询...`;
           delay = Math.min(delay * 1.3, 10000);
           continue;
         }
@@ -408,6 +415,7 @@ async function confirmManualAnalyze() {
   } finally {
     analyzing.value = false;
     currentTaskId.value = null;
+    pollingProgress.value = "";
   }
 }
 
