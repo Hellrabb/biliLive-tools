@@ -1062,6 +1062,20 @@ function getPassKey() {
   return DEFAULT_PASSKEY;
 }
 
+function getKeyCandidates(): string[] {
+  const keys = [getPassKey()];
+  if (process.env.BILILIVE_TOOLS_BILIKEY && getPassKey() !== DEFAULT_PASSKEY) {
+    keys.push(DEFAULT_PASSKEY);
+  }
+  if (process.env.BILILIVE_TOOLS_BILIKEY_PREV) {
+    const prevKeys = process.env.BILILIVE_TOOLS_BILIKEY_PREV.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    keys.push(...prevKeys);
+  }
+  return [...new Set(keys)];
+}
+
 // 迁移B站登录信息
 export const migrateBiliUser = async () => {
   const users = appConfig.getAll()?.biliUser || {};
@@ -1091,30 +1105,30 @@ export const writeUser = async (data: BiliUser) => {
 };
 
 // 解码用户数据并增加expires参数
-// 当自定义 key 解密失败时，自动回退到默认 key 兼容历史数据
+// 依次尝试: 当前自定义key → 默认key → BILILIVE_TOOLS_BILIKEY_PREV 中的历史key
 const decodeUser = (data: string, mid?: number) => {
-  const passKey = getPassKey();
-  let user: any;
-  let needsMigration = false;
+  const keyCandidates = getKeyCandidates();
+  let user: any = null;
+  let usedKeyIndex = -1;
 
-  try {
-    user = JSON.parse(decrypt(data, passKey));
-  } catch {
-    if (process.env.BILILIVE_TOOLS_BILIKEY) {
-      try {
-        user = JSON.parse(decrypt(data, DEFAULT_PASSKEY));
-        needsMigration = true;
-      } catch (e: any) {
-        throw new Error(`用户数据解密失败，加密密钥不匹配: ${e.message}`);
-      }
-    } else {
-      throw new Error(`用户数据解密失败: 数据可能已损坏`);
+  for (let i = 0; i < keyCandidates.length; i++) {
+    try {
+      user = JSON.parse(decrypt(data, keyCandidates[i]));
+      usedKeyIndex = i;
+      break;
+    } catch {
+      continue;
     }
   }
 
-  // 回退解密成功后，用新 key 重新加密迁移
-  if (needsMigration && mid !== undefined) {
+  if (!user) {
+    throw new Error(`用户数据解密失败，${keyCandidates.length} 个密钥均不匹配`);
+  }
+
+  // 用历史 key 解密成功后，迁移到当前主 key
+  if (usedKeyIndex > 0 && mid !== undefined) {
     writeUser({ ...user, mid }).catch(() => {});
+    log.info(`用户 ${mid} 数据已从旧密钥迁移到当前密钥`);
   }
 
   let expires = 0;

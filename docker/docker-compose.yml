@@ -25,8 +25,9 @@ services:
     environment:
       # 登录密钥
       - BILILIVE_TOOLS_PASSKEY=your_passkey
-      # 账户加密密钥
+      # 账户加密密钥（更换密钥时将旧值填入 BILILIVE_TOOLS_BILIKEY_PREV 可自动迁移历史数据）
       - BILILIVE_TOOLS_BILIKEY=your_bilikey
+      # - BILILIVE_TOOLS_BILIKEY_PREV=your_old_bilikey
       # 文件管理器可删除的目录
       - DELETE_DIRS_ENV=/app/video
       # 中国时区
