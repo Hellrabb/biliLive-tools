@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -30,7 +31,7 @@ export interface ContentUnderstandingDeps {
 // Audio extraction
 // ---------------------------------------------------------------------------
 
-function extractAudioSegment(
+export function extractAudioSegment(
   videoPath: string,
   [start, end]: [number, number],
   ffmpegPath = "ffmpeg",
@@ -60,6 +61,9 @@ function extractAudioSegment(
     const proc = spawn(ffmpegPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
 
+    // M3: settled guard prevents double resolve/reject when both close and error fire
+    let settled = false;
+
     const onAbort = () => {
       proc.kill("SIGKILL");
       unlink(outputPath).catch(() => {});
@@ -74,15 +78,28 @@ function extractAudioSegment(
 
     proc.on("close", (code) => {
       signal?.removeEventListener("abort", onAbort);
+      if (settled) return;
       if (code === 0) {
+        // H5: Guard against race where abort deleted the .wav file
+        // but ffmpeg still exits with code 0 (edge case after SIGKILL)
+        if (!existsSync(outputPath)) {
+          settled = true;
+          return reject(
+            new Error(`Audio extraction failed: output file missing at ${outputPath}`),
+          );
+        }
+        settled = true;
         resolve(outputPath);
       } else {
+        settled = true;
         reject(new Error(`Audio extraction failed: ${stderr.slice(-200)}`));
       }
     });
 
     proc.on("error", (err) => {
       signal?.removeEventListener("abort", onAbort);
+      if (settled) return;
+      settled = true;
       reject(err);
     });
   });

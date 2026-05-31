@@ -15,7 +15,12 @@ export async function sampleFrames(
   signal?: AbortSignal,
 ): Promise<string[]> {
   if (timestampsSeconds.length === 0) return [];
-  if (signal?.aborted) return [];
+  // M9: propagate pre-existing abort as rejection instead of silently returning []
+  if (signal?.aborted) {
+    const abortErr = new Error("AutoClip pipeline aborted");
+    abortErr.name = "AbortError";
+    throw abortErr;
+  }
 
   const limit = pLimit(FRAME_CONCURRENCY);
 
@@ -24,6 +29,10 @@ export async function sampleFrames(
       try {
         return await extractOneFrame(videoPath, ts, ffmpegPath, signal);
       } catch (err) {
+        // M9: distinguish AbortError (re-throw) from real errors (return null)
+        if (err instanceof Error && err.name === "AbortError") {
+          throw err;
+        }
         logger.warn(`frameSampler: failed to extract frame at ${ts}s: ${err}`);
         return null;
       }
@@ -31,6 +40,20 @@ export async function sampleFrames(
   );
 
   const results = await Promise.allSettled(tasks);
+
+  // M9: propagate abort rejections from settled tasks
+  for (const r of results) {
+    if (r.status === "rejected" && r.reason instanceof Error && r.reason.name === "AbortError") {
+      throw r.reason;
+    }
+  }
+  // Also propagate if signal was aborted during execution
+  if (signal?.aborted) {
+    const abortErr = new Error("AutoClip pipeline aborted");
+    abortErr.name = "AbortError";
+    throw abortErr;
+  }
+
   const frames: string[] = [];
   for (const r of results) {
     if (r.status === "fulfilled" && r.value !== null) {
@@ -40,7 +63,7 @@ export async function sampleFrames(
   return frames;
 }
 
-function extractOneFrame(
+export function extractOneFrame(
   videoPath: string,
   timestampSec: number,
   ffmpegPath: string,
@@ -48,7 +71,9 @@ function extractOneFrame(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      return reject(new Error("AutoClip pipeline aborted"));
+      const abortErr = new Error("AutoClip pipeline aborted");
+      abortErr.name = "AbortError";
+      return reject(abortErr);
     }
 
     const args = [
@@ -65,15 +90,24 @@ function extractOneFrame(
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    // M3: settled guard prevents double resolve/reject from timer+close, abort+close, or error+close
+    let settled = false;
+
     const timer = setTimeout(() => {
       proc.kill("SIGKILL");
+      if (settled) return;
+      settled = true;
       reject(new Error(`Frame extraction timed out after ${FRAME_EXTRACT_TIMEOUT_MS}ms at ${timestampSec}s`));
     }, FRAME_EXTRACT_TIMEOUT_MS);
 
     const onAbort = () => {
       proc.kill("SIGKILL");
       clearTimeout(timer);
-      reject(new Error("AutoClip pipeline aborted"));
+      if (settled) return;
+      settled = true;
+      const abortErr = new Error("AutoClip pipeline aborted");
+      abortErr.name = "AbortError";
+      reject(abortErr);
     };
     signal?.addEventListener("abort", onAbort, { once: true });
     // Double-check after registration to close race window
@@ -97,6 +131,8 @@ function extractOneFrame(
     proc.on("close", (code) => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
+      if (settled) return;
+      settled = true;
       if (code !== 0 || chunks.length === 0) {
         reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-200)}`));
         return;
@@ -108,6 +144,8 @@ function extractOneFrame(
     proc.on("error", (err) => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
+      if (settled) return;
+      settled = true;
       reject(err);
     });
   });
