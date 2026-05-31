@@ -43,7 +43,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     新建 exportPipeline.test.ts，覆盖 H1（同步异常不泄漏定时器）和 H5 类 abort 场景。
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/exportPipeline.test.ts</verify>
-  <done>exportPipeline.test.ts 中 H1 和 abort 场景测试通过；现有 pipeline.test.ts 无回归</done>
+  <done>✅ DONE (2026-06-01). 13/13 exportPipeline tests pass; 11/11 pipeline tests pass (no regression). Fixes already applied in HEAD (commit 69de392d via T02). Regression test coverage added via exportPipeline.test.ts.</done>
   <depends_on></depends_on>
 </task>
 
@@ -79,7 +79,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     扩展现有 service.test.ts，覆盖 H2（取消返回正确 ID）、M6（真实错误不被 abort 信号吞掉）场景。
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/service.test.ts</verify>
-  <done>service.test.ts 中 H2/M6 场景测试通过；现有 service.test.ts 无回归</done>
+  <done>✅ DONE (2026-06-01). service.test.ts 8/8 通过（含 H2/M6 4 新测试）；H2/H3/M6/L5 修复完成；commit 已提交</done>
   <depends_on></depends_on>
 </task>
 
