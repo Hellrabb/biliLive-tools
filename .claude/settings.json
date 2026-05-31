@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"${CLAUDE_TOOL_INPUT_FILE_PATH}\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "condition": "filePath.includes('.env') && !filePath.includes('.env.example')",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[BLOCKED] Editing .env files is disabled to protect credentials' && exit 1"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(pnpm:*)",
+      "Bash(git:*)",
+      "Bash(docker:*)",
+      "Bash(npx:*)"
+    ]
+  }
+}
