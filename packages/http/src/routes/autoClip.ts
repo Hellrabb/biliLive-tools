@@ -85,6 +85,7 @@ const exportDeps: ExportClipByIdDeps = {
   updateStatus: (id: string, status: string) => { autoClipModel.updateStatus(id, status); },
   markExported: (id: string, paths: string[]) => { autoClipModel.markExported(id, paths); },
   incrementRetry: (id: string) => autoClipModel.incrementRetry(id),
+  retryAndReschedule: (id: string) => autoClipModel.retryAndReschedule(id),
 };
 
 // ---------------------------------------------------------------------------

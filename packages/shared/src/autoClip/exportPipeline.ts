@@ -24,6 +24,16 @@ export interface ExportPresetContext {
   danmuConfig?: Record<string, unknown>;
 }
 
+// L4: module-level cache prevents re-importing DI container per call
+let cachedDiContainer: AwilixContainer | undefined;
+
+async function getDiContainer(): Promise<AwilixContainer> {
+  if (!cachedDiContainer) {
+    ({ container: cachedDiContainer } = await import("../index.js"));
+  }
+  return cachedDiContainer;
+}
+
 /**
  * Resolve ffmpeg and danmaku preset configs from the DI container.
  * Shared by service.ts (auto export) and routes/autoClip.ts (manual export).
@@ -34,13 +44,10 @@ export async function resolveExportPresets(exportCfg: {
   danmuPresetId?: string;
 }): Promise<ExportPresetContext> {
   const result: ExportPresetContext = {};
-  let diContainer: AwilixContainer | undefined;
 
   if (exportCfg.ffmpegPresetId) {
     try {
-      if (!diContainer) {
-        ({ container: diContainer } = await import("../index.js"));
-      }
+      const diContainer = await getDiContainer();
       const ffmpegPreset = diContainer.resolve("ffmpegPreset") as {
         get: (id: string) => Promise<{ config?: unknown }>;
       };
@@ -57,9 +64,7 @@ export async function resolveExportPresets(exportCfg: {
     const danmuPresetId = exportCfg.danmuPresetId || "default";
     logger.info(`AutoClip: burnDanmaku=enabled, resolving danmaku preset "${danmuPresetId}"`);
     try {
-      if (!diContainer) {
-        ({ container: diContainer } = await import("../index.js"));
-      }
+      const diContainer = await getDiContainer();
       const danmuPreset = diContainer.resolve("danmuPreset") as {
         get: (id: string) => Promise<{ config?: unknown }>;
         defaultConfig?: Record<string, unknown>;
@@ -133,6 +138,10 @@ export async function exportClips(
       );
       // Wait for task completion (promisify event-based task)
       await new Promise<void>((resolve, reject) => {
+        // L1 fix: check status immediately to avoid missing already-completed tasks
+        if (task.status === "completed") return resolve();
+        if (task.status === "error") return reject(new Error("Danmaku conversion failed"));
+        if (task.status === "canceled") return reject(new Error("Danmaku conversion cancelled"));
         task.on("task-end", () => resolve());
         task.on("task-error", ({ error }: { error: string }) => reject(new Error(error)));
         task.on("task-cancel", () => reject(new Error("Danmaku conversion cancelled")));
@@ -293,13 +302,18 @@ export async function exportClips(
     );
   }
 
-  // Clean up temp ASS file after all clips are exported
+  // Clean up temp ASS file after all clips are exported.
+  // L2: small delay so ffmpeg can release the file handle before unlink.
   if (assPath) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
     try {
       const { unlink } = await import("node:fs/promises");
       await unlink(assPath);
-    } catch {
-      // Best-effort cleanup — temp dir will eventually reclaim
+    } catch (err) {
+      // Ignore ENOENT (already gone), warn on other errors
+      if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+        logger.warn("AutoClip: failed to clean up temp ASS file", err);
+      }
     }
   }
 
@@ -353,10 +367,11 @@ export async function getVideoDuration(
 
 /**
  * Validate and normalize a highlight object from JSON.parse.
- * Patches missing required fields to safe defaults.
- * Returns true if the object has valid bestRange and timeRange.
+ * Returns a new normalized HighlightSegment with defaults patched,
+ * or false if the object has invalid bestRange or timeRange.
+ * Does NOT mutate the input object.
  */
-export function validateAndNormalizeHighlight(h: unknown): h is HighlightSegment {
+export function validateAndNormalizeHighlight(h: unknown): HighlightSegment | false {
   if (!h || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
 
@@ -370,15 +385,18 @@ export function validateAndNormalizeHighlight(h: unknown): h is HighlightSegment
 
   if (!isValidRange("bestRange") || !isValidRange("timeRange")) return false;
 
-  if (typeof obj.score !== "number") (obj as Record<string, unknown>).score = 5;
-  if (typeof obj.title !== "string") (obj as Record<string, unknown>).title = "Untitled";
-  if (!Array.isArray(obj.tags)) (obj as Record<string, unknown>).tags = [];
-  if (typeof obj.highlightType !== "string") (obj as Record<string, unknown>).highlightType = "hype";
-  if (typeof obj.reason !== "string") (obj as Record<string, unknown>).reason = "";
-  if (!Array.isArray(obj.signalSources)) (obj as Record<string, unknown>).signalSources = [];
-  if (typeof obj.isHighlight !== "boolean") (obj as Record<string, unknown>).isHighlight = true;
-
-  return true;
+  // Return new object — do NOT mutate input (M7 fix)
+  return {
+    timeRange: obj.timeRange as HighlightSegment["timeRange"],
+    bestRange: obj.bestRange as HighlightSegment["bestRange"],
+    score: typeof obj.score === "number" ? obj.score : 5,
+    title: typeof obj.title === "string" ? obj.title : "Untitled",
+    tags: Array.isArray(obj.tags) ? (obj.tags as string[]) : [],
+    highlightType: (typeof obj.highlightType === "string" ? obj.highlightType : "hype") as HighlightSegment["highlightType"],
+    reason: typeof obj.reason === "string" ? obj.reason : "",
+    signalSources: Array.isArray(obj.signalSources) ? (obj.signalSources as string[]) : [],
+    isHighlight: typeof obj.isHighlight === "boolean" ? obj.isHighlight : true,
+  };
 }
 
 export interface ExportClipByIdResult {
@@ -397,6 +415,8 @@ export interface ExportClipByIdDeps {
   updateStatus: (id: string, status: string) => void;
   markExported: (id: string, exportedPaths: string[]) => void;
   incrementRetry: (id: string) => boolean;
+  /** H3: Atomically increment retry + set status to "pending" in one SQLite transaction */
+  retryAndReschedule: (id: string) => boolean;
 }
 
 /**
@@ -417,38 +437,36 @@ export async function doExportClips(
   const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
   let exportSignal = signal;
   let exportTimer: ReturnType<typeof setTimeout> | undefined;
-  if (!exportSignal) {
-    const ctrl = new AbortController();
-    exportTimer = setTimeout(() => {
-      ctrl.abort();
-      exportTimer = undefined;
-    }, EXPORT_TIMEOUT_MS);
-    exportSignal = ctrl.signal;
-  }
+  // H1: timer creation moved inside try block to prevent leak on sync throws
 
   const { AUTO_CLIP_DEFAULT_CONFIG } = await import("../presets/autoClipPreset.js");
 
   let exportConfig = AUTO_CLIP_DEFAULT_CONFIG.export;
 
-  async function tryLoadExportConfig(pid: string | null): Promise<boolean> {
+  async function tryLoadExportConfig(pid: string | null, signal?: AbortSignal): Promise<boolean> {
     if (!pid) return false;
+    signal?.throwIfAborted();
     try {
       const p = await deps.getPreset(pid);
       if (p?.config?.export) {
         exportConfig = p.config.export;
         return true;
       }
-    } catch { /* fall through */ }
+    } catch (err) {
+      // Propagate AbortError to caller
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      /* fall through otherwise */
+    }
     return false;
   }
 
-  const loaded = await tryLoadExportConfig(presetId);
+  const loaded = await tryLoadExportConfig(presetId, signal);
 
   if (!loaded) {
     const config = deps.getAppConfig();
     const globalPresetId = config?.videoCut?.autoClipPresetId;
     if (globalPresetId && globalPresetId !== presetId) {
-      await tryLoadExportConfig(globalPresetId);
+      await tryLoadExportConfig(globalPresetId, signal);
     }
   }
 
@@ -466,7 +484,18 @@ export async function doExportClips(
   let errors: string[] = [];
 
   try {
-    const validHighlights = highlights.filter(validateAndNormalizeHighlight);
+    // H1: timer created inside try so finally block can always clean it up
+    if (!exportSignal) {
+      const ctrl = new AbortController();
+      exportTimer = setTimeout(() => {
+        ctrl.abort();
+        exportTimer = undefined;
+      }, EXPORT_TIMEOUT_MS);
+      exportSignal = ctrl.signal;
+    }
+
+    const normalized = highlights.map((h) => validateAndNormalizeHighlight(h));
+    const validHighlights = normalized.filter((h): h is HighlightSegment => h !== false);
     const skipped = highlights.length - validHighlights.length;
     if (skipped > 0) {
       logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
@@ -504,9 +533,7 @@ export async function doExportClips(
     if (exportedPaths.length > 0) {
       deps.markExported(resultId, exportedPaths);
     } else {
-      if (deps.incrementRetry(resultId)) {
-        deps.updateStatus(resultId, "pending");
-      }
+      deps.retryAndReschedule(resultId);
     }
 
     return {
@@ -521,9 +548,7 @@ export async function doExportClips(
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`${logPrefix}: exportClips threw:`, err);
 
-    if (deps.incrementRetry(resultId)) {
-      deps.updateStatus(resultId, "pending");
-    }
+    deps.retryAndReschedule(resultId);
 
     return {
       status: "failed",
