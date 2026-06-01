@@ -130,12 +130,45 @@
 import { computed, onMounted, ref, watch, nextTick } from "vue";
 import { NEmpty, NText, NCard, NDescriptions, NDescriptionsItem, NTag, NSpace } from "naive-ui";
 
-interface ClipWithEvidence {
-  evidence?: Record<string, unknown> | null;
+interface DanmakuItem {
+  timeOffset: number;
+  text: string;
+  user?: string;
+}
+
+interface DensityPoint {
+  timeOffset: number;
+  count: number;
+  density: number;
+}
+
+interface EvidenceData {
+  danmakuDensityCurve: DensityPoint[];
+  triggerDanmaku: DanmakuItem[];
+  signalDetails: {
+    actualDensity: number;
+    threshold?: number;
+    sources: string[];
+    mergedWindows?: Array<{ start: number; end: number }>;
+  };
+  boundaryRefinements: Array<{
+    originalStart: number;
+    originalEnd: number;
+    refinedStart: number;
+    refinedEnd: number;
+    reason?: string;
+  }>;
+  llmScores: Array<{
+    score: number;
+    highlightType: string;
+    reason: string;
+    tags: string[];
+    isHighlight: boolean;
+  }>;
 }
 
 const props = defineProps<{
-  clip: ClipWithEvidence | null;
+  clip: { evidence?: EvidenceData | null } | null;
 }>();
 
 const chartCanvas = ref<HTMLCanvasElement | null>(null);
@@ -143,7 +176,7 @@ const chartCanvas = ref<HTMLCanvasElement | null>(null);
 const evidence = computed(() => props.clip?.evidence ?? null);
 
 const hasDensityData = computed(() => {
-  const curve = evidence.value?.danmakuDensityCurve as Array<Record<string, number>> | undefined;
+  const curve = evidence.value?.danmakuDensityCurve;
   return curve && curve.length > 0;
 });
 
@@ -157,13 +190,7 @@ function drawChart(): void {
   const canvas = chartCanvas.value;
   if (!canvas) return;
 
-  const curve = evidence.value?.danmakuDensityCurve as
-    | Array<{
-        timeOffset: number;
-        count: number;
-        density: number;
-      }>
-    | undefined;
+  const curve = evidence.value?.danmakuDensityCurve;
 
   if (!curve || curve.length === 0) return;
 
