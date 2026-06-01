@@ -34,7 +34,5 @@ export function sanitizeForPrompt(text: string): string {
  * Sanitize a list of danmaku text strings for LLM prompt insertion.
  */
 export function sanitizeDanmakuList(texts: string[]): string[] {
-  return texts
-    .map((t) => sanitizeForPrompt(t))
-    .filter((t) => t.length > 0);
+  return texts.map((t) => sanitizeForPrompt(t)).filter((t) => t.length > 0);
 }

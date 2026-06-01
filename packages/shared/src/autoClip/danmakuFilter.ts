@@ -73,7 +73,12 @@ export function detectSuspicious(
   if (entries.length === 0) return [];
 
   // Similarity clustering using Dice coefficient
-  interface Cluster { texts: string[]; bestText: string; totalCount: number; similarities: number[] }
+  interface Cluster {
+    texts: string[];
+    bestText: string;
+    totalCount: number;
+    similarities: number[];
+  }
   const clusters: Cluster[] = [];
   const assigned = new Set<string>();
 
@@ -85,7 +90,9 @@ export function detectSuspicious(
     for (let i = 0; i < b.length - 1; i++) bGrams.add(b.slice(i, i + 2));
     if (aGrams.size === 0 && bGrams.size === 0) return 1.0;
     let overlap = 0;
-    for (const g of aGrams) { if (bGrams.has(g)) overlap++; }
+    for (const g of aGrams) {
+      if (bGrams.has(g)) overlap++;
+    }
     return (2 * overlap) / (aGrams.size + bGrams.size);
   }
 
@@ -126,9 +133,10 @@ export function detectSuspicious(
     .map((c) => ({
       text: c.bestText,
       count: c.totalCount,
-      similarity: c.similarities.length > 0
-        ? c.similarities.reduce((a, b) => a + b, 0) / c.similarities.length
-        : 1.0,
+      similarity:
+        c.similarities.length > 0
+          ? c.similarities.reduce((a, b) => a + b, 0) / c.similarities.length
+          : 1.0,
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, opts.topK);
@@ -166,7 +174,9 @@ export function applyFilter<T extends { text?: string }>(
       case "regex": {
         const pattern = rule.pattern;
         if (pattern.length > MAX_REGEX_PATTERN_LENGTH) {
-          logger.warn(`AutoClip: regex pattern too long (${pattern.length} chars), skipping rule ${rule.id}`);
+          logger.warn(
+            `AutoClip: regex pattern too long (${pattern.length} chars), skipping rule ${rule.id}`,
+          );
           continue;
         }
         // Reject patterns with nested quantifiers — common ReDoS vector
@@ -269,7 +279,10 @@ export async function llmReviewPatterns(
 
   const buildPrompt = (batch: SuspiciousPattern[], offset: number) => {
     const list = batch
-      .map((p, i) => `${offset + i + 1}. "${sanitizeForPrompt(p.text)}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`)
+      .map(
+        (p, i) =>
+          `${offset + i + 1}. "${sanitizeForPrompt(p.text)}" (count=${p.count}, similarity=${p.similarity.toFixed(2)})`,
+      )
       .join("\n");
 
     return `You are a danmaku spam classifier. Determine if each danmaku pattern is lottery spam (抽奖广告垃圾弹幕) or legitimate audience engagement (正常观众互动).
@@ -300,7 +313,9 @@ Return ONLY valid JSON (no markdown, no extra text):
       const prompt = buildPrompt(batch, offset);
       const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
 
-      const parsedJson = extractAndParseJSON<{ results?: Array<{ index: number; verdict: string; reason: string }> }>(raw);
+      const parsedJson = extractAndParseJSON<{
+        results?: Array<{ index: number; verdict: string; reason: string }>;
+      }>(raw);
       if (parsedJson && Array.isArray(parsedJson.results)) {
         parsed.push(...parsedJson.results);
       }
@@ -309,9 +324,14 @@ Return ONLY valid JSON (no markdown, no extra text):
   } catch (err) {
     const isTimeout = err instanceof Error && err.message === "LLM request timeout";
     if (isTimeout) {
-      logger.warn("AutoClip: LLM review of suspicious patterns timed out, using statistical fallback");
+      logger.warn(
+        "AutoClip: LLM review of suspicious patterns timed out, using statistical fallback",
+      );
     } else {
-      logger.warn("AutoClip: LLM review of suspicious patterns failed, using statistical fallback", err);
+      logger.warn(
+        "AutoClip: LLM review of suspicious patterns failed, using statistical fallback",
+        err,
+      );
     }
   }
 

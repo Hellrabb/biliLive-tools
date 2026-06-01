@@ -30,11 +30,7 @@ export function buildDanmuStatsMock(
 /**
  * Create a simple DanmuItem (text type) at a given second offset.
  */
-export function makeDanmu(
-  timestamp: number,
-  text: string,
-  user?: string,
-): DanmuItem {
+export function makeDanmu(timestamp: number, text: string, user?: string): DanmuItem {
   return {
     text,
     ts: timestamp * 1000,

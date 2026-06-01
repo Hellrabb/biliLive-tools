@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  sanitizeForPrompt,
-  sanitizeDanmakuList,
-} from "../../src/autoClip/promptSanitizer";
+import { sanitizeForPrompt, sanitizeDanmakuList } from "../../src/autoClip/promptSanitizer";
 
 // ============================================================================
 // sanitizeForPrompt
@@ -80,21 +77,15 @@ describe("sanitizeForPrompt", () => {
   });
 
   it("neutralizes nested curly braces", () => {
-    expect(sanitizeForPrompt("{outer {inner} outer}")).toBe(
-      "｛outer ｛inner｝ outer｝",
-    );
+    expect(sanitizeForPrompt("{outer {inner} outer}")).toBe("｛outer ｛inner｝ outer｝");
   });
 
   it("neutralizes JSON-template style curly braces", () => {
-    expect(sanitizeForPrompt('{"key": "value"}')).toBe(
-      "｛\"key\": \"value\"｝",
-    );
+    expect(sanitizeForPrompt('{"key": "value"}')).toBe('｛"key": "value"｝');
   });
 
   it("passes through Unicode emoji unchanged", () => {
-    expect(sanitizeForPrompt("🔥 amazing stream 🎉")).toBe(
-      "🔥 amazing stream 🎉",
-    );
+    expect(sanitizeForPrompt("🔥 amazing stream 🎉")).toBe("🔥 amazing stream 🎉");
   });
 
   it("passes through Chinese characters unchanged", () => {
@@ -168,15 +159,7 @@ describe("sanitizeDanmakuList", () => {
   });
 
   it("handles a mix of valid and invalid entries", () => {
-    const input = [
-      "hello",
-      "",
-      "   ",
-      "world\x00!",
-      "{inject}",
-      "\x1b escaped",
-      "🔥🔥🔥",
-    ];
+    const input = ["hello", "", "   ", "world\x00!", "{inject}", "\x1b escaped", "🔥🔥🔥"];
     const result = sanitizeDanmakuList(input);
     expect(result).toEqual([
       "hello",

@@ -20,7 +20,8 @@ export function sendWithTimeout(
   prompt: string,
   options?: number | { timeoutMs?: number; externalSignal?: AbortSignal },
 ): Promise<string> {
-  const timeoutMs = typeof options === "number" ? options : (options?.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS);
+  const timeoutMs =
+    typeof options === "number" ? options : (options?.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS);
   const externalSignal = typeof options === "object" ? options?.externalSignal : undefined;
 
   // Fast path: external signal already aborted

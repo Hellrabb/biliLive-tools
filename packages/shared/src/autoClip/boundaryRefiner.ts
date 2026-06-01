@@ -1,4 +1,10 @@
-import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment, BoundaryRefineResult } from "./types.js";
+import type {
+  HighlightSegment,
+  BoundaryRefineConfig,
+  BoundaryAdjustment,
+  BoundaryRefineResult,
+  BoundaryRefinement,
+} from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import { MAX_ASR_CHARS_PER_CLIP, MAX_FRAME_CHARS_PER_CLIP } from "./constants.js";
 import logger from "../utils/log.js";
@@ -11,14 +17,15 @@ export async function refineBoundaries(
   config: BoundaryRefineConfig,
   videoDuration: number,
   signal?: AbortSignal,
-): Promise<HighlightSegment[]> {
-  if (highlights.length === 0) return highlights;
+): Promise<{ highlights: HighlightSegment[]; refinements: BoundaryRefinement[] }> {
+  const emptyResult = { highlights, refinements: [] as BoundaryRefinement[] };
+  if (highlights.length === 0) return emptyResult;
 
   const hasASR = asrMap.size > 0;
   const hasFrames = frameMap.size > 0;
   if (!hasASR && !hasFrames) {
     logger.info("boundaryRefiner: no ASR or frame data, skipping");
-    return highlights;
+    return emptyResult;
   }
 
   const maxAdjustSec = config.maxAdjustSec ?? 30;
@@ -26,33 +33,61 @@ export async function refineBoundaries(
   const contextWindowSec = config.contextWindowSec ?? 60;
 
   const systemPrompt = buildSystemPrompt(maxAdjustSec, hasASR, hasFrames);
-  const userPrompt = buildUserPrompt(highlights, asrMap, frameMap, maxAdjustSec, contextWindowSec, videoDuration);
+  const userPrompt = buildUserPrompt(
+    highlights,
+    asrMap,
+    frameMap,
+    maxAdjustSec,
+    contextWindowSec,
+    videoDuration,
+  );
 
   let response: string;
   try {
     response = await sendMessage(`System: ${systemPrompt}\n\nUser: ${userPrompt}`, signal);
   } catch (err) {
     logger.warn("boundaryRefiner: LLM call failed, keeping original boundaries", err);
-    return highlights;
+    return emptyResult;
   }
 
-  const adjustments = parseRefineResponse(response, highlights.length);
-  if (!adjustments) return highlights;
+  // Save original boundaries for refinement records
+  const originals = highlights.map((h) => ({
+    start: h.timeRange[0],
+    end: h.timeRange[1],
+  }));
 
-  return applyBoundaryAdjustments(highlights, adjustments, maxAdjustSec, minClipDuration, videoDuration);
+  const adjustments = parseRefineResponse(response, highlights.length);
+  if (!adjustments) return emptyResult;
+
+  const refined = applyBoundaryAdjustments(
+    highlights,
+    adjustments,
+    maxAdjustSec,
+    minClipDuration,
+    videoDuration,
+  );
+
+  // Build refinement records: compare original vs refined boundaries
+  const refinements: BoundaryRefinement[] = refined.map((h, i) => {
+    const orig = originals[i]!;
+    return {
+      originalStart: orig.start,
+      originalEnd: orig.end,
+      refinedStart: h.timeRange[0],
+      refinedEnd: h.timeRange[1],
+      reason: adjustments
+        .filter((a) => a.highlightIndex === i)
+        .map((a) => [a.startReason, a.endReason].filter(Boolean).join("; "))
+        .join(" | "),
+    };
+  });
+
+  return { highlights: refined, refinements };
 }
 
-function buildSystemPrompt(
-  maxAdjustSec: number,
-  hasASR: boolean,
-  hasFrames: boolean,
-): string {
-  const asrClause = hasASR
-    ? "- 根据语音转文字（ASR）判断对话是否在完整句子处结束"
-    : "";
-  const frameClause = hasFrames
-    ? "- 根据关键帧描述判断是否有场景切换、动作收尾"
-    : "";
+function buildSystemPrompt(maxAdjustSec: number, hasASR: boolean, hasFrames: boolean): string {
+  const asrClause = hasASR ? "- 根据语音转文字（ASR）判断对话是否在完整句子处结束" : "";
+  const frameClause = hasFrames ? "- 根据关键帧描述判断是否有场景切换、动作收尾" : "";
 
   return `你是一个专业的视频剪辑师。你需要根据以下信息判断高光片段的起止边界是否合理，并给出调整建议。
 
@@ -103,9 +138,10 @@ function buildUserPrompt(
     const asrText = asrMap.get(i);
     if (asrText) {
       parts.push("--- 语音转文字 (ASR) ---");
-      const truncated = asrText.length > MAX_ASR_CHARS_PER_CLIP
-        ? asrText.slice(0, MAX_ASR_CHARS_PER_CLIP) + "..."
-        : asrText;
+      const truncated =
+        asrText.length > MAX_ASR_CHARS_PER_CLIP
+          ? asrText.slice(0, MAX_ASR_CHARS_PER_CLIP) + "..."
+          : asrText;
       parts.push(truncated);
       parts.push("");
     }
@@ -113,9 +149,10 @@ function buildUserPrompt(
     const frames = frameMap.get(i);
     if (frames) {
       parts.push("--- 关键帧描述 ---");
-      const truncated = frames.length > MAX_FRAME_CHARS_PER_CLIP
-        ? frames.slice(0, MAX_FRAME_CHARS_PER_CLIP) + "..."
-        : frames;
+      const truncated =
+        frames.length > MAX_FRAME_CHARS_PER_CLIP
+          ? frames.slice(0, MAX_FRAME_CHARS_PER_CLIP) + "..."
+          : frames;
       parts.push(truncated);
       parts.push("");
     }
@@ -133,10 +170,7 @@ function formatTime(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function parseRefineResponse(
-  raw: string,
-  expectedCount: number,
-): BoundaryAdjustment[] | null {
+function parseRefineResponse(raw: string, expectedCount: number): BoundaryAdjustment[] | null {
   const parsed = extractAndParseJSON<BoundaryRefineResult>(raw);
   if (!parsed || !Array.isArray(parsed.adjustments)) {
     logger.warn("boundaryRefiner: failed to parse LLM response", { raw: raw.slice(0, 200) });
@@ -195,7 +229,9 @@ function applyBoundaryAdjustments(
 
     // Constraint 3: min clip duration
     if (newEnd - newStart < minClipDuration) {
-      logger.info(`boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`);
+      logger.info(
+        `boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`,
+      );
       continue;
     }
 
@@ -211,9 +247,7 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-function resolveOverlaps(
-  highlights: HighlightSegment[],
-): HighlightSegment[] {
+function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
   const working = highlights.map((h) => ({
     ...h,
     timeRange: [...h.timeRange] as [number, number],

@@ -35,7 +35,9 @@ export async function buildSendMessage(
 
   const vendor = aiConfig.vendors.find((v) => v.id === model.vendorId);
   if (!vendor) {
-    logger.warn(`AutoClip: vendor "${model.vendorId}" not found for model "${llmCfg.modelId}", LLM ranking disabled`);
+    logger.warn(
+      `AutoClip: vendor "${model.vendorId}" not found for model "${llmCfg.modelId}", LLM ranking disabled`,
+    );
     return undefined;
   }
 

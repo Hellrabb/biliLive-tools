@@ -53,12 +53,10 @@ describe("validateAndNormalizeHighlight", () => {
   it("returns false when bestRange is missing or invalid", () => {
     expect(validateAndNormalizeHighlight({ timeRange: [0, 60] })).toBe(false);
     expect(validateAndNormalizeHighlight({ timeRange: [0, 60], bestRange: [0] })).toBe(false);
-    expect(
-      validateAndNormalizeHighlight({ timeRange: [0, 60], bestRange: [NaN, 60] }),
-    ).toBe(false);
-    expect(
-      validateAndNormalizeHighlight({ timeRange: [0, 60], bestRange: [0, Infinity] }),
-    ).toBe(false);
+    expect(validateAndNormalizeHighlight({ timeRange: [0, 60], bestRange: [NaN, 60] })).toBe(false);
+    expect(validateAndNormalizeHighlight({ timeRange: [0, 60], bestRange: [0, Infinity] })).toBe(
+      false,
+    );
   });
 
   it("returns false when timeRange is missing", () => {
@@ -140,9 +138,7 @@ describe("validateAndNormalizeHighlight", () => {
 
 describe("resolveSavePath", () => {
   it("uses exportConfig.savePath when provided", () => {
-    expect(resolveSavePath({ savePath: "/custom/save" }, "/video/test.mp4")).toBe(
-      "/custom/save",
-    );
+    expect(resolveSavePath({ savePath: "/custom/save" }, "/video/test.mp4")).toBe("/custom/save");
   });
 
   it("falls back to video directory when savePath is empty string", () => {

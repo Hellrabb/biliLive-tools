@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { detectSuspicious, applyFilter, llmReviewPatterns } from "../../src/autoClip/danmakuFilter.js";
+import {
+  detectSuspicious,
+  applyFilter,
+  llmReviewPatterns,
+} from "../../src/autoClip/danmakuFilter.js";
 
 describe("danmakuFilter integration", () => {
   it("full flow: detect → LLM review → apply", async () => {
@@ -29,7 +33,9 @@ describe("danmakuFilter integration", () => {
     };
     const reviewResult = await llmReviewPatterns(patterns, mockSendMessage);
     expect(reviewResult.newRules.length).toBeGreaterThanOrEqual(1);
-    expect(reviewResult.patterns.every((p) => p.verdict === "spam" || p.verdict === "not_spam")).toBe(true);
+    expect(
+      reviewResult.patterns.every((p) => p.verdict === "spam" || p.verdict === "not_spam"),
+    ).toBe(true);
 
     // Step 3: apply filter with auto-generated rules
     const filterConfig = {

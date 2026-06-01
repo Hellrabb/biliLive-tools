@@ -68,10 +68,7 @@ const VALID_HIGHLIGHT_TYPES = new Set([
  * Build an LLM prompt from a candidate context, replacing template placeholders
  * with actual values.
  */
-export function buildLLMPrompt(
-  ctx: ClipCandidateContext,
-  template?: string,
-): string {
+export function buildLLMPrompt(ctx: ClipCandidateContext, template?: string): string {
   const tpl = template ?? DEFAULT_PROMPT_TEMPLATE;
 
   const scRecords =
@@ -93,7 +90,9 @@ export function buildLLMPrompt(
 
   const danmaku =
     ctx.danmakuSamples.length > 0
-      ? sanitizeDanmakuList(ctx.danmakuSamples).map((d, i) => `${i + 1}. ${d}`).join("\n")
+      ? sanitizeDanmakuList(ctx.danmakuSamples)
+          .map((d, i) => `${i + 1}. ${d}`)
+          .join("\n")
       : "(none)";
 
   return tpl
@@ -149,9 +148,8 @@ export function parseLLMResponse(raw: string, window: TimeWindow): LLMRankResult
     if (typeof parsed.isHighlight === "boolean") {
       isHighlight = parsed.isHighlight;
     } else {
-      const inferredType = typeof parsed.highlightType === "string"
-        ? parsed.highlightType.trim().toLowerCase()
-        : "";
+      const inferredType =
+        typeof parsed.highlightType === "string" ? parsed.highlightType.trim().toLowerCase() : "";
       isHighlight = score >= 3 && inferredType !== "not_highlight";
     }
 
@@ -292,9 +290,7 @@ function buildCandidateContext(
   const [start, end] = candidate.timeRange;
 
   // Danmaku samples from this window (truncated to maxSamples)
-  const danmakuSamples = candidate.danmakuSample
-    .slice(0, maxSamples)
-    .map((d) => d.text);
+  const danmakuSamples = candidate.danmakuSample.slice(0, maxSamples).map((d) => d.text);
 
   // Surrounding context from raw danmaku timeline (NOT from other candidates)
   const beforeTexts: string[] = [];
@@ -374,12 +370,12 @@ export async function rankCandidates(
   // Step 3: send to LLM with concurrency limit, timeout, and error isolation
   const limit = pLimit(LLM_CONCURRENCY);
 
-  const prompts = contexts.map((ctx) =>
-    buildLLMPrompt(ctx, config.promptTemplate),
-  );
+  const prompts = contexts.map((ctx) => buildLLMPrompt(ctx, config.promptTemplate));
 
   const rawResults = await Promise.allSettled(
-    prompts.map((prompt) => limit(() => sendWithTimeout(sendMessage, prompt, { externalSignal: signal }))),
+    prompts.map((prompt) =>
+      limit(() => sendWithTimeout(sendMessage, prompt, { externalSignal: signal })),
+    ),
   );
 
   // Step 4: parse responses — fulfilled → parse, rejected → heuristic fallback
@@ -397,7 +393,10 @@ export async function rankCandidates(
       // LLM call failed — use heuristic fallback score with configured weights
       logger.warn(`AutoClip LLM call failed for candidate ${i}: ${outcome.reason}`);
       const heuristicWeights = config.heuristicWeights ?? {};
-      const heuristicScore = Math.max(0, Math.min(10, computeHeuristicScore(candidate.stats, heuristicWeights)));
+      const heuristicScore = Math.max(
+        0,
+        Math.min(10, computeHeuristicScore(candidate.stats, heuristicWeights)),
+      );
       const highlightThreshold = config.heuristicWeights?.highlightThreshold ?? 3;
       results.push({
         candidate,

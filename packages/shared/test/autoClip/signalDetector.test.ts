@@ -50,7 +50,7 @@ describe("detectDanmakuDensityPeaks", () => {
   it("returns empty result for flat / uniform danmaku distribution", () => {
     const config = defaultConfig({ bucketSec: 10 });
     const items = generateUniformDanmaku(100, 100); // 1 danmaku/sec flat
-    const result = detectDanmakuDensityPeaks(items, 100, config);
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks(items, 100, config);
     expect(result).toEqual([]);
   });
 
@@ -64,14 +64,12 @@ describe("detectDanmakuDensityPeaks", () => {
     const cluster = generateDanmakuCluster(80, 60, 10);
 
     const items = [...background, ...cluster];
-    const result = detectDanmakuDensityPeaks(items, duration, config);
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks(items, duration, config);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
 
     // The detected window should cover the cluster region (55-65 raw + padding)
-    const hasWindowNear = result.some(
-      (w) => w[0] <= 60 && w[1] >= 60,
-    );
+    const hasWindowNear = result.some((w) => w[0] <= 60 && w[1] >= 60);
     expect(hasWindowNear).toBe(true);
   });
 
@@ -84,18 +82,18 @@ describe("detectDanmakuDensityPeaks", () => {
     const cluster2 = generateDanmakuCluster(50, 140, 8);
 
     const items = [...background, ...cluster1, ...cluster2];
-    const result = detectDanmakuDensityPeaks(items, duration, config);
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks(items, duration, config);
 
     expect(result.length).toBeGreaterThanOrEqual(2);
   });
 
   it("handles empty items", () => {
-    const result = detectDanmakuDensityPeaks([], 100, defaultConfig());
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks([], 100, defaultConfig());
     expect(result).toEqual([]);
   });
 
   it("handles zero duration", () => {
-    const result = detectDanmakuDensityPeaks(
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks(
       [makeDanmu(0, "hello")],
       0,
       defaultConfig(),
@@ -114,7 +112,7 @@ describe("detectDanmakuDensityPeaks", () => {
     // Create a tight cluster at 50-55s
     const cluster = generateDanmakuCluster(100, 52, 4);
     const items = cluster;
-    const result = detectDanmakuDensityPeaks(items, duration, config);
+    const { windows: result, buckets: _b } = detectDanmakuDensityPeaks(items, duration, config);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
     // With padding 15s, the raw window around 50-55 should be expanded by 15 on each side
@@ -166,11 +164,7 @@ describe("detectSCBursts", () => {
 
   it("does not detect SCs spread beyond the burst window", () => {
     const config = defaultConfig({ scMinAmount: 30, giftBurstWindowSec: 10 });
-    const scs: SC[] = [
-      makeSC(0, 10),
-      makeSC(20, 10),
-      makeSC(40, 10),
-    ];
+    const scs: SC[] = [makeSC(0, 10), makeSC(20, 10), makeSC(40, 10)];
     const result = detectSCBursts(scs, config);
     expect(result).toEqual([]);
   });
@@ -198,9 +192,7 @@ describe("detectSCBursts", () => {
 describe("detectGiftBursts", () => {
   it("detects 15 gifts within 30s", () => {
     const config = defaultConfig({ giftBurstThreshold: 10, giftBurstWindowSec: 30 });
-    const gifts: Gift[] = Array.from({ length: 15 }, (_, i) =>
-      makeGift(50 + i * 2),
-    );
+    const gifts: Gift[] = Array.from({ length: 15 }, (_, i) => makeGift(50 + i * 2));
     const result = detectGiftBursts(gifts, config);
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0]![0]).toBeLessThanOrEqual(50);
@@ -209,9 +201,7 @@ describe("detectGiftBursts", () => {
 
   it("returns empty when gift count is below threshold", () => {
     const config = defaultConfig({ giftBurstThreshold: 10, giftBurstWindowSec: 30 });
-    const gifts: Gift[] = Array.from({ length: 5 }, (_, i) =>
-      makeGift(50 + i * 2),
-    );
+    const gifts: Gift[] = Array.from({ length: 5 }, (_, i) => makeGift(50 + i * 2));
     const result = detectGiftBursts(gifts, config);
     expect(result).toEqual([]);
   });
@@ -230,9 +220,7 @@ describe("detectGiftBursts", () => {
 
   it("does not detect gifts spread beyond window", () => {
     const config = defaultConfig({ giftBurstThreshold: 10, giftBurstWindowSec: 10 });
-    const gifts: Gift[] = Array.from({ length: 15 }, (_, i) =>
-      makeGift(i * 5),
-    );
+    const gifts: Gift[] = Array.from({ length: 15 }, (_, i) => makeGift(i * 5));
     const result = detectGiftBursts(gifts, config);
     expect(result).toEqual([]);
   });
@@ -257,10 +245,7 @@ describe("detectBrushStorms", () => {
   it("returns empty for random distinct items", () => {
     const config = defaultConfig({ brushSimilarityThreshold: 0.8 });
     const items: DanmuItem[] = Array.from({ length: 30 }, (_, i) =>
-      makeDanmu(
-        10 + i * 0.3,
-        `distinct_message_${i}_${Math.random().toString(36).slice(2, 10)}`,
-      ),
+      makeDanmu(10 + i * 0.3, `distinct_message_${i}_${Math.random().toString(36).slice(2, 10)}`),
     );
     const result = detectBrushStorms(items, config);
     expect(result).toEqual([]);
@@ -287,8 +272,7 @@ describe("detectBrushStorms", () => {
     const config = defaultConfig({ brushSimilarityThreshold: 0.7 });
     const items: DanmuItem[] = [
       makeDanmu(5, "unique msg A"),
-      ...Array.from({ length: 30 }, (_, i) =>
-        makeDanmu(10 + i * 0.2, "bravo bravo")),
+      ...Array.from({ length: 30 }, (_, i) => makeDanmu(10 + i * 0.2, "bravo bravo")),
       makeDanmu(17, "unique msg B"),
     ];
     const result = detectBrushStorms(items, config);
@@ -405,7 +389,7 @@ describe("detectSignals", () => {
 
   it("returns empty result for empty danmu/sc/gift", () => {
     const stats = buildDanmuStatsMock([], [], [], [], 100);
-    const result = detectSignals(stats, config);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, config);
     expect(result).toEqual([]);
   });
 
@@ -438,7 +422,7 @@ describe("detectSignals", () => {
     const allDanmu = [...bgDanmu, ...clusterDanmu, ...brushDanmu];
 
     const stats = buildDanmuStatsMock(allDanmu, scs, gifts, [], duration);
-    const result = detectSignals(stats, config);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, config);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
 
@@ -462,7 +446,7 @@ describe("detectSignals", () => {
     const duration = 100;
     const items = generateDanmakuCluster(100, 50, 20, "测试弹幕");
     const stats = buildDanmuStatsMock(items, [], [], [], duration);
-    const result = detectSignals(stats, config);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, config);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
     const candidate = result[0]!;
@@ -485,7 +469,7 @@ describe("detectSignals", () => {
       makeSC(42, 20, "sc_user2", "Awesome!"),
     ];
     const stats = buildDanmuStatsMock([], scs, [], [], duration);
-    const result = detectSignals(stats, scConfig);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, scConfig);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
     const candidate = result[0]!;
@@ -505,13 +489,11 @@ describe("detectSignals", () => {
     // Create enough density for detection
     const cluster = generateDanmakuCluster(50, 15, 10, "fill");
     const stats = buildDanmuStatsMock([...items, ...cluster], [], [], [], duration);
-    const result = detectSignals(stats, config);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, config);
 
     expect(result.length).toBeGreaterThanOrEqual(1);
     // Find the candidate that covers our items
-    const relevant = result.find(
-      (c) => c.timeRange[0] <= 10 && c.timeRange[1] >= 16,
-    );
+    const relevant = result.find((c) => c.timeRange[0] <= 10 && c.timeRange[1] >= 16);
     if (relevant) {
       // Users from the cluster items are mostly undefined, so uniqueUsers >= 3
       expect(relevant.stats.uniqueUsers).toBeGreaterThanOrEqual(3);
@@ -534,7 +516,7 @@ describe("detectSignals", () => {
       },
     ];
     const stats = buildDanmuStatsMock([], scs, [], [], 200);
-    const result = detectSignals(stats, noTsConfig);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, noTsConfig);
     expect(result.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -563,14 +545,12 @@ describe("brush storm downsampling", () => {
     const bg = generateUniformDanmaku(50, 600);
     const allDanmu = [...cluster, ...bg];
     const stats = buildDanmuStatsMock(allDanmu, [], [], [], 600);
-    const result = detectSignals(stats, config);
+    const { candidates: result, densityBuckets: _buckets } = detectSignals(stats, config);
     // Must detect at least one candidate from the dense cluster.
     expect(result.length).toBeGreaterThan(0);
     // At least one candidate should have brushStorm as a signal source
     // since the cluster items all share the same text.
-    const withBrush = result.filter((c) =>
-      c.signalSources.includes("brushStorm"),
-    );
+    const withBrush = result.filter((c) => c.signalSources.includes("brushStorm"));
     expect(withBrush.length).toBeGreaterThan(0);
     // Danmaku sample should be populated for LLM ranking.
     const candidate = result[0]!;
@@ -583,7 +563,11 @@ describe("brush storm downsampling", () => {
   // ============================================================================
 
   it("should not mutate input window tuples", () => {
-    const input: TimeWindow[] = [[10, 20], [15, 30], [100, 120]];
+    const input: TimeWindow[] = [
+      [10, 20],
+      [15, 30],
+      [100, 120],
+    ];
     const snapshot = input.map((w) => [...w]);
 
     mergeTimeWindows(input, 5);
@@ -594,9 +578,16 @@ describe("brush storm downsampling", () => {
   });
 
   it("should still produce correct merged result", () => {
-    const input: TimeWindow[] = [[10, 20], [15, 30], [40, 50]];
+    const input: TimeWindow[] = [
+      [10, 20],
+      [15, 30],
+      [40, 50],
+    ];
     const result = mergeTimeWindows(input, 5);
-    expect(result).toEqual([[10, 30], [40, 50]]);
+    expect(result).toEqual([
+      [10, 30],
+      [40, 50],
+    ]);
   });
 
   // ============================================================================
@@ -665,14 +656,14 @@ describe("brush storm downsampling", () => {
     // Every 3rd item is '666666' (~33%), rest are varying 'lolN'.
     const refItems: DanmuItem[] = [];
     for (let i = 0; i < 60; i++) {
-      refItems.push(makeDanmu(i * 0.15, i % 3 === 0 ? '666666' : 'lol' + i));
+      refItems.push(makeDanmu(i * 0.15, i % 3 === 0 ? "666666" : "lol" + i));
     }
     const refResult = detectBrushStorms(refItems, config);
 
     // Downsampled: 200 items (over MAX_BRUSH_SAMPLE), same distribution.
     const dsItems: DanmuItem[] = [];
     for (let i = 0; i < 200; i++) {
-      dsItems.push(makeDanmu(i * 0.05, i % 3 === 0 ? '666666' : 'lol' + i));
+      dsItems.push(makeDanmu(i * 0.05, i % 3 === 0 ? "666666" : "lol" + i));
     }
     const dsResult = detectBrushStorms(dsItems, config);
 
