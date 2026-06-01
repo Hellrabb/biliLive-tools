@@ -49,9 +49,9 @@ describe("sendWithTimeout (real timers)", () => {
       return Promise.reject(new Error("Network failure"));
     });
 
-    await expect(
-      sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 }),
-    ).rejects.toThrow("Network failure");
+    await expect(sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 })).rejects.toThrow(
+      "Network failure",
+    );
   });
 
   it("passes through AbortError when not caused by internal controller", async () => {
@@ -62,19 +62,17 @@ describe("sendWithTimeout (real timers)", () => {
     });
 
     // Signal is NOT aborted here, so the error passes through unchanged
-    await expect(
-      sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 }),
-    ).rejects.toThrow("The operation was aborted");
+    await expect(sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 })).rejects.toThrow(
+      "The operation was aborted",
+    );
   });
 
   it("passes internal AbortSignal to sendMessage", async () => {
     let capturedSignal: AbortSignal | undefined;
-    const sendMessage = vi.fn().mockImplementation(
-      (_prompt: string, signal?: AbortSignal) => {
-        capturedSignal = signal;
-        return Promise.resolve("ok");
-      },
-    );
+    const sendMessage = vi.fn().mockImplementation((_prompt: string, signal?: AbortSignal) => {
+      capturedSignal = signal;
+      return Promise.resolve("ok");
+    });
 
     const result = await sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 5000 });
 
@@ -86,9 +84,10 @@ describe("sendWithTimeout (real timers)", () => {
   it("rejects with abort error when external signal fires", async () => {
     const externalController = new AbortController();
     const sendMessage = vi.fn().mockImplementation(
-      () => new Promise<string>(() => {
-        // never resolves
-      }),
+      () =>
+        new Promise<string>(() => {
+          // never resolves
+        }),
     );
 
     const promise = sendWithTimeout(sendMessage, "test prompt", {
@@ -119,9 +118,10 @@ describe("sendWithTimeout (fake timers)", () => {
 
   it("rejects with timeout error when call exceeds timeout", async () => {
     const sendMessage = vi.fn().mockImplementation(
-      () => new Promise<string>(() => {
-        // never resolves
-      }),
+      () =>
+        new Promise<string>(() => {
+          // never resolves
+        }),
     );
 
     const promise = sendWithTimeout(sendMessage, "test prompt", { timeoutMs: 100 });
@@ -135,9 +135,10 @@ describe("sendWithTimeout (fake timers)", () => {
   it("cleans up timer when external signal fires before timeout", async () => {
     const externalController = new AbortController();
     const sendMessage = vi.fn().mockImplementation(
-      () => new Promise<string>(() => {
-        // never resolves
-      }),
+      () =>
+        new Promise<string>(() => {
+          // never resolves
+        }),
     );
 
     const promise = sendWithTimeout(sendMessage, "test prompt", {
@@ -160,9 +161,10 @@ describe("sendWithTimeout (fake timers)", () => {
   it("only settles once when both timeout and external signal fire near-simultaneously", async () => {
     const externalController = new AbortController();
     const sendMessage = vi.fn().mockImplementation(
-      () => new Promise<string>(() => {
-        // never resolves
-      }),
+      () =>
+        new Promise<string>(() => {
+          // never resolves
+        }),
     );
 
     const promise = sendWithTimeout(sendMessage, "test prompt", {

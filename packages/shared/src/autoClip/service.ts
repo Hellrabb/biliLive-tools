@@ -46,7 +46,17 @@ export class AutoClipService {
     /** AbortSignal for cancellation */
     signal?: AbortSignal;
   }): Promise<AutoClipResult> {
-    const { videoPath, danmuPath, presetId, recorderId, skipAutoExport, onProgress, id, outputName, signal } = params;
+    const {
+      videoPath,
+      danmuPath,
+      presetId,
+      recorderId,
+      skipAutoExport,
+      onProgress,
+      id,
+      outputName,
+      signal,
+    } = params;
 
     // 1. Load preset config — explicit presetId takes priority
     let presetConfig = cloneDeep(AUTO_CLIP_DEFAULT_CONFIG);
@@ -86,7 +96,9 @@ export class AutoClipService {
     });
 
     // Build ASR recognize function for Phase 1.5 speech-to-text
-    let recognizeASR: ((audioPath: string, signal?: AbortSignal) => Promise<{ text: string }>) | undefined;
+    let recognizeASR:
+      | ((audioPath: string, signal?: AbortSignal) => Promise<{ text: string }>)
+      | undefined;
     if (presetConfig.enhancement?.asrEnabled) {
       try {
         const { recognize } = await import("../ai/asr/index.js");
@@ -97,7 +109,9 @@ export class AutoClipService {
           const asrModel = appConfig.ai.models.find((m) => m.tags?.includes("asr"));
           asrModelId = asrModel?.modelId ?? presetConfig.llm.modelId;
           if (asrModel) {
-            logger.info(`AutoClip: auto-discovered ASR model "${asrModel.modelName}" (${asrModelId})`);
+            logger.info(
+              `AutoClip: auto-discovered ASR model "${asrModel.modelName}" (${asrModelId})`,
+            );
           }
         }
         recognizeASR = async (audioPath: string, _signal?: AbortSignal) => {
@@ -150,8 +164,7 @@ export class AutoClipService {
       // between throw and catch, we must NOT swallow a real non-abort error.
       const capturedErr = err;
       // Only treat as cancel if the error IS an AbortError thrown by signal.throwIfAborted()
-      const isAbortError =
-        capturedErr instanceof Error && capturedErr.name === "AbortError";
+      const isAbortError = capturedErr instanceof Error && capturedErr.name === "AbortError";
       if (isAbortError && signal?.aborted) {
         return {
           id: effectiveId,
@@ -178,7 +191,8 @@ export class AutoClipService {
 
         // Validate that auto-generated rules have valid structure
         const isValidRule = (r: unknown): boolean =>
-          typeof r === "object" && r !== null &&
+          typeof r === "object" &&
+          r !== null &&
           typeof (r as Record<string, unknown>).pattern === "string" &&
           typeof (r as Record<string, unknown>).mode === "string";
 
@@ -215,6 +229,7 @@ export class AutoClipService {
         effectiveOutputName = existing?.output_name ?? null;
       }
       const highlightsJson = JSON.stringify(result.highlights);
+      const evidenceJson = result.evidence ? JSON.stringify(result.evidence) : null;
       let highlightCount = 0;
       let firstTitle: string | null = null;
       try {
@@ -223,7 +238,9 @@ export class AutoClipService {
           highlightCount = parsed.length;
           firstTitle = parsed[0]?.title || null;
         }
-      } catch { /* keep defaults */ }
+      } catch {
+        /* keep defaults */
+      }
 
       autoClipModel.upsertResult({
         id: result.id,
@@ -243,15 +260,24 @@ export class AutoClipService {
         highlight_count: highlightCount,
         first_title: firstTitle,
         retry_count: 0,
+        evidence: evidenceJson,
       });
 
       if (result.skipped) {
         logger.info(`AutoClip: 结果已保存 (skipped, status=${status})`);
       } else {
-        logger.info(`AutoClip: 结果已保存 (${result.highlights.length} highlights, status=${status})`);
+        logger.info(
+          `AutoClip: 结果已保存 (${result.highlights.length} highlights, status=${status})`,
+        );
       }
 
-      if (!result.skipped && !skipAutoExport && !reviewMode && autoExportEnabled && result.highlights.length > 0) {
+      if (
+        !result.skipped &&
+        !skipAutoExport &&
+        !reviewMode &&
+        autoExportEnabled &&
+        result.highlights.length > 0
+      ) {
         // Fire-and-forget to avoid blocking DB persist response.
         // Errors are logged internally by autoExportAndUpload.
         this.autoExportAndUpload(
@@ -307,7 +333,10 @@ export class AutoClipService {
       }
 
       if (exportResult.success.length > 0) {
-        autoClipModel.markExported(resultId, exportResult.success.map((s) => s.path));
+        autoClipModel.markExported(
+          resultId,
+          exportResult.success.map((s) => s.path),
+        );
         logger.info(`AutoClip: 导出完成 ${exportResult.success.length} 个文件`);
 
         if (exportResult.failed.length > 0) {
@@ -340,7 +369,9 @@ export class AutoClipService {
       logger.error(`AutoClip: autoExportAndUpload 失败 — ${msg}`);
       try {
         autoClipModel.updateStatus(resultId, "failed");
-      } catch { /* ignore DB errors during rollback */ }
+      } catch {
+        /* ignore DB errors during rollback */
+      }
     }
   }
 
@@ -366,7 +397,7 @@ export class AutoClipService {
 
         // Match preset by exact name — avoids false matches from substring inclusion
         const autoClipBiliPreset = presets.find(
-          (p: { name?: string; config?: unknown }) => p.name === "autoClip"
+          (p: { name?: string; config?: unknown }) => p.name === "autoClip",
         );
         if (autoClipBiliPreset?.config) {
           biliupConfig = autoClipBiliPreset.config;
@@ -377,16 +408,11 @@ export class AutoClipService {
 
       for (const { path: expPath, highlight } of exportedResults) {
         const title = highlight?.title || path.parse(expPath).name;
-        await biliApi.addMedia(
-          [{ path: expPath, title }],
-          { ...biliupConfig, title },
-          uid,
-        );
+        await biliApi.addMedia([{ path: expPath, title }], { ...biliupConfig, title }, uid);
       }
       logger.info(`AutoClip: 已添加 ${exportedResults.length} 个B站上传任务到队列`);
     } catch (uploadError) {
       logger.error("AutoClip: 自动上传B站失败", uploadError);
     }
   }
-
 }

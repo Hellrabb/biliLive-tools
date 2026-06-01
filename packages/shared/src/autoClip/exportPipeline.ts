@@ -70,8 +70,13 @@ export async function resolveExportPresets(exportCfg: {
         defaultConfig?: Record<string, unknown>;
       };
       const danmuPresetRecord = await danmuPreset.get(danmuPresetId);
-      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as Record<string, unknown>;
-      logger.info(`AutoClip: danmaku preset resolved (keys: ${Object.keys(result.danmuConfig ?? {}).length})`);
+      result.danmuConfig = (danmuPresetRecord?.config ?? danmuPreset.defaultConfig) as Record<
+        string,
+        unknown
+      >;
+      logger.info(
+        `AutoClip: danmaku preset resolved (keys: ${Object.keys(result.danmuConfig ?? {}).length})`,
+      );
     } catch (err) {
       logger.warn("AutoClip: failed to resolve danmaku preset for export", err);
     }
@@ -123,8 +128,8 @@ export async function exportClips(
   // --- Danmaku burning setup ---
   logger.info(
     `AutoClip: export danmaku preflight — burnDanmaku=${exportConfig.burnDanmaku}, ` +
-    `danmuPath=${danmuPath || "<empty>"}, ` +
-    `danmuConfig=${presetCtx.danmuConfig ? `resolved (${Object.keys(presetCtx.danmuConfig).length} keys)` : "<missing>"}`,
+      `danmuPath=${danmuPath || "<empty>"}, ` +
+      `danmuConfig=${presetCtx.danmuConfig ? `resolved (${Object.keys(presetCtx.danmuConfig).length} keys)` : "<missing>"}`,
   );
   let assPath: string | undefined;
   if (exportConfig.burnDanmaku && danmuPath && presetCtx.danmuConfig) {
@@ -192,8 +197,10 @@ export async function exportClips(
     const safeTitle = (h.title || "clip").replace(/[\\/:*?"<>|]/g, "_");
     const namingTemplate = exportConfig.namingTemplate ?? "{{title}}_{{index}}";
     let outputName = namingTemplate
-      .split("{{title}}").join(safeTitle)
-      .split("{{index}}").join(String(i + 1));
+      .split("{{title}}")
+      .join(safeTitle)
+      .split("{{index}}")
+      .join(String(i + 1));
 
     if (namingPrefix) {
       outputName = `${namingPrefix}_${outputName}`;
@@ -218,16 +225,13 @@ export async function exportClips(
     }
 
     // Prevent filename collisions — append timestamp if file already exists
-    let outputPath = path.join(
-      resolvedSavePath,
-      `${outputName}.${exportConfig.cutFormat}`,
-    );
+    let outputPath = path.join(resolvedSavePath, `${outputName}.${exportConfig.cutFormat}`);
 
     // Verify output stays within savePath (defense in depth)
     if (!path.resolve(outputPath).startsWith(realSavePath + path.sep)) {
       logger.warn(
         `AutoClip: output path traversal blocked — ` +
-        `outputPath=${outputPath}, savePath=${realSavePath}`,
+          `outputPath=${outputPath}, savePath=${realSavePath}`,
       );
       failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
       continue;
@@ -235,10 +239,7 @@ export async function exportClips(
 
     if (await pathExists(outputPath)) {
       const ts = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
-      outputPath = path.join(
-        resolvedSavePath,
-        `${outputName}_${ts}.${exportConfig.cutFormat}`,
-      );
+      outputPath = path.join(resolvedSavePath, `${outputName}_${ts}.${exportConfig.cutFormat}`);
       if (!path.resolve(outputPath).startsWith(realSavePath + path.sep)) {
         logger.warn("AutoClip: collision-avoidance path traversed unexpectedly");
         failed.push({ highlight: h, error: "输出路径无效：路径穿越被拦截" });
@@ -262,7 +263,9 @@ export async function exportClips(
           // otherwise fall back to autoclip's export.encoder
           encoder: ((Object.keys(ffmpegPresetOpts).length > 0
             ? ffmpegPresetOpts.encoder
-            : undefined) ?? exportConfig.encoder ?? "libx264") as VideoCodec,
+            : undefined) ??
+            exportConfig.encoder ??
+            "libx264") as VideoCodec,
           audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],
           to: h.bestRange[1],
@@ -321,10 +324,7 @@ export async function exportClips(
 }
 
 /** Resolve effective savePath from export config, falling back to video directory */
-export function resolveSavePath(
-  exportConfig: { savePath?: string },
-  videoPath: string,
-): string {
+export function resolveSavePath(exportConfig: { savePath?: string }, videoPath: string): string {
   return exportConfig.savePath || path.dirname(videoPath);
 }
 
@@ -332,10 +332,7 @@ export function resolveSavePath(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-export async function getVideoDuration(
-  videoPath: string,
-  timeoutMs = 30_000,
-): Promise<number> {
+export async function getVideoDuration(videoPath: string, timeoutMs = 30_000): Promise<number> {
   const { readVideoMeta } = await import("../task/video.js");
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -392,7 +389,9 @@ export function validateAndNormalizeHighlight(h: unknown): HighlightSegment | fa
     score: typeof obj.score === "number" ? obj.score : 5,
     title: typeof obj.title === "string" ? obj.title : "Untitled",
     tags: Array.isArray(obj.tags) ? (obj.tags as string[]) : [],
-    highlightType: (typeof obj.highlightType === "string" ? obj.highlightType : "hype") as HighlightSegment["highlightType"],
+    highlightType: (typeof obj.highlightType === "string"
+      ? obj.highlightType
+      : "hype") as HighlightSegment["highlightType"],
     reason: typeof obj.reason === "string" ? obj.reason : "",
     signalSources: Array.isArray(obj.signalSources) ? (obj.signalSources as string[]) : [],
     isHighlight: typeof obj.isHighlight === "boolean" ? obj.isHighlight : true,
@@ -409,7 +408,9 @@ export interface ExportClipByIdResult {
 }
 
 export interface ExportClipByIdDeps {
-  getPreset: (id: string) => Promise<{ config?: { export?: AutoClipConfig["export"] } } | undefined>;
+  getPreset: (
+    id: string,
+  ) => Promise<{ config?: { export?: AutoClipConfig["export"] } } | undefined>;
   getAppConfig: () => { videoCut?: { autoClipPresetId?: string } };
   getResultById: (id: string) => { output_name?: string | null } | undefined;
   updateStatus: (id: string, status: string) => void;
@@ -498,7 +499,9 @@ export async function doExportClips(
     const validHighlights = normalized.filter((h): h is HighlightSegment => h !== false);
     const skipped = highlights.length - validHighlights.length;
     if (skipped > 0) {
-      logger.warn(`${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`);
+      logger.warn(
+        `${logPrefix}: ${skipped}/${highlights.length} highlights have invalid shape, skipping`,
+      );
     }
     if (validHighlights.length === 0) {
       deps.updateStatus(resultId, "pending");

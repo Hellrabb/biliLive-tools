@@ -9,18 +9,27 @@ export interface AutoClipResultRow {
   danmu_path: string;
   recorder_id: string | null;
   preset_id: string | null;
-  status: "analyzing" | "pending" | "approved" | "exporting" | "exported" | "uploaded" | "failed" | "deleted";
+  status:
+    | "analyzing"
+    | "pending"
+    | "approved"
+    | "exporting"
+    | "exported"
+    | "uploaded"
+    | "failed"
+    | "deleted";
   highlights: string; // JSON string
   created_at: string;
   exported_at: string | null;
   uploaded_at: string | null;
   exported_paths: string | null; // JSON string
   bili_aids: string | null; // JSON string
-  llm_fallback: number;     // 0 or 1
+  llm_fallback: number; // 0 or 1
   output_name: string | null; // custom naming prefix for manual clip
   highlight_count: number;
   first_title: string | null;
   retry_count: number;
+  evidence: string | null; // JSON string — Evidence | null
 }
 
 export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
@@ -97,8 +106,11 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     `);
 
     const applied = new Set(
-      (this.db.prepare("SELECT version FROM auto_clip_schema_migrations").all() as Array<{ version: number }>)
-        .map(r => r.version)
+      (
+        this.db.prepare("SELECT version FROM auto_clip_schema_migrations").all() as Array<{
+          version: number;
+        }>
+      ).map((r) => r.version),
     );
 
     const migrations: Array<{ version: number; name: string; sql: string }> = [
@@ -128,6 +140,11 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         name: "harden_id_constraint",
         sql: ``,
       },
+      {
+        version: 6,
+        name: "add_evidence",
+        sql: `ALTER TABLE auto_clip_results ADD COLUMN evidence TEXT`,
+      },
     ];
 
     for (const m of migrations) {
@@ -138,16 +155,20 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
             this.migrateV5HardenIdConstraint();
           } else {
             // Check if column already exists (idempotent for DBs that ran the old ad-hoc migration)
-            const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{ name: string }>;
-            if (cols.some(c => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
+            const cols = this.db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{
+              name: string;
+            }>;
+            if (cols.some((c) => c.name === "llm_fallback") && m.name === "add_llm_fallback") {
               // Column already exists from old ad-hoc migration, just record version
-            } else if (cols.some(c => c.name === "output_name") && m.name === "add_output_name") {
+            } else if (cols.some((c) => c.name === "output_name") && m.name === "add_output_name") {
               // Column already exists (idempotent)
             } else {
               this.db.exec(m.sql);
             }
           }
-          this.db.prepare("INSERT INTO auto_clip_schema_migrations (version) VALUES (?)").run(m.version);
+          this.db
+            .prepare("INSERT INTO auto_clip_schema_migrations (version) VALUES (?)")
+            .run(m.version);
           logger.info(`AutoClip: applied migration v${m.version} — ${m.name}`);
         } catch (error) {
           logger.error(`AutoClip: migration v${m.version} (${m.name}) failed`, error);
@@ -167,21 +188,26 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
    */
   private migrateV5HardenIdConstraint() {
     // Step 1: Clean dirty data (always safe, idempotent)
-    const cleaned = this.db.prepare(`
+    const cleaned = this.db
+      .prepare(
+        `
       UPDATE auto_clip_results
       SET id = lower(hex(randomblob(16)))
       WHERE id = '' OR id IS NULL
-    `).run();
+    `,
+      )
+      .run();
     if (cleaned.changes > 0) {
       logger.warn(`AutoClip: v5 cleaned ${cleaned.changes} rows with dirty id`);
     }
 
     // Step 2: Check if table already has hardened constraints
-    const tableDDL = (
-      this.db.prepare(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_clip_results'"
-      ).get() as { sql: string } | undefined
-    )?.sql ?? "";
+    const tableDDL =
+      (
+        this.db
+          .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='auto_clip_results'")
+          .get() as { sql: string } | undefined
+      )?.sql ?? "";
 
     const hasNotNull = /\b"id"\s+TEXT\s+NOT\s+NULL\b/i.test(tableDDL);
     const hasCheck = /CHECK\s*\(\s*"?"?id"?\s*!=\s*''\s*\)/i.test(tableDDL);
@@ -236,7 +262,9 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
 
   private checkIndexExists(indexName: string): boolean {
     const result = this.db
-      .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`)
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`,
+      )
       .get(indexName);
     return !!result;
   }
@@ -254,15 +282,17 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         highlightCount = parsed.length;
         firstTitle = parsed[0]?.title || null;
       }
-    } catch { /* keep defaults */ }
+    } catch {
+      /* keep defaults */
+    }
 
     const sql = `
       INSERT INTO auto_clip_results (
         id, video_path, danmu_path, recorder_id, preset_id,
         status, highlights, created_at, llm_fallback, output_name,
-        highlight_count, first_title,
+        highlight_count, first_title, evidence,
         exported_at, uploaded_at, exported_paths, bili_aids
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
       ON CONFLICT(id) DO UPDATE SET
         video_path = excluded.video_path,
         danmu_path = excluded.danmu_path,
@@ -274,26 +304,36 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
         output_name = excluded.output_name,
         highlight_count = excluded.highlight_count,
         first_title = excluded.first_title,
+        evidence = excluded.evidence,
         retry_count = 0,
         exported_at = NULL,
         uploaded_at = NULL,
         exported_paths = NULL,
         bili_aids = NULL
     `;
-    return this.db.prepare(sql).run(
-      row.id, row.video_path, row.danmu_path, row.recorder_id, row.preset_id,
-      row.status, row.highlights, row.created_at,
-      row.llm_fallback, row.output_name ?? null,
-      highlightCount, firstTitle,
-    );
+    return this.db
+      .prepare(sql)
+      .run(
+        row.id,
+        row.video_path,
+        row.danmu_path,
+        row.recorder_id,
+        row.preset_id,
+        row.status,
+        row.highlights,
+        row.created_at,
+        row.llm_fallback,
+        row.output_name ?? null,
+        highlightCount,
+        firstTitle,
+        row.evidence ?? null,
+      );
   }
 
-  getResults(filter?: {
-    status?: string;
-    recorderId?: string;
-    limit?: number;
-    offset?: number;
-  }): { data: AutoClipResultRow[]; total: number } {
+  getResults(filter?: { status?: string; recorderId?: string; limit?: number; offset?: number }): {
+    data: AutoClipResultRow[];
+    total: number;
+  } {
     const conditions: string[] = [];
     const params: any[] = [];
 
@@ -322,7 +362,9 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
   }
 
   getResultById(id: string): AutoClipResultRow | undefined {
-    return this.db.prepare("SELECT * FROM auto_clip_results WHERE id = ?").get(id) as AutoClipResultRow | undefined;
+    return this.db.prepare("SELECT * FROM auto_clip_results WHERE id = ?").get(id) as
+      | AutoClipResultRow
+      | undefined;
   }
 
   updateStatus(id: string, status: string) {
@@ -331,15 +373,19 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
 
   markExported(id: string, exportedPaths: string[]) {
     return this.db
-      .prepare("UPDATE auto_clip_results SET status = 'exported', retry_count = 0, exported_at = datetime('now'), exported_paths = ? WHERE id = ?")
+      .prepare(
+        "UPDATE auto_clip_results SET status = 'exported', retry_count = 0, exported_at = datetime('now'), exported_paths = ? WHERE id = ?",
+      )
       .run(JSON.stringify(exportedPaths), id);
   }
 
   incrementRetry(id: string): boolean {
     const txn = this.db.transaction(() => {
-      const row = this.db.prepare(
-        "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
-      ).get(id) as { retry_count: number } | undefined;
+      const row = this.db
+        .prepare(
+          "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count",
+        )
+        .get(id) as { retry_count: number } | undefined;
       const count = row?.retry_count ?? 0;
       if (count >= 3) {
         this.db.prepare("UPDATE auto_clip_results SET status = 'failed' WHERE id = ?").run(id);
@@ -361,20 +407,18 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
    */
   retryAndReschedule(id: string): boolean {
     const txn = this.db.transaction(() => {
-      const row = this.db.prepare(
-        "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count"
-      ).get(id) as { retry_count: number } | undefined;
+      const row = this.db
+        .prepare(
+          "UPDATE auto_clip_results SET retry_count = retry_count + 1 WHERE id = ? RETURNING retry_count",
+        )
+        .get(id) as { retry_count: number } | undefined;
       const count = row?.retry_count ?? 0;
       if (count >= 3) {
-        this.db.prepare(
-          "UPDATE auto_clip_results SET status = 'failed' WHERE id = ?"
-        ).run(id);
+        this.db.prepare("UPDATE auto_clip_results SET status = 'failed' WHERE id = ?").run(id);
         logger.warn(`AutoClip: export retry limit (3) reached for ${id}`);
         return false;
       }
-      this.db.prepare(
-        "UPDATE auto_clip_results SET status = 'pending' WHERE id = ?"
-      ).run(id);
+      this.db.prepare("UPDATE auto_clip_results SET status = 'pending' WHERE id = ?").run(id);
       logger.info(`AutoClip: retry #${count} scheduled for ${id}`);
       return true;
     });
@@ -383,7 +427,9 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
 
   markUploaded(id: string, biliAids: string[]) {
     return this.db
-      .prepare("UPDATE auto_clip_results SET status = 'uploaded', uploaded_at = datetime('now'), bili_aids = ? WHERE id = ?")
+      .prepare(
+        "UPDATE auto_clip_results SET status = 'uploaded', uploaded_at = datetime('now'), bili_aids = ? WHERE id = ?",
+      )
       .run(JSON.stringify(biliAids), id);
   }
 
@@ -391,12 +437,32 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
     return this.db.prepare("UPDATE auto_clip_results SET status = 'deleted' WHERE id = ?").run(id);
   }
 
-  getStatusCounts(): { all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number } {
+  getStatusCounts(): {
+    all: number;
+    pending: number;
+    analyzing: number;
+    approved: number;
+    exporting: number;
+    exported: number;
+    uploaded: number;
+    failed: number;
+  } {
     const rows = this.db
-      .prepare("SELECT status, COUNT(*) as count FROM auto_clip_results WHERE status != 'deleted' GROUP BY status")
+      .prepare(
+        "SELECT status, COUNT(*) as count FROM auto_clip_results WHERE status != 'deleted' GROUP BY status",
+      )
       .all() as Array<{ status: string; count: number }>;
 
-    const counts = { all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 };
+    const counts = {
+      all: 0,
+      pending: 0,
+      analyzing: 0,
+      approved: 0,
+      exporting: 0,
+      exported: 0,
+      uploaded: 0,
+      failed: 0,
+    };
     for (const row of rows) {
       if (row.status in counts) {
         (counts as any)[row.status] = row.count;
@@ -411,11 +477,13 @@ ALTER TABLE auto_clip_results ADD COLUMN first_title TEXT`,
    * crash. These represent abandoned analyses that will never complete.
    */
   private resetStaleAnalyzing() {
-    const result = this.db.prepare(
-      "UPDATE auto_clip_results SET status = 'failed' WHERE status = 'analyzing'"
-    ).run();
+    const result = this.db
+      .prepare("UPDATE auto_clip_results SET status = 'failed' WHERE status = 'analyzing'")
+      .run();
     if (result.changes > 0) {
-      logger.warn(`AutoClip: reset ${result.changes} stale "analyzing" rows to "failed" (probable crash recovery)`);
+      logger.warn(
+        `AutoClip: reset ${result.changes} stale "analyzing" rows to "failed" (probable crash recovery)`,
+      );
     }
   }
 }

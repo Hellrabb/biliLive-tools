@@ -77,12 +77,18 @@ export function extractOneFrame(
     }
 
     const args = [
-      "-ss", String(timestampSec),
-      "-i", videoPath,
-      "-vframes", "1",
-      "-q:v", "2",
-      "-f", "image2pipe",
-      "-vcodec", "mjpeg",
+      "-ss",
+      String(timestampSec),
+      "-i",
+      videoPath,
+      "-vframes",
+      "1",
+      "-q:v",
+      "2",
+      "-f",
+      "image2pipe",
+      "-vcodec",
+      "mjpeg",
       "-",
     ];
 
@@ -97,7 +103,11 @@ export function extractOneFrame(
       proc.kill("SIGKILL");
       if (settled) return;
       settled = true;
-      reject(new Error(`Frame extraction timed out after ${FRAME_EXTRACT_TIMEOUT_MS}ms at ${timestampSec}s`));
+      reject(
+        new Error(
+          `Frame extraction timed out after ${FRAME_EXTRACT_TIMEOUT_MS}ms at ${timestampSec}s`,
+        ),
+      );
     }, FRAME_EXTRACT_TIMEOUT_MS);
 
     const onAbort = () => {

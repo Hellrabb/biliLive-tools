@@ -24,10 +24,7 @@ describe("detectSuspicious", () => {
   });
 
   it("filters out short texts (< 3 chars)", () => {
-    const danmu = [
-      ...makeDanmu("哈", 10),
-      ...makeDanmu("6", 10),
-    ];
+    const danmu = [...makeDanmu("哈", 10), ...makeDanmu("6", 10)];
     const result = detectSuspicious(danmu, { minOccurrence: 5, topK: 10 });
     expect(result).toHaveLength(0);
   });
@@ -99,10 +96,31 @@ describe("applyFilter", () => {
     enabled: true,
     autoDetectEnabled: true,
     rules: [
-      { id: "r1", pattern: "点点关注右上角抽钻石", mode: "exact", source: "auto", enabled: true, createdAt: 0 },
+      {
+        id: "r1",
+        pattern: "点点关注右上角抽钻石",
+        mode: "exact",
+        source: "auto",
+        enabled: true,
+        createdAt: 0,
+      },
       { id: "r2", pattern: "抽", mode: "contains", source: "auto", enabled: true, createdAt: 0 },
-      { id: "r3", pattern: "右上角抽.*", mode: "regex", source: "manual", enabled: true, createdAt: 0 },
-      { id: "r4", pattern: "disabled_rule", mode: "contains", source: "manual", enabled: false, createdAt: 0 },
+      {
+        id: "r3",
+        pattern: "右上角抽.*",
+        mode: "regex",
+        source: "manual",
+        enabled: true,
+        createdAt: 0,
+      },
+      {
+        id: "r4",
+        pattern: "disabled_rule",
+        mode: "contains",
+        source: "manual",
+        enabled: false,
+        createdAt: 0,
+      },
     ],
   };
 
@@ -158,7 +176,10 @@ describe("applyFilter", () => {
 
   it("returns correct breakdown stats", () => {
     const result = applyFilter(danmu, config);
-    const totalRemoved = result.breakdown.reduce((sum: number, b: { removed: number }) => sum + b.removed, 0);
+    const totalRemoved = result.breakdown.reduce(
+      (sum: number, b: { removed: number }) => sum + b.removed,
+      0,
+    );
     expect(totalRemoved).toBe(result.removed);
   });
 
@@ -167,7 +188,16 @@ describe("applyFilter", () => {
     const danmu = [{ text: "hello" }];
     const config: DanmakuFilterConfig = {
       enabled: true,
-      rules: [{ id: "1", pattern: longPattern, mode: "regex", source: "manual", enabled: true, createdAt: 0 }],
+      rules: [
+        {
+          id: "1",
+          pattern: longPattern,
+          mode: "regex",
+          source: "manual",
+          enabled: true,
+          createdAt: 0,
+        },
+      ],
     };
     const result = applyFilter(danmu, config);
     expect(result.filtered).toHaveLength(1);
@@ -180,7 +210,9 @@ describe("applyFilter", () => {
     for (const p of patterns) {
       const config: DanmakuFilterConfig = {
         enabled: true,
-        rules: [{ id: "1", pattern: p, mode: "regex", source: "manual", enabled: true, createdAt: 0 }],
+        rules: [
+          { id: "1", pattern: p, mode: "regex", source: "manual", enabled: true, createdAt: 0 },
+        ],
       };
       const result = applyFilter(danmu, config);
       expect(result.filtered).toHaveLength(1);
@@ -199,9 +231,7 @@ import { vi } from "vitest";
 
 describe("llmReviewPatterns pagination (M8)", () => {
   it("should handle a single pattern without batching", async () => {
-    const patterns: SuspiciousPattern[] = [
-      { text: "关注主播抽手机", count: 15, similarity: 0.98 },
-    ];
+    const patterns: SuspiciousPattern[] = [{ text: "关注主播抽手机", count: 15, similarity: 0.98 }];
     let callCount = 0;
     const sendMessage = async (_prompt: string) => {
       callCount++;

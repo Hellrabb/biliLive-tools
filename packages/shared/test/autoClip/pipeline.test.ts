@@ -88,7 +88,7 @@ describe("runAutoClipPipeline", () => {
     });
 
     expect(result.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
   });
 
@@ -142,9 +142,7 @@ describe("exportClips", () => {
     namingTemplate: "{{title}}_{{index}}",
   };
 
-  const highlights = [
-    { title: "Highlight", bestRange: [10, 30] as [number, number] },
-  ];
+  const highlights = [{ title: "Highlight", bestRange: [10, 30] as [number, number] }];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -213,17 +211,19 @@ describe("exportClips", () => {
   it("catches per-clip errors in failed array when cut rejects", async () => {
     mockCutFn.mockRejectedValueOnce(new Error("FFmpeg not found"));
 
-    const badHighlights = [{
-      timeRange: [0, 60] as [number, number],
-      bestRange: [10, 50] as [number, number],
-      score: 8,
-      title: "Test Highlight",
-      tags: ["funny"],
-      highlightType: "funny" as const,
-      reason: "test",
-      signalSources: ["danmakuDensity"],
-      isHighlight: true,
-    }];
+    const badHighlights = [
+      {
+        timeRange: [0, 60] as [number, number],
+        bestRange: [10, 50] as [number, number],
+        score: 8,
+        title: "Test Highlight",
+        tags: ["funny"],
+        highlightType: "funny" as const,
+        reason: "test",
+        signalSources: ["danmakuDensity"],
+        isHighlight: true,
+      },
+    ];
 
     const result = await exportClips(
       "/nonexistent/video.mp4",

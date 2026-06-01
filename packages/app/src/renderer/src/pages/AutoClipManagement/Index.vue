@@ -3,24 +3,48 @@
     <n-alert
       v-if="componentError"
       type="error"
-      style="margin-bottom:12px"
+      style="margin-bottom: 12px"
       closable
       @close="componentError = null"
     >
       <template #header>页面异常</template>
       {{ componentError }}
-      <n-button size="small" @click="componentError = null; refreshList()" style="margin-left: 12px">重试</n-button>
+      <n-button
+        size="small"
+        @click="
+          componentError = null;
+          refreshList();
+        "
+        style="margin-left: 12px"
+        >重试</n-button
+      >
     </n-alert>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <h2 style="margin:0">自动切片管理</h2>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      "
+    >
+      <h2 style="margin: 0">自动切片管理</h2>
       <n-space>
         <n-button type="primary" @click="manualAnalyze" :loading="analyzing" :disabled="analyzing">
-          {{ analyzing ? '分析中...' : '+ 手动分析' }}
+          {{ analyzing ? "分析中..." : "+ 手动分析" }}
         </n-button>
-        <span v-if="analyzing && pollingProgress" style="color:#999;font-size:13px;margin-left:8px">
+        <span
+          v-if="analyzing && pollingProgress"
+          style="color: #999; font-size: 13px; margin-left: 8px"
+        >
           {{ pollingProgress }}
         </span>
-        <n-button v-if="analyzing" type="warning" size="small" @click="cancelAnalysis" style="margin-left:8px">
+        <n-button
+          v-if="analyzing"
+          type="warning"
+          size="small"
+          @click="cancelAnalysis"
+          style="margin-left: 8px"
+        >
           取消分析
         </n-button>
         <n-button
@@ -38,7 +62,7 @@
     </div>
 
     <!-- 状态筛选 -->
-    <n-radio-group v-model:value="filterStatus" name="status-filter" style="margin-bottom:16px">
+    <n-radio-group v-model:value="filterStatus" name="status-filter" style="margin-bottom: 16px">
       <n-radio-button value="">全部 ({{ counts.all }})</n-radio-button>
       <n-radio-button value="pending">待审核 ({{ counts.pending }})</n-radio-button>
       <n-radio-button value="exporting">导出中 ({{ counts.exporting }})</n-radio-button>
@@ -47,68 +71,112 @@
       <n-radio-button value="failed">失败 ({{ counts.failed }})</n-radio-button>
     </n-radio-group>
 
-    <div v-if="loading" style="display:flex; flex-direction:column; align-items:center; padding: 60px 0;">
+    <div
+      v-if="loading"
+      style="display: flex; flex-direction: column; align-items: center; padding: 60px 0"
+    >
       <n-spin size="large" />
-      <p style="margin-top: 16px; color: #999;">正在加载切片数据...</p>
+      <p style="margin-top: 16px; color: #999">正在加载切片数据...</p>
     </div>
 
-    <n-empty v-if="!loading && clips.length === 0" description="暂无切片数据" style="margin:40px 0">
+    <n-empty
+      v-if="!loading && clips.length === 0"
+      description="暂无切片数据"
+      style="margin: 40px 0"
+    >
       <template #extra>
-        <n-button type="primary" @click="manualAnalyze" :disabled="analyzing">手动分析第一个视频</n-button>
+        <n-button type="primary" @click="manualAnalyze" :disabled="analyzing"
+          >手动分析第一个视频</n-button
+        >
       </template>
     </n-empty>
 
     <template v-if="!loading && clips.length > 0">
-    <n-data-table
-      :columns="columns"
-      :data="clips"
-      :loading="loading"
-      :pagination="{
-        page: currentPage,
-        pageSize: pageSize,
-        itemCount: totalCount,
-        showSizePicker: true,
-        pageSizes: [10, 20, 50],
-        onUpdatePage: (p: number) => { currentPage = p; refreshList(); },
-        onUpdatePageSize: (s: number) => { pageSize = s; currentPage = 1; refreshList(); },
-      }"
-      :row-key="(r:ClipRow) => r.id"
-    />
+      <div class="master-detail">
+        <div class="list-panel">
+          <n-data-table
+            :columns="columns"
+            :data="clips"
+            :loading="loading"
+            :pagination="{
+              page: currentPage,
+              pageSize: pageSize,
+              itemCount: totalCount,
+              showSizePicker: true,
+              pageSizes: [10, 20, 50],
+              onUpdatePage: (p: number) => {
+                currentPage = p;
+                refreshList();
+              },
+              onUpdatePageSize: (s: number) => {
+                pageSize = s;
+                currentPage = 1;
+                refreshList();
+              },
+            }"
+            :row-key="(r: ClipRow) => r.id"
+            :row-props="
+              (r: ClipRow) => ({
+                style:
+                  r.id === selectedClipId
+                    ? 'background:var(--primary-color-suppl,rgba(32,128,240,0.08));border-left:3px solid var(--primary-color,#2080f0);cursor:pointer'
+                    : 'cursor:pointer',
+                onClick: () => {
+                  selectedClipId = r.id;
+                },
+              })
+            "
+          />
+        </div>
+        <div class="detail-panel">
+          <EvidencePanel :clip="selectedClip as any" />
+        </div>
+      </div>
     </template>
 
     <!-- 预览弹窗 -->
-    <n-modal v-model:show="previewVisible" style="width:800px" title="切片详情">
+    <n-modal v-model:show="previewVisible" style="width: 800px" title="切片详情">
       <n-card v-if="previewItem" :bordered="false">
-        <n-descriptions label-placement="left" :column="2" style="margin-bottom:12px">
+        <n-descriptions label-placement="left" :column="2" style="margin-bottom: 12px">
           <n-descriptions-item label="状态">{{ previewItem.status }}</n-descriptions-item>
           <n-descriptions-item label="切片数">{{ previewItem.highlightCount }}</n-descriptions-item>
           <n-descriptions-item label="视频">{{ previewItem.video_path }}</n-descriptions-item>
         </n-descriptions>
         <n-divider>高光片段 ({{ previewItem.highlightCount }})</n-divider>
-        <n-card v-for="(h, idx) in previewItem.highlights" :key="idx" size="small" style="margin-bottom:8px">
+        <n-card
+          v-for="(h, idx) in previewItem.highlights"
+          :key="idx"
+          size="small"
+          style="margin-bottom: 8px"
+        >
           <n-descriptions label-placement="left" :column="2" size="small">
-            <n-descriptions-item label="标题">{{ h.title || 'Untitled' }}</n-descriptions-item>
+            <n-descriptions-item label="标题">{{ h.title || "Untitled" }}</n-descriptions-item>
             <n-descriptions-item label="评分">{{ h.score }}</n-descriptions-item>
-            <n-descriptions-item label="时间段">{{ h.bestRange?.[0] ?? '?' }}s - {{ h.bestRange?.[1] ?? '?' }}s</n-descriptions-item>
+            <n-descriptions-item label="时间段"
+              >{{ h.bestRange?.[0] ?? "?" }}s - {{ h.bestRange?.[1] ?? "?" }}s</n-descriptions-item
+            >
             <n-descriptions-item label="类型">{{ h.highlightType }}</n-descriptions-item>
             <n-descriptions-item label="原因" :span="2">{{ h.reason }}</n-descriptions-item>
           </n-descriptions>
-          <n-space style="margin-top:4px">
-            <n-tag v-for="tag in (h.tags || [])" :key="tag" size="small">{{ tag }}</n-tag>
+          <n-space style="margin-top: 4px">
+            <n-tag v-for="tag in h.tags || []" :key="tag" size="small">{{ tag }}</n-tag>
           </n-space>
         </n-card>
       </n-card>
     </n-modal>
 
     <!-- 弹幕路径确认弹窗 -->
-    <n-modal v-model:show="showDanmuDialog" style="width:500px" title="确认弹幕文件路径">
+    <n-modal v-model:show="showDanmuDialog" style="width: 500px" title="确认弹幕文件路径">
       <n-card :bordered="false" size="small">
         <n-form label-placement="left" :label-width="120">
           <n-form-item label="弹幕文件路径">
             <n-input v-model:value="danmuInputPath" placeholder="输入弹幕 XML 文件路径" />
           </n-form-item>
           <n-form-item label="输出名称（可选）">
-            <n-input v-model:value="outputName" placeholder="自定义切片文件名前缀，留空使用默认命名" />
+            <n-input
+              v-model:value="outputName"
+              placeholder="自定义切片文件名前缀，留空使用默认命名"
+            />
           </n-form-item>
         </n-form>
         <template #footer>
@@ -138,6 +206,7 @@ import {
 } from "@renderer/apis/presets/autoClip";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 import { useNotice } from "@renderer/hooks/useNotice";
+import EvidencePanel from "./components/EvidencePanel.vue";
 
 import type { AutoClipClipRow } from "@biliLive-tools/types";
 
@@ -163,7 +232,11 @@ const exportingId = ref<string | null>(null);
 const pollAbort = ref<AbortController | null>(null);
 const currentTaskId = ref<string | null>(null);
 const batchExporting = ref(false);
-const currentPagePendingCount = computed(() => clips.value.filter((c) => c.status === "pending").length);
+const currentPagePendingCount = computed(
+  () => clips.value.filter((c) => c.status === "pending").length,
+);
+const selectedClipId = ref<string | null>(null);
+const selectedClip = computed(() => clips.value.find((c) => c.id === selectedClipId.value) ?? null);
 
 const componentError = ref<string | null>(null);
 const pollingProgress = ref<string>("");
@@ -175,41 +248,96 @@ onErrorCaptured((err: Error) => {
   return false; // prevent error propagation
 });
 
-const counts = ref({ all: 0, pending: 0, analyzing: 0, approved: 0, exporting: 0, exported: 0, uploaded: 0, failed: 0 });
+const counts = ref({
+  all: 0,
+  pending: 0,
+  analyzing: 0,
+  approved: 0,
+  exporting: 0,
+  exported: 0,
+  uploaded: 0,
+  failed: 0,
+});
 
 const columns = [
   { title: "预览标题", key: "previewTitle", width: 200, ellipsis: { tooltip: true } },
   { title: "评分", key: "previewScore", width: 60, render: (r: any) => r.previewScore?.toFixed(1) },
   { title: "片段数", key: "highlightCount", width: 70 },
   {
-    title: "状态", key: "status", width: 80,
+    title: "状态",
+    key: "status",
+    width: 80,
     render: (r: any) => {
-      const map: Record<string, string> = { pending: "待审核", approved: "已批准", analyzing: "分析中", exporting: "导出中", exported: "已完成", uploaded: "已上传", failed: "失败" };
+      const map: Record<string, string> = {
+        pending: "待审核",
+        approved: "已批准",
+        analyzing: "分析中",
+        exporting: "导出中",
+        exported: "已完成",
+        uploaded: "已上传",
+        failed: "失败",
+      };
       return map[r.status] || r.status;
     },
   },
   {
-    title: "LLM", key: "llmFallback", width: 55,
-    render: (r: any) => r.llmFallback ? h(NTag, { type: "warning", size: "small" }, () => "启发") : null,
+    title: "LLM",
+    key: "llmFallback",
+    width: 55,
+    render: (r: any) =>
+      r.llmFallback ? h(NTag, { type: "warning", size: "small" }, () => "启发") : null,
   },
-  { title: "时间", key: "created_at", width: 160, render: (r: any) => r.created_at?.slice(0, 16).replace("T", " ") },
   {
-    title: "操作", key: "actions", width: 300,
+    title: "时间",
+    key: "created_at",
+    width: 160,
+    render: (r: any) => r.created_at?.slice(0, 16).replace("T", " "),
+  },
+  {
+    title: "操作",
+    key: "actions",
+    width: 300,
     render: (row: ClipRow) => {
       return h(NSpace, {}, () => [
         h(NButton, { size: "small", onClick: () => previewClip(row) }, () => "预览"),
-        h(NButton, { size: "small", type: "info", onClick: () => {
-          const first = row.highlights[0];
-          if (!first) return;
-          router.push({ path: "/videoPlayer", query: { source: row.video_path, start: String(first.bestRange?.[0] ?? 0), end: String(first.bestRange?.[1] ?? 0) } });
-        } }, () => "打开视频"),
-        row.status === "pending" ? h(NButton, {
-          size: "small", type: "primary",
-          disabled: exportingId.value !== null,
-          loading: exportingId.value === row.id,
-          onClick: () => approveClip(row),
-        }, () => "确认导出") : null,
-        h(NButton, { size: "small", type: "error", ghost: true, onClick: () => deleteClip(row) }, () => "删除"),
+        h(
+          NButton,
+          {
+            size: "small",
+            type: "info",
+            onClick: () => {
+              const first = row.highlights[0];
+              if (!first) return;
+              router.push({
+                path: "/videoPlayer",
+                query: {
+                  source: row.video_path,
+                  start: String(first.bestRange?.[0] ?? 0),
+                  end: String(first.bestRange?.[1] ?? 0),
+                },
+              });
+            },
+          },
+          () => "打开视频",
+        ),
+        row.status === "pending"
+          ? h(
+              NButton,
+              {
+                size: "small",
+                type: "primary",
+                disabled: exportingId.value !== null,
+                loading: exportingId.value === row.id,
+                onClick: () => approveClip(row),
+              },
+              () => "确认导出",
+            )
+          : null,
+        h(
+          NButton,
+          { size: "small", type: "error", ghost: true, onClick: () => deleteClip(row) },
+          () => "删除",
+        ),
       ]);
     },
   },
@@ -226,7 +354,16 @@ async function refreshList() {
 
     // Update global counts
     const c = countsRes;
-    counts.value = { all: c.all ?? 0, pending: c.pending ?? 0, analyzing: c.analyzing ?? 0, approved: c.approved ?? 0, exporting: c.exporting ?? 0, exported: c.exported ?? 0, uploaded: c.uploaded ?? 0, failed: c.failed ?? 0 };
+    counts.value = {
+      all: c.all ?? 0,
+      pending: c.pending ?? 0,
+      analyzing: c.analyzing ?? 0,
+      approved: c.approved ?? 0,
+      exporting: c.exporting ?? 0,
+      exported: c.exported ?? 0,
+      uploaded: c.uploaded ?? 0,
+      failed: c.failed ?? 0,
+    };
 
     const raw = clipsRes?.data ?? [];
     totalCount.value = clipsRes?.total ?? raw.length;
@@ -242,7 +379,7 @@ async function refreshList() {
         preset_id: r.preset_id,
         llmFallback: r.llmFallback ?? false,
         highlights,
-        previewTitle: highlights.length ? (first.title || "（无标题）") : "（无高光片段）",
+        previewTitle: highlights.length ? first.title || "（无标题）" : "（无高光片段）",
         previewScore: highlights.length ? (first.score ?? 0) : null,
         highlightCount: highlights.length,
       } as ClipRow;
@@ -304,17 +441,25 @@ function triggerManualAnalyze(filePath: string) {
 
   // Advisory pre-check: warn if guessed danmu file doesn't exist
   if (window.api?.exits) {
-    window.api.exits(guessed).then((exists: boolean) => {
-      if (!exists) {
-        notice.warning(`未找到弹幕文件: ${guessed}。请手动确认路径。`);
-      }
-    }).catch(() => { /* non-blocking */ });
+    window.api
+      .exits(guessed)
+      .then((exists: boolean) => {
+        if (!exists) {
+          notice.warning(`未找到弹幕文件: ${guessed}。请手动确认路径。`);
+        }
+      })
+      .catch(() => {
+        /* non-blocking */
+      });
   }
 
   showDanmuDialog.value = true;
 }
 
-async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'done' | 'failed' | 'lost' | 'timeout' | 'aborted'> {
+async function pollTaskResult(
+  taskId: string,
+  maxAttempts: number,
+): Promise<"done" | "failed" | "lost" | "timeout" | "aborted"> {
   const abortController = new AbortController();
   pollAbort.value = abortController;
   let delay = 1000;
@@ -322,11 +467,10 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
   let consecutive404s = 0;
   pollingProgress.value = "";
 
-
   while (attempt < maxAttempts) {
-    if (abortController.signal.aborted) return 'aborted';
+    if (abortController.signal.aborted) return "aborted";
     await new Promise((r) => setTimeout(r, delay));
-    if (abortController.signal.aborted) return 'aborted';
+    if (abortController.signal.aborted) return "aborted";
 
     try {
       const resultRes = await getResult(taskId);
@@ -341,7 +485,7 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
         if (resultRes.status === "failed") {
           notice.error("分析失败，请稍后重试");
           await refreshList();
-          return 'failed';
+          return "failed";
         }
         if (resultRes.highlights?.length > 0) {
           notice.success("分析完成，请查看结果");
@@ -349,14 +493,14 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
           notice.info("分析完成，未检测到高光片段");
         }
         await refreshList();
-        return 'done';
+        return "done";
       }
     } catch (err: any) {
       if (err?.response?.status === 404) {
         consecutive404s++;
         if (consecutive404s >= 5) {
           notice.error("分析失败：任务丢失，请重试");
-          return 'lost';
+          return "lost";
         }
       }
       // Network errors don't count toward 404 limit — just retry
@@ -364,7 +508,7 @@ async function pollTaskResult(taskId: string, maxAttempts: number): Promise<'don
     attempt++;
     delay = Math.min(delay * 1.3, 10000);
   }
-  return 'timeout';
+  return "timeout";
 }
 
 async function confirmManualAnalyze() {
@@ -375,7 +519,11 @@ async function confirmManualAnalyze() {
   analyzing.value = true;
   notice.info("正在分析中，请稍候...");
   try {
-    const res = await runAnalysis({ videoPath, danmuPath, outputName: outputName.value || undefined });
+    const res = await runAnalysis({
+      videoPath,
+      danmuPath,
+      outputName: outputName.value || undefined,
+    });
     const taskId = res?.taskId;
 
     if (!taskId) {
@@ -386,7 +534,7 @@ async function confirmManualAnalyze() {
     currentTaskId.value = taskId;
 
     let result = await pollTaskResult(taskId, 60);
-    if (result === 'timeout') {
+    if (result === "timeout") {
       const continueWaiting = await new Promise<boolean>((resolve) => {
         dialog.info({
           title: "分析超时",
@@ -402,7 +550,7 @@ async function confirmManualAnalyze() {
       if (continueWaiting) {
         notice.info("继续等待分析结果...");
         result = await pollTaskResult(taskId, 36);
-        if (result === 'timeout') {
+        if (result === "timeout") {
           notice.warning("分析仍然未完成，请稍后刷新查看");
           await refreshList();
         }
@@ -438,7 +586,8 @@ async function manualAnalyze() {
 
   if (window.isWeb) {
     files = await showDirectoryDialog({
-      type: "file", multi: false,
+      type: "file",
+      multi: false,
       exts: ["mp4", "flv", "mkv", "webm", "avi", "mov", "ts"],
     });
   } else if (window.api?.openFile) {
@@ -458,9 +607,7 @@ watch(filterStatus, () => {
 });
 
 async function batchApproveAndExport() {
-  const pendingIds = clips.value
-    .filter((c) => c.status === "pending")
-    .map((c) => c.id);
+  const pendingIds = clips.value.filter((c) => c.status === "pending").map((c) => c.id);
   if (pendingIds.length === 0) {
     notice.warning("当前页没有待审核的切片");
     return;
@@ -484,7 +631,8 @@ async function batchApproveAndExport() {
   try {
     notice.info(`正在批量导出 ${pendingIds.length} 个切片...`);
     const res = await batchApproveAndExportApi(pendingIds);
-    const results: Array<{ id: string; status: string; exportedPaths: string[] }> = res.data?.results ?? [];
+    const results: Array<{ id: string; status: string; exportedPaths: string[] }> =
+      res.data?.results ?? [];
     const succeeded = results.filter((r) => r.status === "exported").length;
     const failed = results.filter((r) => r.status === "failed" || r.status === "skipped").length;
     const totalPaths = results.reduce((sum, r) => sum + (r.exportedPaths?.length ?? 0), 0);
@@ -512,3 +660,44 @@ onUnmounted(() => {
   pollAbort.value?.abort();
 });
 </script>
+
+<style scoped>
+.master-detail {
+  display: flex;
+  gap: 0;
+  min-height: 400px;
+}
+
+.list-panel {
+  flex: 0 0 44%;
+  min-width: 320px;
+  border-right: 1px solid var(--divider-color);
+  padding-right: 12px;
+  overflow-y: auto;
+}
+
+.detail-panel {
+  flex: 1;
+  padding-left: 12px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .master-detail {
+    flex-direction: column;
+  }
+  .list-panel {
+    flex: 0 0 auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--divider-color);
+    padding-right: 0;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+  .detail-panel {
+    padding-left: 0;
+    min-height: 40vh;
+  }
+}
+</style>

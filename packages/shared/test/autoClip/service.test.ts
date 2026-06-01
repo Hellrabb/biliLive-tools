@@ -168,9 +168,7 @@ describe("AutoClipService.analyzeAndSave — preset fallback", () => {
     expect(bsmCall.presetConfig.llm.modelId).toBe("explicit-model");
 
     // getPreset should NOT have been called with "global-preset-1"
-    const globalCall = mockGetPreset.mock.calls.find(
-      (c: string[]) => c[0] === "global-preset-1"
-    );
+    const globalCall = mockGetPreset.mock.calls.find((c: string[]) => c[0] === "global-preset-1");
     expect(globalCall).toBeUndefined();
   });
 
@@ -205,7 +203,7 @@ describe("AutoClipService.analyzeAndSave — preset fallback", () => {
         videoPath: "/fake/v.mp4",
         danmuPath: "/fake/d.xml",
         skipAutoExport: true,
-      })
+      }),
     ).resolves.toBeDefined();
 
     // Falls back to default (modelId: "")
@@ -274,9 +272,7 @@ describe("AutoClipService.analyzeAndSave — cancel and error paths", () => {
     expect(result.id.length).toBeGreaterThan(0);
     expect(typeof result.id).toBe("string");
     // Should be a valid UUID format
-    expect(result.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
+    expect(result.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
     // DB must NOT be called with an empty id
     const { autoClipModel } = await import("../../src/db/index.js");

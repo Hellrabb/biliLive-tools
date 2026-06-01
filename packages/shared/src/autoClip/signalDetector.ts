@@ -92,27 +92,35 @@ export function mergeTimeWindows(windows: TimeWindow[], gapSec: number): TimeWin
 // Signal A: Danmaku density peaks
 // ---------------------------------------------------------------------------
 
+/** Density bucket data point (used for evidence chain visualization) */
+export interface DensityBucket {
+  timeOffset: number; // bucket center time (seconds)
+  count: number; // number of danmaku in this bucket
+  density: number; // per-second density
+}
+
 /**
  * Detect time windows where danmaku density exceeds the baseline.
  *
  * Algorithm:
  * 1. Bucket the timeline into equal-width `bucketSec` intervals.
- * 2. Compute mean μ and population standard deviation σ of bucket counts.
- * 3. Any bucket whose count > μ + danmakuDensityThreshold * σ is "hot".
- * 4. Merge adjacent hot buckets when the gap ≤ mergeGapSec seconds.
+ * 2. Compute mean and population standard deviation of bucket counts.
+ * 3. Any bucket whose count > mean + danmakuDensityThreshold * stddev is "hot".
+ * 4. Merge adjacent hot buckets when the gap <= mergeGapSec seconds.
  * 5. Expand each merged range by `windowPadding`.
  */
 export function detectDanmakuDensityPeaks(
   items: DanmuItem[],
   durationSec: number,
   config: AutoClipSignalConfig,
-): TimeWindow[] {
+): { windows: TimeWindow[]; buckets: DensityBucket[] } {
   const { bucketSec, danmakuDensityThreshold, mergeGapSec, windowPadding } = config;
 
-  if (durationSec <= 0 || bucketSec <= 0) return [];
+  const emptyResult = { windows: [] as TimeWindow[], buckets: [] as DensityBucket[] };
+  if (durationSec <= 0 || bucketSec <= 0) return emptyResult;
 
   const numBuckets = Math.ceil(durationSec / bucketSec);
-  const buckets = new Array<number>(numBuckets).fill(0);
+  const counts = new Array<number>(numBuckets).fill(0);
 
   // Fill buckets
   for (const item of items) {
@@ -120,16 +128,23 @@ export function detectDanmakuDensityPeaks(
     if (sec < 0 || sec >= durationSec) continue;
     const idx = Math.floor(sec / bucketSec);
     if (idx >= 0 && idx < numBuckets) {
-      buckets[idx]!++;
+      counts[idx]!++;
     }
   }
 
+  // Build DensityBucket array (for evidence chain visualization)
+  const densityBuckets: DensityBucket[] = counts.map((c, i) => ({
+    timeOffset: Math.round((i * bucketSec + bucketSec / 2) * 100) / 100,
+    count: c,
+    density: Math.round((c / bucketSec) * 100) / 100,
+  }));
+
   // Mean and population standard deviation
   let sum = 0;
-  for (const c of buckets) sum += c;
+  for (const c of counts) sum += c;
   const mean = sum / numBuckets;
   let variance = 0;
-  for (const c of buckets) variance += (c - mean) ** 2;
+  for (const c of counts) variance += (c - mean) ** 2;
   const std = Math.sqrt(variance / numBuckets);
 
   const threshold = mean + danmakuDensityThreshold * std;
@@ -137,12 +152,12 @@ export function detectDanmakuDensityPeaks(
   // Find hot buckets (indices)
   const hotIndices: number[] = [];
   for (let i = 0; i < numBuckets; i++) {
-    if (buckets[i]! > threshold) {
+    if (counts[i]! > threshold) {
       hotIndices.push(i);
     }
   }
 
-  if (hotIndices.length === 0) return [];
+  if (hotIndices.length === 0) return { windows: [], buckets: densityBuckets };
 
   // Group contiguous hot indices
   const groups: Array<[number, number]> = []; // [startIdx, endIdx] inclusive
@@ -174,7 +189,7 @@ export function detectDanmakuDensityPeaks(
   }
 
   // Convert to TimeWindow and expand by padding
-  const result: TimeWindow[] = mergedGroups.map(([startIdx, endIdx]) => {
+  const windows: TimeWindow[] = mergedGroups.map(([startIdx, endIdx]) => {
     const rawStart = startIdx * bucketSec;
     const rawEnd = (endIdx + 1) * bucketSec;
     return [
@@ -183,7 +198,7 @@ export function detectDanmakuDensityPeaks(
     ] as TimeWindow;
   });
 
-  return result;
+  return { windows, buckets: densityBuckets };
 }
 
 // ---------------------------------------------------------------------------
@@ -275,16 +290,13 @@ export function detectGiftBursts(gifts: Gift[], config: AutoClipSignalConfig): T
 
 /**
  * Detect time windows where a high proportion of danmaku text pairs share
- * similar content, indicating a "brush storm" (刷屏).
+ * similar content, indicating a "brush storm".
  *
  * Uses a sliding 10-second window.  Within each window the LCS similarity
- * is computed for all pairs; if ≥30% of pairs exceed `brushSimilarityThreshold`,
+ * is computed for all pairs; if >=30% of pairs exceed `brushSimilarityThreshold`,
  * the window is marked.
  */
-export function detectBrushStorms(
-  items: DanmuItem[],
-  config: AutoClipSignalConfig,
-): TimeWindow[] {
+export function detectBrushStorms(items: DanmuItem[], config: AutoClipSignalConfig): TimeWindow[] {
   const { brushSimilarityThreshold } = config;
 
   // Only consider items that have text content
@@ -317,7 +329,7 @@ export function detectBrushStorms(
     const n = windowItems.length;
     if (n < 2) continue;
 
-    // Downsample to cap O(n²) cost
+    // Downsample to cap O(n^2) cost
     let samples = windowItems;
     if (n > MAX_BRUSH_SAMPLE) {
       const step = Math.floor(n / MAX_BRUSH_SAMPLE);
@@ -405,20 +417,30 @@ export function mergeAndDeduplicate(
 // Main entry point
 // ---------------------------------------------------------------------------
 
+export interface DetectSignalsResult {
+  candidates: CandidateWindow[];
+  densityBuckets: DensityBucket[];
+}
+
 /**
  * Run all four signal detectors, merge results, and build `CandidateWindow`
  * objects with computed statistics.
+ * Also returns densityBuckets for evidence chain building.
  */
 export function detectSignals(
   stats: DanmuStats,
   config: AutoClipSignalConfig,
   danmakuSampleMax = 20,
-): CandidateWindow[] {
+): DetectSignalsResult {
   const { danmu, sc, gift } = stats;
   const duration = stats.duration;
 
   // 1. Run individual signal detectors
-  const densityWindows = detectDanmakuDensityPeaks(danmu, duration, config);
+  const { windows: densityWindows, buckets: densityBuckets } = detectDanmakuDensityPeaks(
+    danmu,
+    duration,
+    config,
+  );
   const scWindows = detectSCBursts(sc, config);
   const giftWindows = detectGiftBursts(gift, config);
   const brushWindows = detectBrushStorms(danmu, config);
@@ -441,7 +463,7 @@ export function detectSignals(
     ...brushWindows.map((w) => ({ window: w, source: "brush" })),
   ];
 
-  if (allLabeled.length === 0) return [];
+  if (allLabeled.length === 0) return { candidates: [], densityBuckets };
 
   // 3. Merge all windows
   const mergedWindows = mergeAndDeduplicate(
@@ -504,9 +526,7 @@ export function detectSignals(
 
     // Brush frequency: proportion of danmaku text pairs that are similar (downsampled)
     let brushFrequency = 0;
-    const texts = windowDanmu
-      .filter((d) => d.text && d.text.trim().length > 0)
-      .map((d) => d.text!);
+    const texts = windowDanmu.filter((d) => d.text && d.text.trim().length > 0).map((d) => d.text!);
     let sampledTexts = texts;
     if (texts.length > MAX_BRUSH_FREQ_SAMPLE) {
       const step = Math.floor(texts.length / MAX_BRUSH_FREQ_SAMPLE);
@@ -517,7 +537,9 @@ export function detectSignals(
       let similarPairs = 0;
       for (let a = 0; a < sampledTexts.length; a++) {
         for (let b = a + 1; b < sampledTexts.length; b++) {
-          if (lcsSimilarity(sampledTexts[a]!, sampledTexts[b]!) >= config.brushSimilarityThreshold) {
+          if (
+            lcsSimilarity(sampledTexts[a]!, sampledTexts[b]!) >= config.brushSimilarityThreshold
+          ) {
             similarPairs++;
           }
           totalPairs++;
@@ -565,5 +587,5 @@ export function detectSignals(
     });
   }
 
-  return candidates;
+  return { candidates, densityBuckets };
 }

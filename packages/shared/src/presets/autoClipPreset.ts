@@ -23,12 +23,12 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     topK: 5,
     maxCandidatesPerVideo: 15,
     danmakuSampleMax: 20,
-      contextWindowSec: 30,
-      titleStylePrompt: "",
-      titleStyleConfig: {
-        maxLength: 30,
-        minLength: 20,
-      },
+    contextWindowSec: 30,
+    titleStylePrompt: "",
+    titleStyleConfig: {
+      maxLength: 30,
+      minLength: 20,
+    },
   },
   enhancement: {
     asrEnabled: false,
@@ -65,7 +65,12 @@ export class AutoClipPreset extends CommonPreset<AutoClipConfig> {
    */
   async appendFilterRules(
     presetId: string,
-    newRules: Array<{ pattern: string; mode: "exact" | "contains" | "regex"; source: "auto"; enabled: boolean }>,
+    newRules: Array<{
+      pattern: string;
+      mode: "exact" | "contains" | "regex";
+      source: "auto";
+      enabled: boolean;
+    }>,
   ): Promise<number> {
     const existing = await this.get(presetId);
     if (!existing) return 0;
