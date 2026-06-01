@@ -9,6 +9,11 @@ RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+# better-sqlite3 has no prebuilt binary for Node 24; must compile from source.
+# Needed by both frontend-build (build:webui → build:base → tests) and backend-build.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && \
+    npm rebuild better-sqlite3 --build-from-source && \
+    rm -rf /var/lib/apt/lists/*
 
 # ============================================
 # 前端构建阶段
@@ -24,11 +29,6 @@ RUN pnpm run build:webui
 # 后端构建阶段
 # ============================================
 FROM base AS backend-build
-# base stage uses --ignore-scripts (no native modules compiled).
-# better-sqlite3 has no prebuilt binary for Node 24, must compile from source.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && \
-    npm rebuild better-sqlite3 --build-from-source && \
-    rm -rf /var/lib/apt/lists/*
 RUN pnpm run build:base && pnpm run --filter bililive-cli build && cd packages/CLI && node ./scripts/removeDev.js && npm install --force
 
 # npm install --force drops @napi-rs/canvas optional platform bindings (npm bug #4828).
