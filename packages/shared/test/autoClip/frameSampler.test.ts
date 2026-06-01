@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  sampleFrames,
-  extractOneFrame,
-} from "../../src/autoClip/frameSampler.js";
+import { sampleFrames, extractOneFrame } from "../../src/autoClip/frameSampler.js";
 
 // vi.mock is hoisted above imports, so factory cannot reference top-level
 // variables. Use vi.hoisted() to lift the mock reference.
@@ -139,9 +136,7 @@ describe("sampleFrames", () => {
     const successProc = createMockProc({ exitCode: 0, stdoutChunks: [FAKE_JPEG] });
     const errorProc = createMockProc({ emitError: new Error("ENOENT") });
 
-    mockSpawn
-      .mockReturnValueOnce(successProc)
-      .mockReturnValueOnce(errorProc);
+    mockSpawn.mockReturnValueOnce(successProc).mockReturnValueOnce(errorProc);
 
     const frames = await sampleFrames("/fake/video.mp4", [10, 20]);
     expect(frames).toHaveLength(1);
@@ -237,9 +232,7 @@ describe("extractOneFrame", () => {
     // Use a proc that takes longer than the default timeout
     // Since the timer is set for FRAME_EXTRACT_TIMEOUT_MS (15000ms by default),
     // we need to mock setTimeout to fire immediately
-    const { FRAME_EXTRACT_TIMEOUT_MS } = await import(
-      "../../src/autoClip/constants.js"
-    );
+    const { FRAME_EXTRACT_TIMEOUT_MS } = await import("../../src/autoClip/constants.js");
 
     // We can't easily shorten the timer in tests without mocking,
     // but the settled guard itself is tested via the error+close case above.

@@ -6,10 +6,7 @@ import {
   rankCandidates,
   DEFAULT_PROMPT_TEMPLATE,
 } from "../../src/autoClip/llmRanker";
-import type {
-  ClipCandidateContext,
-  CandidateWindow,
-} from "../../src/autoClip/types";
+import type { ClipCandidateContext, CandidateWindow } from "../../src/autoClip/types";
 import type { AutoClipLLMConfig } from "@biliLive-tools/types";
 
 // ---------------------------------------------------------------------------
@@ -798,21 +795,24 @@ describe("rankCandidates error resilience", () => {
 
   it("survives when ALL LLM calls reject — all use heuristic fallback", async () => {
     const candidates = [makeMockCandidate(), makeMockCandidate()];
-    const sendMessage = async () => { throw new Error("API down"); };
+    const sendMessage = async () => {
+      throw new Error("API down");
+    };
     const result = await rankCandidates(candidates, baseConfig, sendMessage, mockDanmaku);
     expect(result.length).toBeGreaterThanOrEqual(0);
   });
 
   it("filters out candidates with isHighlight: false even if score > 0", async () => {
     const candidates = [makeMockCandidate()];
-    const sendMessage = async () => JSON.stringify({
-      isHighlight: false,
-      score: 7,
-      title: "Not really",
-      tags: [],
-      highlightType: "not_highlight",
-      reason: "meh",
-    });
+    const sendMessage = async () =>
+      JSON.stringify({
+        isHighlight: false,
+        score: 7,
+        title: "Not really",
+        tags: [],
+        highlightType: "not_highlight",
+        reason: "meh",
+      });
     const result = await rankCandidates(candidates, baseConfig, sendMessage, mockDanmaku);
     expect(result.length).toBe(0);
   });
@@ -829,8 +829,12 @@ describe("rankCandidates error resilience", () => {
       await new Promise((r) => setTimeout(r, 10));
       inFlight--;
       return JSON.stringify({
-        isHighlight: true, score: 5, title: "T", tags: [],
-        highlightType: "hype", reason: "ok",
+        isHighlight: true,
+        score: 5,
+        title: "T",
+        tags: [],
+        highlightType: "hype",
+        reason: "ok",
       });
     };
     const cfg = { ...baseConfig, maxCandidatesPerVideo: 10 };

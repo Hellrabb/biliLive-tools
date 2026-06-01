@@ -38,7 +38,14 @@ export async function batchApproveAndExport(ids: string[]) {
 }
 
 export async function getCounts(): Promise<{
-  all: number; pending: number; analyzing: number; approved: number; exporting: number; exported: number; uploaded: number; failed: number;
+  all: number;
+  pending: number;
+  analyzing: number;
+  approved: number;
+  exporting: number;
+  exported: number;
+  uploaded: number;
+  failed: number;
 }> {
   const res = await request.get("/auto-clip/clips/counts");
   return res.data;

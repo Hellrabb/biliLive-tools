@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { generateStyledTitles, buildTitlePrompt, parseTitleResponse } from "../../src/autoClip/titleStyler.js";
+import {
+  generateStyledTitles,
+  buildTitlePrompt,
+  parseTitleResponse,
+} from "../../src/autoClip/titleStyler.js";
 import { makeHighlight } from "./mockData.js";
 
 describe("buildTitlePrompt", () => {
@@ -56,7 +60,9 @@ describe("generateStyledTitles", () => {
 
   it("should preserve Phase 1 title when LLM fails", async () => {
     const highlights = [makeHighlight({ title: "原始摘要" })];
-    const sendMessage = async () => { throw new Error("LLM down"); };
+    const sendMessage = async () => {
+      throw new Error("LLM down");
+    };
 
     const result = await generateStyledTitles(
       highlights,
@@ -92,23 +98,23 @@ describe("generateStyledTitles", () => {
 });
 
 describe("parseTitleResponse", () => {
-  it('extracts title from valid JSON', () => {
+  it("extracts title from valid JSON", () => {
     const result = parseTitleResponse('{"title": "江湖夜雨十年灯"}');
     expect(result).toBe("江湖夜雨十年灯");
   });
 
-  it('rejects LLM error message in plain text', () => {
+  it("rejects LLM error message in plain text", () => {
     expect(parseTitleResponse("I cannot generate this because")).toBeNull();
     expect(parseTitleResponse("Sorry, I'm unable to")).toBeNull();
     expect(parseTitleResponse("无法生成标题")).toBeNull();
   });
 
-  it('accepts reasonable plain text title', () => {
+  it("accepts reasonable plain text title", () => {
     const result = parseTitleResponse("主播的惊天操作震惊全场观众");
     expect(result).toBe("主播的惊天操作震惊全场观众");
   });
 
-  it('rejects text containing JSON braces', () => {
+  it("rejects text containing JSON braces", () => {
     expect(parseTitleResponse('{"error": "something went wrong"} extra text')).toBeNull();
   });
 });

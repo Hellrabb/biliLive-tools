@@ -1328,4 +1328,6 @@ export interface AutoClipClipRow {
   preset_id: string | null;
   llmFallback: boolean;
   highlights: AutoClipHighlightItem[];
+  /** 切片决策证据链 (pipeline 各阶段输出). null 表示无证据或解析失败 */
+  evidence?: Record<string, unknown> | null;
 }

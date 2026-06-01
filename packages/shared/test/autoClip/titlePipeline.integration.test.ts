@@ -6,7 +6,11 @@ import type { AutoClipEnhancementConfig } from "@biliLive-tools/types";
 
 function makeHighlights(count: number): HighlightSegment[] {
   const types: HighlightSegment["highlightType"][] = [
-    "impressive", "funny", "touching", "hype", "troll",
+    "impressive",
+    "funny",
+    "touching",
+    "hype",
+    "troll",
   ];
   return Array.from({ length: count }, (_, i) => ({
     timeRange: [i * 60, i * 60 + 30] as [number, number],
@@ -67,12 +71,7 @@ describe("Title Pipeline Integration", () => {
       asrEnabled: false,
       visualEnabled: false,
     };
-    const result = await understandContent(
-      "/nonexistent/v.mp4",
-      makeHighlights(2),
-      config,
-      {},
-    );
+    const result = await understandContent("/nonexistent/v.mp4", makeHighlights(2), config, {});
     expect(result.asrMap.size).toBe(0);
     expect(result.frameMap.size).toBe(0);
   });

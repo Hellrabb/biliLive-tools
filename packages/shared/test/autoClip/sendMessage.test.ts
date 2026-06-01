@@ -231,11 +231,9 @@ describe("buildSendMessage", () => {
     const controller = new AbortController();
     await sendFn!("prompt with signal", controller.signal);
 
-    expect(mockQwenSendMessage).toHaveBeenCalledWith(
-      "prompt with signal",
-      undefined,
-      { signal: controller.signal },
-    );
+    expect(mockQwenSendMessage).toHaveBeenCalledWith("prompt with signal", undefined, {
+      signal: controller.signal,
+    });
   });
 
   it("uses fallback apiKey when vendor has none", async () => {
@@ -247,7 +245,12 @@ describe("buildSendMessage", () => {
 
     const aiConfig = makeAiConfig({
       vendors: [
-        { id: "vendor-1", apiKey: undefined, baseURL: "https://api.example.com", provider: "aliyun" },
+        {
+          id: "vendor-1",
+          apiKey: undefined,
+          baseURL: "https://api.example.com",
+          provider: "aliyun",
+        },
         { id: "vendor-ollama", apiKey: "", baseURL: "http://localhost:11434", provider: "ollama" },
       ],
     });
@@ -255,9 +258,7 @@ describe("buildSendMessage", () => {
     const sendFn = await buildSendMessage({ presetConfig, aiConfig });
     expect(sendFn).toBeDefined();
 
-    expect(MockQwenLLM).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: "" }),
-    );
+    expect(MockQwenLLM).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "" }));
   });
 
   // ---------------------------------------------------------------------------
@@ -335,7 +336,12 @@ describe("buildSendMessage", () => {
 
     const aiConfig = makeAiConfig({
       vendors: [
-        { id: "vendor-1", apiKey: "sk-test", baseURL: "https://api.example.com", provider: "aliyun" },
+        {
+          id: "vendor-1",
+          apiKey: "sk-test",
+          baseURL: "https://api.example.com",
+          provider: "aliyun",
+        },
         { id: "vendor-ollama", apiKey: "", provider: "ollama" },
       ],
     });
@@ -384,9 +390,7 @@ describe("buildSendMessage", () => {
     });
 
     const aiConfig = makeAiConfig({
-      models: [
-        { modelId: "ollama-model-1", vendorId: "vendor-ollama" },
-      ],
+      models: [{ modelId: "ollama-model-1", vendorId: "vendor-ollama" }],
       vendors: [
         { id: "vendor-ollama", apiKey: "", baseURL: "http://localhost:11434", provider: "ollama" },
       ],
@@ -396,9 +400,7 @@ describe("buildSendMessage", () => {
     expect(sendFn).toBeDefined();
     await sendFn!("test");
 
-    expect(mockOllamaChat).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "qwen2.5" }),
-    );
+    expect(mockOllamaChat).toHaveBeenCalledWith(expect.objectContaining({ model: "qwen2.5" }));
   });
 
   // ---------------------------------------------------------------------------
@@ -417,11 +419,14 @@ describe("buildSendMessage", () => {
     });
 
     const aiConfig = makeAiConfig({
-      models: [
-        { modelId: "openai-model-1", modelName: "gpt-4o", vendorId: "vendor-openai" },
-      ],
+      models: [{ modelId: "openai-model-1", modelName: "gpt-4o", vendorId: "vendor-openai" }],
       vendors: [
-        { id: "vendor-openai", apiKey: "sk-openai-test", baseURL: "https://api.openai.com/v1", provider: "openai" },
+        {
+          id: "vendor-openai",
+          apiKey: "sk-openai-test",
+          baseURL: "https://api.openai.com/v1",
+          provider: "openai",
+        },
       ],
     });
 
@@ -455,11 +460,14 @@ describe("buildSendMessage", () => {
     });
 
     const aiConfig = makeAiConfig({
-      models: [
-        { modelId: "openai-backed-model", modelName: "gpt-4o", vendorId: "vendor-openai" },
-      ],
+      models: [{ modelId: "openai-backed-model", modelName: "gpt-4o", vendorId: "vendor-openai" }],
       vendors: [
-        { id: "vendor-openai", apiKey: "sk-openai-test", baseURL: "https://api.openai.com/v1", provider: "openai" },
+        {
+          id: "vendor-openai",
+          apiKey: "sk-openai-test",
+          baseURL: "https://api.openai.com/v1",
+          provider: "openai",
+        },
       ],
     });
 
