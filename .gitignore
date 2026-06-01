@@ -17,4 +17,4 @@ docs/.vitepress/cache
 
 .worktrees/
 
-.DS_Store
+.DS_Store.flow-active
