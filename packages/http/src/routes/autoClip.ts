@@ -3,9 +3,7 @@ import path from "node:path";
 import Router from "@koa/router";
 import logger from "@biliLive-tools/shared/utils/log.js";
 import { autoClipModel } from "@biliLive-tools/shared/db/index.js";
-import {
-  doExportClips,
-} from "@biliLive-tools/shared/autoClip/pipeline.js";
+import { doExportClips } from "@biliLive-tools/shared/autoClip/pipeline.js";
 import type { ExportClipByIdDeps } from "@biliLive-tools/shared/autoClip/pipeline.js";
 import { container } from "../index.js";
 import type { AutoClipService } from "@biliLive-tools/shared/autoClip/service.js";
@@ -19,6 +17,16 @@ const MAX_CONCURRENT_RUNS = 5;
 const activeRuns = new Set<string>();
 /** Active analysis AbortControllers, keyed by taskId */
 const activeAborts = new Map<string, AbortController>();
+
+/** Safely parse evidence JSON column; returns null on any failure. */
+function parseEvidenceSafe(raw: string | null): unknown | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 /** Per-client rate limiting for /run endpoint. Prevents abuse of LLM analysis. */
 const runRateLimit = new Map<string, number>();
@@ -80,10 +88,15 @@ const exportDeps: ExportClipByIdDeps = {
     const preset = getAutoClipPreset();
     return preset.get(id);
   },
-  getAppConfig: () => container.resolve("appConfig") as { videoCut?: { autoClipPresetId?: string } },
+  getAppConfig: () =>
+    container.resolve("appConfig") as { videoCut?: { autoClipPresetId?: string } },
   getResultById: (id: string) => autoClipModel.getResultById(id) ?? undefined,
-  updateStatus: (id: string, status: string) => { autoClipModel.updateStatus(id, status); },
-  markExported: (id: string, paths: string[]) => { autoClipModel.markExported(id, paths); },
+  updateStatus: (id: string, status: string) => {
+    autoClipModel.updateStatus(id, status);
+  },
+  markExported: (id: string, paths: string[]) => {
+    autoClipModel.markExported(id, paths);
+  },
   incrementRetry: (id: string) => autoClipModel.incrementRetry(id),
   retryAndReschedule: (id: string) => autoClipModel.retryAndReschedule(id),
 };
@@ -117,9 +130,15 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     errors.push({ field: "config.signal", message: "信号检测配置为必填项" });
   } else {
     const numFields = [
-      "danmakuDensityThreshold", "scMinAmount", "giftBurstThreshold",
-      "giftBurstWindowSec", "minWindowDuration", "maxWindowDuration",
-      "bucketSec", "mergeGapSec", "brushSimilarityThreshold",
+      "danmakuDensityThreshold",
+      "scMinAmount",
+      "giftBurstThreshold",
+      "giftBurstWindowSec",
+      "minWindowDuration",
+      "maxWindowDuration",
+      "bucketSec",
+      "mergeGapSec",
+      "brushSimilarityThreshold",
     ] as const;
     for (const f of numFields) {
       if (typeof signal[f] !== "number" || !Number.isFinite(signal[f])) {
@@ -127,9 +146,16 @@ function validatePresetConfig(config: unknown): ValidationError[] {
       }
     }
     // validate windowPadding is a 2-element number array
-    if (!Array.isArray(signal.windowPadding) || signal.windowPadding.length !== 2 ||
-        typeof signal.windowPadding[0] !== "number" || typeof signal.windowPadding[1] !== "number") {
-      errors.push({ field: "config.signal.windowPadding", message: "windowPadding 必须是 [number, number]" });
+    if (
+      !Array.isArray(signal.windowPadding) ||
+      signal.windowPadding.length !== 2 ||
+      typeof signal.windowPadding[0] !== "number" ||
+      typeof signal.windowPadding[1] !== "number"
+    ) {
+      errors.push({
+        field: "config.signal.windowPadding",
+        message: "windowPadding 必须是 [number, number]",
+      });
     }
   }
 
@@ -138,15 +164,29 @@ function validatePresetConfig(config: unknown): ValidationError[] {
   if (!llm || typeof llm !== "object") {
     errors.push({ field: "config.llm", message: "LLM 配置为必填项" });
   } else {
-    if (typeof llm.enabled !== "boolean") errors.push({ field: "config.llm.enabled", message: "enabled 必须是布尔值" });
-    if (typeof llm.provider !== "string" || !["qwen", "ollama", "aliyun", "openai"].includes(llm.provider as string)) {
-      errors.push({ field: "config.llm.provider", message: 'provider 必须是 "qwen"、"ollama"、"aliyun" 或 "openai"' });
+    if (typeof llm.enabled !== "boolean")
+      errors.push({ field: "config.llm.enabled", message: "enabled 必须是布尔值" });
+    if (
+      typeof llm.provider !== "string" ||
+      !["qwen", "ollama", "aliyun", "openai"].includes(llm.provider as string)
+    ) {
+      errors.push({
+        field: "config.llm.provider",
+        message: 'provider 必须是 "qwen"、"ollama"、"aliyun" 或 "openai"',
+      });
     }
     if (typeof llm.topK !== "number" || !Number.isFinite(llm.topK) || (llm.topK as number) < 1) {
       errors.push({ field: "config.llm.topK", message: "topK 必须 >= 1" });
     }
-    if (typeof llm.maxCandidatesPerVideo !== "number" || !Number.isFinite(llm.maxCandidatesPerVideo) || (llm.maxCandidatesPerVideo as number) < 1) {
-      errors.push({ field: "config.llm.maxCandidatesPerVideo", message: "maxCandidatesPerVideo 必须 >= 1" });
+    if (
+      typeof llm.maxCandidatesPerVideo !== "number" ||
+      !Number.isFinite(llm.maxCandidatesPerVideo) ||
+      (llm.maxCandidatesPerVideo as number) < 1
+    ) {
+      errors.push({
+        field: "config.llm.maxCandidatesPerVideo",
+        message: "maxCandidatesPerVideo 必须 >= 1",
+      });
     }
   }
 
@@ -159,7 +199,7 @@ function validatePresetConfig(config: unknown): ValidationError[] {
     if (exp.savePath && typeof exp.savePath === "string") {
       const dangerousPrefixes = ["/etc", "/proc", "/sys", "/dev", "/boot", "/root"];
       const resolved = path.resolve(exp.savePath);
-      if (dangerousPrefixes.some(p => resolved.startsWith(p + path.sep) || resolved === p)) {
+      if (dangerousPrefixes.some((p) => resolved.startsWith(p + path.sep) || resolved === p)) {
         errors.push({ field: "config.export.savePath", message: "保存路径不能指向系统目录" });
       }
     }
@@ -250,7 +290,9 @@ router.del("/presets/:id", async (ctx) => {
 // GET /auto-clip/default-config — 返回默认配置（供前端使用，确保单一事实来源）
 router.get("/default-config", async (ctx) => {
   try {
-    const { AUTO_CLIP_DEFAULT_CONFIG } = await import("@biliLive-tools/shared/presets/autoClipPreset.js");
+    const { AUTO_CLIP_DEFAULT_CONFIG } = await import(
+      "@biliLive-tools/shared/presets/autoClipPreset.js"
+    );
     ctx.body = AUTO_CLIP_DEFAULT_CONFIG;
   } catch (error: unknown) {
     logger.error("AutoClip default-config error:", error);
@@ -299,11 +341,8 @@ router.post("/run", async (ctx) => {
   const resolvedDanmu = path.resolve(danmuPath);
 
   // Check resolved path against dangerous system prefixes
-  const systemPrefixes = [
-    /^\/etc\//, /^\/proc\//, /^\/sys\//, /^\/dev\//,
-    /\x00/,
-  ];
-  if (systemPrefixes.some(p => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
+  const systemPrefixes = [/^\/etc\//, /^\/proc\//, /^\/sys\//, /^\/dev\//, /\x00/];
+  if (systemPrefixes.some((p) => p.test(resolvedVideo) || p.test(resolvedDanmu))) {
     ctx.status = 400;
     ctx.body = { error: "路径无效" };
     return;
@@ -326,14 +365,16 @@ router.post("/run", async (ctx) => {
     const danmuStat = await fs.stat(resolvedDanmu);
     if (danmuStat.size > MAX_DANMU_SIZE_BYTES) {
       ctx.status = 400;
-      ctx.body = { error: `弹幕文件过大 (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB)，上限 50 MB` };
+      ctx.body = {
+        error: `弹幕文件过大 (${(danmuStat.size / 1024 / 1024).toFixed(1)} MB)，上限 50 MB`,
+      };
       return;
     }
   } catch (err: unknown) {
-    const isModuleNotFound = err instanceof Error && (
-      (err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND" ||
-      err.message.includes("Cannot find module")
-    );
+    const isModuleNotFound =
+      err instanceof Error &&
+      ((err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND" ||
+        err.message.includes("Cannot find module"));
     if (isModuleNotFound) {
       // fs-extra unavailable — fallback to Node.js built-in fs
       const { access, constants } = await import("node:fs/promises");
@@ -389,6 +430,7 @@ router.post("/run", async (ctx) => {
     highlight_count: 0,
     first_title: null,
     retry_count: 0,
+    evidence: null,
   });
 
   // Fire-and-forget: return taskId immediately, execute pipeline in background
@@ -414,7 +456,10 @@ router.post("/run", async (ctx) => {
 
       logger.info(`[AutoClip ${taskId}] completed`);
     } catch (error: unknown) {
-      if ((error instanceof Error && error.name === "AbortError") || abortController.signal.aborted) {
+      if (
+        (error instanceof Error && error.name === "AbortError") ||
+        abortController.signal.aborted
+      ) {
         logger.info(`[AutoClip ${taskId}] cancelled by user`);
       } else {
         logger.error(`[AutoClip ${taskId}] failed:`, error);
@@ -422,7 +467,9 @@ router.post("/run", async (ctx) => {
       try {
         // Don't delete — update to terminal state so frontend polling resolves
         autoClipModel.updateStatus(taskId, "failed");
-      } catch { /* ignore cleanup errors */ }
+      } catch {
+        /* ignore cleanup errors */
+      }
     } finally {
       activeRuns.delete(taskId);
       activeAborts.delete(taskId);
@@ -470,7 +517,13 @@ router.get("/result/:id", async (ctx) => {
 
 router.get("/clips", async (ctx) => {
   const VALID_CLIP_STATUSES = new Set([
-    "pending", "analyzing", "approved", "exporting", "exported", "uploaded", "failed",
+    "pending",
+    "analyzing",
+    "approved",
+    "exporting",
+    "exported",
+    "uploaded",
+    "failed",
   ]);
   const status = ctx.query.status as string | undefined;
   if (status && !VALID_CLIP_STATUSES.has(status)) {
@@ -498,6 +551,7 @@ router.get("/clips", async (ctx) => {
           ...rest,
           highlights: JSON.parse(r.highlights),
           llmFallback: llm_fallback === 1,
+          evidence: parseEvidenceSafe(r.evidence),
         });
       } catch {
         logger.warn(`AutoClip: skipping row ${r.id} — invalid highlights JSON`);
@@ -527,6 +581,7 @@ router.get("/clips/:id", async (ctx) => {
       ...rest,
       highlights: JSON.parse(result.highlights),
       llmFallback: llm_fallback === 1,
+      evidence: parseEvidenceSafe(result.evidence),
     };
   } catch {
     ctx.status = 500;
@@ -655,10 +710,20 @@ router.post("/clips/batch-approve-and-export", async (ctx) => {
     limit(async () => {
       const result = autoClipModel.getResultById(id);
       if (!result) {
-        return { id, status: "skipped" as const, exportedPaths: [] as string[], errors: ["Not found"] };
+        return {
+          id,
+          status: "skipped" as const,
+          exportedPaths: [] as string[],
+          errors: ["Not found"],
+        };
       }
       if (result.status !== "pending") {
-        return { id, status: "skipped" as const, exportedPaths: [] as string[], errors: [`Status is '${result.status}'`] };
+        return {
+          id,
+          status: "skipped" as const,
+          exportedPaths: [] as string[],
+          errors: [`Status is '${result.status}'`],
+        };
       }
 
       try {

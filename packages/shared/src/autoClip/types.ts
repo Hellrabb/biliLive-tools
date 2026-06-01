@@ -70,6 +70,35 @@ export interface HighlightSegment {
   isHighlight: boolean;
 }
 
+/** 边界精修记录 (前后对比, 用于证据链展示) */
+export interface BoundaryRefinement {
+  originalStart: number;
+  originalEnd: number;
+  refinedStart: number;
+  refinedEnd: number;
+  reason?: string;
+}
+
+/** 切片决策证据链 (pipeline 各阶段输出的结构化证据, 用于前端可视化) */
+export interface Evidence {
+  danmakuDensityCurve: Array<{ timeOffset: number; count: number; density: number }>;
+  triggerDanmaku: Array<{ timeOffset: number; text: string; user?: string }>;
+  signalDetails: {
+    actualDensity: number;
+    threshold: number;
+    sources: string[];
+    mergedWindows?: Array<{ start: number; end: number }>;
+  };
+  boundaryRefinements: BoundaryRefinement[];
+  llmScores: Array<{
+    score: number;
+    highlightType: string;
+    reason: string;
+    tags: string[];
+    isHighlight: boolean;
+  }>;
+}
+
 /** AutoClip pipeline 最终结果 */
 export interface AutoClipResult {
   id: string;
@@ -89,6 +118,8 @@ export interface AutoClipResult {
     removed: number;
     breakdown: Array<{ ruleId: string; pattern: string; removed: number }>;
   };
+  /** 切片决策证据链 (pipeline 各阶段输出). 证据捕获失败时为 undefined */
+  evidence?: Evidence;
 }
 
 /** 弹幕统计 (parseDanmu 内部结构, 用于信号检测) */

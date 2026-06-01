@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { makeHighlight } from "./mockData.js";
 
 describe("refineBoundaries constraint checks", () => {
-
   it("should clamp adjustments to maxAdjustSec", async () => {
     const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
@@ -10,25 +9,32 @@ describe("refineBoundaries constraint checks", () => {
     const asrMap = new Map([[0, "some asr text"]]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: -999,
-        endAdjustment: 999,
-        startReason: "extend way back",
-        endReason: "extend way forward",
-        confidence: "high",
-      }],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: -999,
+            endAdjustment: 999,
+            startReason: "extend way back",
+            endReason: "extend way forward",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
 
-    expect(result[0]!.timeRange[0]).toBe(70);   // 100 - 30
-    expect(result[0]!.timeRange[1]).toBe(230);   // 200 + 30
+    expect(result[0]!.timeRange[0]).toBe(70); // 100 - 30
+    expect(result[0]!.timeRange[1]).toBe(230); // 200 + 30
   });
 
   it("should preserve original boundaries when adjusted clip is too short", async () => {
@@ -38,19 +44,26 @@ describe("refineBoundaries constraint checks", () => {
     const asrMap = new Map([[0, "test asr"]]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: 10,
-        endAdjustment: -10,
-        startReason: "trim",
-        endReason: "trim",
-        confidence: "high",
-      }],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: 10,
+            endAdjustment: -10,
+            startReason: "trim",
+            endReason: "trim",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -66,19 +79,26 @@ describe("refineBoundaries constraint checks", () => {
     const asrMap = new Map([[0, "test"]]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: -20,
-        endAdjustment: 0,
-        startReason: "extend",
-        endReason: "",
-        confidence: "high",
-      }],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: -20,
+            endAdjustment: 0,
+            startReason: "extend",
+            endReason: "",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -93,19 +113,26 @@ describe("refineBoundaries constraint checks", () => {
     const asrMap = new Map([[0, "test"]]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: -15,
-        endAdjustment: 15,
-        startReason: "maybe",
-        endReason: "maybe",
-        confidence: "low",
-      }],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: -15,
+            endAdjustment: 15,
+            startReason: "maybe",
+            endReason: "maybe",
+            confidence: "low",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -120,22 +147,32 @@ describe("refineBoundaries constraint checks", () => {
       makeHighlight({ timeRange: [100, 200], bestRange: [100, 200] }),
       makeHighlight({ timeRange: [250, 350], bestRange: [250, 350] }),
     ];
-    const asrMap = new Map([[0, "a"], [1, "b"]]);
+    const asrMap = new Map([
+      [0, "a"],
+      [1, "b"],
+    ]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: 0,
-        endAdjustment: 53,
-        startReason: "",
-        endReason: "extend",
-        confidence: "high",
-      }],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: 0,
+            endAdjustment: 53,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -159,18 +196,40 @@ describe("refineBoundaries constraint checks", () => {
     highlights[1]!.highlightType = "impressive";
     highlights[1]!.reason = "best moment of stream";
 
-    const asrMap = new Map([[0, "a"], [1, "b"]]);
+    const asrMap = new Map([
+      [0, "a"],
+      [1, "b"],
+    ]);
     const frameMap = new Map<number, string>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [
-        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
-        { highlightIndex: 1, startAdjustment: 0, endAdjustment: 0, startReason: "", endReason: "", confidence: "medium" },
-      ],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: 0,
+            endAdjustment: 80,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 1,
+            startAdjustment: 0,
+            endAdjustment: 0,
+            startReason: "",
+            endReason: "",
+            confidence: "medium",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 80, minClipDuration: 15 },
       1000,
     );
@@ -198,8 +257,11 @@ describe("refineBoundaries constraint checks", () => {
 
     const mockSend = vi.fn().mockRejectedValue(new Error("network error"));
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -222,7 +284,12 @@ describe("refineBoundaries constraint checks", () => {
       makeHighlight({ timeRange: [15, 150], bestRange: [15, 150], score: 8 }),
       makeHighlight({ timeRange: [140, 200], bestRange: [140, 200], score: 2 }),
     ];
-    const asrMap = new Map([[0, "a"], [1, "b"], [2, "c"], [3, "d"]]);
+    const asrMap = new Map([
+      [0, "a"],
+      [1, "b"],
+      [2, "c"],
+      [3, "d"],
+    ]);
     const frameMap = new Map<number, string>();
 
     // Adjustments cause dense overlaps:
@@ -230,17 +297,50 @@ describe("refineBoundaries constraint checks", () => {
     // clip1: [30, 100] end +60 → [30, 160]
     // clip2: [15, 150] start -50, end +60 → [0, 210] (clamped)
     // clip3: [140, 200] start -10 → [130, 200]
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [
-        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 0, startReason: "", endReason: "", confidence: "medium" },
-        { highlightIndex: 1, startAdjustment: 0, endAdjustment: 60, startReason: "", endReason: "extend", confidence: "high" },
-        { highlightIndex: 2, startAdjustment: -50, endAdjustment: 60, startReason: "extend back", endReason: "extend forward", confidence: "high" },
-        { highlightIndex: 3, startAdjustment: -10, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
-      ],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: 0,
+            endAdjustment: 0,
+            startReason: "",
+            endReason: "",
+            confidence: "medium",
+          },
+          {
+            highlightIndex: 1,
+            startAdjustment: 0,
+            endAdjustment: 60,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 2,
+            startAdjustment: -50,
+            endAdjustment: 60,
+            startReason: "extend back",
+            endReason: "extend forward",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 3,
+            startAdjustment: -10,
+            endAdjustment: 0,
+            startReason: "extend",
+            endReason: "",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 50, minClipDuration: 5 },
       1000,
     );
@@ -267,23 +367,62 @@ describe("refineBoundaries constraint checks", () => {
       makeHighlight({ timeRange: [180, 250], bestRange: [180, 250], score: 3 }),
       makeHighlight({ timeRange: [240, 300], bestRange: [240, 300], score: 5 }),
     ];
-    const asrMap = new Map([[0, "a"], [1, "b"], [2, "c"], [3, "d"], [4, "e"]]);
+    const asrMap = new Map([
+      [0, "a"],
+      [1, "b"],
+      [2, "c"],
+      [3, "d"],
+      [4, "e"],
+    ]);
     const frameMap = new Map<number, string>();
 
     // clip1 is index 1 with [100,200] score 6
     // clip2 is index 2 with [40,120] score 9 — overlaps clip1 after startAdjustment
     // This creates an out-of-order merge that requires cascade
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [
-        { highlightIndex: 1, startAdjustment: -70, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
-        { highlightIndex: 2, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
-        { highlightIndex: 3, startAdjustment: 0, endAdjustment: 80, startReason: "", endReason: "extend", confidence: "high" },
-        { highlightIndex: 4, startAdjustment: -20, endAdjustment: 0, startReason: "extend", endReason: "", confidence: "high" },
-      ],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 1,
+            startAdjustment: -70,
+            endAdjustment: 0,
+            startReason: "extend",
+            endReason: "",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 2,
+            startAdjustment: 0,
+            endAdjustment: 80,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 3,
+            startAdjustment: 0,
+            endAdjustment: 80,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+          {
+            highlightIndex: 4,
+            startAdjustment: -20,
+            endAdjustment: 0,
+            startReason: "extend",
+            endReason: "",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 80, minClipDuration: 5 },
       1000,
     );
@@ -307,18 +446,33 @@ describe("refineBoundaries constraint checks", () => {
       makeHighlight({ timeRange: [100, 130], bestRange: [100, 130], score: 7 }),
       makeHighlight({ timeRange: [129, 200], bestRange: [129, 200], score: 5 }),
     ];
-    const asrMap = new Map([[0, "a"], [1, "b"]]);
+    const asrMap = new Map([
+      [0, "a"],
+      [1, "b"],
+    ]);
     const frameMap = new Map<number, string>();
 
     // Extend clip1 end just slightly into clip2 start
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [
-        { highlightIndex: 0, startAdjustment: 0, endAdjustment: 2, startReason: "", endReason: "extend", confidence: "high" },
-      ],
-    }));
+    const mockSend = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        adjustments: [
+          {
+            highlightIndex: 0,
+            startAdjustment: 0,
+            endAdjustment: 2,
+            startReason: "",
+            endReason: "extend",
+            confidence: "high",
+          },
+        ],
+      }),
+    );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
+    const { highlights: result, refinements: _r } = await refineBoundaries(
+      highlights,
+      asrMap,
+      frameMap,
+      mockSend,
       { maxAdjustSec: 30, minClipDuration: 15 },
       1000,
     );
@@ -336,7 +490,7 @@ describe("refineBoundaries constraint checks", () => {
     const highlights = [makeHighlight({ timeRange: [50, 150], bestRange: [50, 150] })];
     const mockSend = vi.fn();
 
-    const result = await refineBoundaries(
+    const { highlights: result, refinements: _r } = await refineBoundaries(
       highlights,
       new Map(),
       new Map(),

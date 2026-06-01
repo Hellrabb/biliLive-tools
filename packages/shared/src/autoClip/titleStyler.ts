@@ -42,7 +42,6 @@ const STYLE_GUIDES: Record<string, string> = {
   not_highlight: `简洁概括，平实但有温度。描述发生了什么事即可。`,
 };
 
-
 // ---------------------------------------------------------------------------
 // buildTitlePrompt
 // ---------------------------------------------------------------------------
@@ -58,12 +57,8 @@ export function buildTitlePrompt(
   const max = config?.maxLength ?? 30;
   const summary = sanitizeForPrompt(highlight.title || "直播精彩片段");
 
-  const asrSection = asrTranscript
-    ? `- 主播语音：${sanitizeForPrompt(asrTranscript)}`
-    : "";
-  const frameSection = frameDescription
-    ? `- 画面描述：${sanitizeForPrompt(frameDescription)}`
-    : "";
+  const asrSection = asrTranscript ? `- 主播语音：${sanitizeForPrompt(asrTranscript)}` : "";
+  const frameSection = frameDescription ? `- 画面描述：${sanitizeForPrompt(frameDescription)}` : "";
 
   // If customPrompt is provided, use it as the template (overrides built-in templates)
   if (config?.customPrompt) {
@@ -80,8 +75,7 @@ export function buildTitlePrompt(
 
   const styleGuide = STYLE_GUIDES[highlight.highlightType] ?? STYLE_GUIDES.not_highlight ?? "";
 
-  return ADAPTIVE_PROMPT_BASE
-    .replace(/\{min\}/g, String(min))
+  return ADAPTIVE_PROMPT_BASE.replace(/\{min\}/g, String(min))
     .replace(/\{max\}/g, String(max))
     .replace(/\{style_guide\}/g, styleGuide)
     .replace(/\{summary\}/g, summary)
@@ -117,15 +111,11 @@ export async function generateStyledTitles(
         const danmakuContext = [
           h.tags.length > 0 ? `标签：${h.tags.join("、")}` : "",
           h.reason ? `高光原因：${h.reason}` : "",
-        ].filter(Boolean).join("；");
+        ]
+          .filter(Boolean)
+          .join("；");
 
-        const prompt = buildTitlePrompt(
-          h,
-          asrTranscript,
-          danmakuContext,
-          frameDescription,
-          config,
-        );
+        const prompt = buildTitlePrompt(h, asrTranscript, danmakuContext, frameDescription, config);
 
         const raw = await sendWithTimeout(sendMessage, prompt, { externalSignal: signal });
         const parsed = parseTitleResponse(raw);

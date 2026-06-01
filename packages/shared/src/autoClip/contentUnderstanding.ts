@@ -18,11 +18,24 @@ export interface ContentUnderstandingDeps {
   /** ASR recognize function (injected to avoid circular deps) */
   recognizeASR?: (audioPath: string, signal?: AbortSignal) => Promise<{ text: string }>;
   /** Multimodal message sender for frame description */
-  sendMultimodalMessage?: (prompt: string, images: string[], signal?: AbortSignal) => Promise<string>;
+  sendMultimodalMessage?: (
+    prompt: string,
+    images: string[],
+    signal?: AbortSignal,
+  ) => Promise<string>;
   /** Frame sampler (mockable, defaults to frameSampler) */
-  sampleFrames?: (videoPath: string, timestamps: number[], ffmpegPath?: string, signal?: AbortSignal) => Promise<string[]>;
+  sampleFrames?: (
+    videoPath: string,
+    timestamps: number[],
+    ffmpegPath?: string,
+    signal?: AbortSignal,
+  ) => Promise<string[]>;
   /** Audio extractor (mockable, defaults to ffmpeg-based) */
-  extractAudio?: (videoPath: string, bestRange: [number, number], signal?: AbortSignal) => Promise<string>;
+  extractAudio?: (
+    videoPath: string,
+    bestRange: [number, number],
+    signal?: AbortSignal,
+  ) => Promise<string>;
   /** Path to ffmpeg binary (defaults to "ffmpeg") */
   ffmpegPath?: string;
 }
@@ -43,17 +56,23 @@ export function extractAudioSegment(
     }
 
     const padStart = Math.max(0, start - ASR_PADDING_SEC);
-    const duration = (end - start) + ASR_PADDING_SEC * 2;
+    const duration = end - start + ASR_PADDING_SEC * 2;
     const outputPath = path.join(tmpdir(), `autoclip_asr_${uuidv4()}.wav`);
 
     const args = [
-      "-ss", String(padStart),
-      "-i", videoPath,
-      "-t", String(duration),
+      "-ss",
+      String(padStart),
+      "-i",
+      videoPath,
+      "-t",
+      String(duration),
       "-vn",
-      "-acodec", "pcm_s16le",
-      "-ar", "16000",
-      "-ac", "1",
+      "-acodec",
+      "pcm_s16le",
+      "-ar",
+      "16000",
+      "-ac",
+      "1",
       "-y",
       outputPath,
     ];
@@ -74,7 +93,9 @@ export function extractAudioSegment(
       // proc.close fires after SIGKILL; resolve/reject handled by close handler
     }
 
-    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    proc.stderr.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
 
     proc.on("close", (code) => {
       signal?.removeEventListener("abort", onAbort);
@@ -84,9 +105,7 @@ export function extractAudioSegment(
         // but ffmpeg still exits with code 0 (edge case after SIGKILL)
         if (!existsSync(outputPath)) {
           settled = true;
-          return reject(
-            new Error(`Audio extraction failed: output file missing at ${outputPath}`),
-          );
+          return reject(new Error(`Audio extraction failed: output file missing at ${outputPath}`));
         }
         settled = true;
         resolve(outputPath);
@@ -139,7 +158,7 @@ export async function understandContent(
 
   const doExtractAudio = deps.extractAudio
     ? (videoPath: string, range: [number, number], signal?: AbortSignal) =>
-        (deps.extractAudio!)(videoPath, range, signal)
+        deps.extractAudio!(videoPath, range, signal)
     : (videoPath: string, range: [number, number], signal?: AbortSignal) =>
         extractAudioSegment(videoPath, range, deps.ffmpegPath, signal);
   const doSampleFrames = deps.sampleFrames
@@ -175,10 +194,7 @@ export async function understandContent(
       // --- Frame description ---
       if (doVisual) {
         try {
-          const timestamps = [
-            h.bestRange[0] + 1,
-            (h.bestRange[0] + h.bestRange[1]) / 2,
-          ];
+          const timestamps = [h.bestRange[0] + 1, (h.bestRange[0] + h.bestRange[1]) / 2];
           const frames = await doSampleFrames(videoPath, timestamps, signal);
           if (frames.length > 0) {
             const description = await deps.sendMultimodalMessage!(

@@ -47,7 +47,7 @@ function createOldSchema(db: DatabaseType) {
 
   // Mark migrations 1-4 as already applied (old DB)
   const insertMig = db.prepare(
-    "INSERT OR IGNORE INTO auto_clip_schema_migrations (version) VALUES (?)"
+    "INSERT OR IGNORE INTO auto_clip_schema_migrations (version) VALUES (?)",
   );
   [1, 2, 3, 4].forEach((v) => insertMig.run(v));
 }
@@ -67,16 +67,20 @@ describe("auto_clip_results DB constraint", () => {
       // Insert a row with empty id (bypassing PRIMARY KEY = NOT NULL)
       // In SQLite, TEXT PRIMARY KEY = NOT NULL, so empty string is NOT null.
       // But empty string breaks upsertResult ON CONFLICT(id).
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run("", "/v/test.mp4", "/d/test.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run("", "/v/test.mp4", "/d/test.xml", "2025-01-01T00:00:00Z");
 
       // Insert a clean row for comparison
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run("good-id-1", "/v/good.mp4", "/d/good.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run("good-id-1", "/v/good.mp4", "/d/good.xml", "2025-01-01T00:00:00Z");
 
       // Verify dirty row exists
       const dirtyBefore = db
@@ -133,15 +137,17 @@ describe("auto_clip_results DB constraint", () => {
         )
       `);
       const insertMig = db.prepare(
-        "INSERT OR IGNORE INTO auto_clip_schema_migrations (version) VALUES (?)"
+        "INSERT OR IGNORE INTO auto_clip_schema_migrations (version) VALUES (?)",
       );
       [1, 2, 3, 4].forEach((v) => insertMig.run(v));
 
       // Insert a row with NULL id
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run(null, "/v/null.mp4", "/d/null.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run(null, "/v/null.mp4", "/d/null.xml", "2025-01-01T00:00:00Z");
 
       // Verify NULL row exists
       const nullBefore = db
@@ -159,9 +165,7 @@ describe("auto_clip_results DB constraint", () => {
       expect(nullAfter).toHaveLength(0);
 
       // The cleaned row should have a 32-char hex id
-      const cleaned = db
-        .prepare("SELECT id FROM auto_clip_results")
-        .all() as Array<{ id: string }>;
+      const cleaned = db.prepare("SELECT id FROM auto_clip_results").all() as Array<{ id: string }>;
       expect(cleaned).toHaveLength(1);
       expect(cleaned[0]!.id).toMatch(/^[0-9a-f]{32}$/);
     });
@@ -170,28 +174,30 @@ describe("auto_clip_results DB constraint", () => {
       createOldSchema(db);
 
       // Insert clean data
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run("id-1", "/v/1.mp4", "/d/1.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run("id-1", "/v/1.mp4", "/d/1.xml", "2025-01-01T00:00:00Z");
 
       // First initialization
       model = new AutoClipModel({ db });
       expect(
-        db.prepare("SELECT COUNT(*) as c FROM auto_clip_results").get() as { c: number }
+        db.prepare("SELECT COUNT(*) as c FROM auto_clip_results").get() as { c: number },
       ).toEqual({ c: 1 });
 
       // Second initialization should not break anything
       const model2 = new AutoClipModel({ db });
       expect(
-        db.prepare("SELECT COUNT(*) as c FROM auto_clip_results").get() as { c: number }
+        db.prepare("SELECT COUNT(*) as c FROM auto_clip_results").get() as { c: number },
       ).toEqual({ c: 1 });
 
       // Verify schema_migrations was not duplicated
       const migCount = db
         .prepare("SELECT COUNT(*) as c FROM auto_clip_schema_migrations")
         .get() as { c: number };
-      expect(migCount.c).toBe(5); // versions 1-5
+      expect(migCount.c).toBe(6); // versions 1-6
     });
   });
 
@@ -200,10 +206,12 @@ describe("auto_clip_results DB constraint", () => {
       createOldSchema(db);
 
       // Pre-clean data
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run("clean-id", "/v/c.mp4", "/d/c.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run("clean-id", "/v/c.mp4", "/d/c.xml", "2025-01-01T00:00:00Z");
 
       // Run migration
       model = new AutoClipModel({ db });
@@ -211,10 +219,12 @@ describe("auto_clip_results DB constraint", () => {
       // After migration, inserting empty id should fail
       // (rebuilt table has explicit NOT NULL + CHECK(id != ''))
       expect(() => {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
           VALUES (?, ?, ?, ?)
-        `).run("", "/v/empty.mp4", "/d/empty.xml", "2025-01-01T00:00:00Z");
+        `,
+        ).run("", "/v/empty.mp4", "/d/empty.xml", "2025-01-01T00:00:00Z");
       }).toThrow();
     });
 
@@ -222,19 +232,23 @@ describe("auto_clip_results DB constraint", () => {
       createOldSchema(db);
 
       // Pre-clean data
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
         VALUES (?, ?, ?, ?)
-      `).run("clean-id", "/v/c.mp4", "/d/c.xml", "2025-01-01T00:00:00Z");
+      `,
+      ).run("clean-id", "/v/c.mp4", "/d/c.xml", "2025-01-01T00:00:00Z");
 
       // Run migration
       model = new AutoClipModel({ db });
 
       expect(() => {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO auto_clip_results (id, video_path, danmu_path, created_at)
           VALUES (?, ?, ?, ?)
-        `).run(null, "/v/null.mp4", "/d/null.xml", "2025-01-01T00:00:00Z");
+        `,
+        ).run(null, "/v/null.mp4", "/d/null.xml", "2025-01-01T00:00:00Z");
       }).toThrow();
     });
 
@@ -263,9 +277,7 @@ describe("auto_clip_results DB constraint", () => {
         retry_count: 0,
       });
 
-      const row = db
-        .prepare("SELECT * FROM auto_clip_results WHERE id = ?")
-        .get(validId) as any;
+      const row = db.prepare("SELECT * FROM auto_clip_results WHERE id = ?").get(validId) as any;
       expect(row).toBeTruthy();
       expect(row.id).toBe(validId);
       expect(row.video_path).toBe("/v/test.mp4");
@@ -278,9 +290,10 @@ describe("auto_clip_results DB constraint", () => {
       model = new AutoClipModel({ db });
 
       // Verify table schema has NOT NULL on id
-      const cols = db
-        .prepare("PRAGMA table_info(auto_clip_results)")
-        .all() as Array<{ name: string; notnull: number }>;
+      const cols = db.prepare("PRAGMA table_info(auto_clip_results)").all() as Array<{
+        name: string;
+        notnull: number;
+      }>;
       const idCol = cols.find((c) => c.name === "id");
       expect(idCol).toBeDefined();
       expect(idCol!.notnull).toBe(1);
