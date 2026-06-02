@@ -136,20 +136,29 @@ COPY --from=backend-build /app/packages/CLI/lib /app/backend
 COPY --from=backend-build /app/packages/CLI/node_modules /app/backend/node_modules
 COPY --from=backend-build /app/packages/app/resources/bin /app/bin
 
-# 安装必要的依赖和 Caddy
+# 安装必要的依赖
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libfontconfig1-dev \
-    debian-keyring \
-    debian-archive-keyring \
-    apt-transport-https \
-    curl && \
+    curl \
+    ca-certificates && \
     apt-get install -y /app/bin/audiowaveform.deb && \
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && \
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && \
-    apt-get update && \
-    apt-get install -y caddy && \
     rm -rf /var/lib/apt/lists/*
+
+# 安装 Caddy（从 GitHub Releases 下载，避免 Cloudsmith 在国内不可达）
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+      x86_64) CADDY_ARCH="amd64" ;; \
+      aarch64) CADDY_ARCH="arm64" ;; \
+      *) echo "Unsupported arch: $ARCH"; exit 1 ;; \
+    esac && \
+    CADDY_VERSION="2.9.1" && \
+    curl -sSLf --retry 5 --retry-delay 3 --connect-timeout 15 \
+      -o /tmp/caddy.tar.gz \
+      "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_${CADDY_ARCH}.tar.gz" && \
+    tar -xzf /tmp/caddy.tar.gz -C /usr/bin/ caddy && \
+    chmod +x /usr/bin/caddy && \
+    rm /tmp/caddy.tar.gz
 COPY --from=backend-build /usr/local/share/fonts/NotoSansSC-Regular.ttf /usr/share/fonts/NotoSansSC-Regular.ttf
 COPY --from=backend-build /usr/local/share/fonts/NotoEmoji-Regular.ttf /usr/share/fonts/NotoEmoji-Regular.ttf
 RUN fc-cache -f
