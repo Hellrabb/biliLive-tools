@@ -16,17 +16,25 @@
 
 ### 1.1 测试矩阵
 
-| AC                                               | 测试                                                                     | 状态        |
-| ------------------------------------------------ | ------------------------------------------------------------------------ | ----------- |
-| boundaryRefineModelId 填入有效模型 → 使用该模型  | `sendMessage.test.ts` 新增 `overrideModelId selects correct model`       | ✅          |
-| boundaryRefineModelId 为空 → fallback 到 modelId | `sendMessage.test.ts` 已有 `modelId used when found`                     | ✅ (已覆盖) |
-| 模型未找到 → 返回 undefined                      | `sendMessage.test.ts` 新增 `overrideModelId not found returns undefined` | ✅          |
-| UI 输入框仅 boundaryRefineEnabled=ON 时显示      | 手动验证 (Vue SFC，无组件测试框架)                                       | 👁️          |
+| AC                                                  | 测试                                                                     | 状态        |
+| --------------------------------------------------- | ------------------------------------------------------------------------ | ----------- |
+| boundaryRefineModelId 填入有效模型 → 使用该模型     | `sendMessage.test.ts` 新增 `overrideModelId selects correct model`       | ✅          |
+| boundaryRefineModelId 为空 → fallback 到 modelId    | `sendMessage.test.ts` 已有 `modelId used when found`                     | ✅ (已覆盖) |
+| 模型未找到 → 返回 undefined                         | `sendMessage.test.ts` 新增 `overrideModelId not found returns undefined` | ✅          |
+| UI 输入框仅 boundaryRefineEnabled=ON 时显示         | 手动验证 (Vue SFC，无组件测试框架)                                       | 👁️          |
+| service 层：boundaryRefineModelId → 构建专用 sender | `service.test.ts` 新增 4 个集成测试                                      | ✅          |
+| service 层：unset 时不构建专用 sender               | `service.test.ts`: `sendBoundaryRefineMessage is undefined when unset`   | ✅          |
+| pipeline 层：接收 sendBoundaryRefineMessage         | `service.test.ts`: `passes sendBoundaryRefineMessage to pipeline`        | ✅          |
 
 ### 1.2 执行结果
 
 ```
-pnpm run test -- test/autoClip/sendMessage.test.ts
-```
+# 单元测试 (sendMessage)
+pnpm run test -- test/autoClip/sendMessage.test.ts  → 17/17 PASS
 
-全部 17 个测试通过（含新增 2 个）。
+# 集成测试 (service)
+pnpm run test -- test/autoClip/service.test.ts       → 12/12 PASS
+
+# 全量 autoclip
+pnpm run test -- test/autoClip/                      → 48/48 PASS (排除 dbConstraint 环境问题)
+```
