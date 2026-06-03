@@ -1239,6 +1239,8 @@ export interface AutoClipLLMConfig {
   visionModelId?: string;
   /** ASR 语音识别模型 ID，默认 fallback 到 modelId */
   asrModelId?: string;
+  /** 边界精修模型 ID（Phase 1.6），默认 fallback 到 modelId */
+  boundaryRefineModelId?: string;
   /** Phase 2 风格化标题的自定义 prompt 模板 */
   titleStylePrompt?: string;
   /** Phase 2 风格化标题的配置 */

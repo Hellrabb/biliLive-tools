@@ -33,6 +33,8 @@ export interface PipelineParams {
   presetConfig: AutoClipConfig;
   onProgress?: ProgressCallback;
   sendMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
+  /** 边界精修专用 sendMessage（Phase 1.6），未提供时 fallback 到 sendMessage */
+  sendBoundaryRefineMessage?: (prompt: string, signal?: AbortSignal) => Promise<string>;
   sendMultimodalMessage?: (
     prompt: string,
     images: string[],
@@ -58,6 +60,7 @@ export async function runAutoClipPipeline(params: PipelineParams): Promise<AutoC
     presetConfig,
     onProgress,
     sendMessage,
+    sendBoundaryRefineMessage,
     sendMultimodalMessage,
     recognizeASR,
     signal,
@@ -298,7 +301,7 @@ export async function runAutoClipPipeline(params: PipelineParams): Promise<AutoC
               highlights,
               asrMap,
               frameMap,
-              sendMessage,
+              sendBoundaryRefineMessage ?? sendMessage!,
               refineConfig,
               duration,
               signal,
