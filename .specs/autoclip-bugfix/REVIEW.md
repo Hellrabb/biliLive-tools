@@ -9,32 +9,32 @@
 
 ### AC 覆盖矩阵
 
-| AC（来自 CHANGE.md） | 实现 | 测试 | 状态 |
-|---|---|---|---|
-| H1 定时器泄漏 | `exportPipeline.ts` setTimeout 移入 try 块 | `exportPipeline.test.ts` | ✅ |
-| H2 取消返回空 ID | `service.ts` effectiveId 快照 | `service.test.ts` | ✅ |
-| H3 retry 原子性 | `autoClip.ts` retryAndReschedule 单事务 | `service.test.ts` | ✅ |
-| H4 openai provider | `sendMessage.ts` case "openai" 分支 | `sendMessage.test.ts` | ✅ |
-| H5 abort resolve 已删文件 | `contentUnderstanding.ts` existsSync guard | `contentUnderstanding.test.ts` | ✅ |
-| M1 重叠级联 | `boundaryRefiner.ts` while 回溯 | `boundaryRefiner.test.ts` | ✅ |
-| M2 裁剪后重合并 | `signalDetector.ts` mergeTimeWindows 重调 | `signalDetector.test.ts` | ✅ |
-| M3 双重 reject | `contentUnderstanding.ts` + `frameSampler.ts` settled guard | 两文件测试 | ✅ |
-| M4 评分下限 clamp | `llmRanker.ts` Math.max(0, ...) | `llmRanker.test.ts` | ✅ |
-| M5 上下文距离序 | `llmRanker.ts` distance sort | `llmRanker.test.ts` | ✅ |
-| M6 TOCTOU 竞态 | `service.ts` capturedErr 重抛 | `service.test.ts` | ✅ |
-| M7 原地变异 | `exportPipeline.ts` 展开运算符 | `exportPipeline.test.ts` | ✅ |
-| M8 LLM 分页 | `danmakuFilter.ts` 3000 char 分批 | `danmakuFilter.test.ts` | ✅ |
-| M9 abort 传播 | `frameSampler.ts` AbortError re-throw | `frameSampler.test.ts` | ✅ |
-| M10 空 ID（同 H2） | 随 H2 修复 | `service.test.ts` | ✅ |
-| L1 任务完成检测 | `exportPipeline.ts` close/exit 监听 | `exportPipeline.test.ts` | ✅ |
-| L2 ASS 清理竞态 | `exportPipeline.ts` 延迟+try/catch | `exportPipeline.test.ts` | ✅ |
-| L3 AbortSignal 传播 | `exportPipeline.ts` signal 传入 | `exportPipeline.test.ts` | ✅ |
-| L4 重复 import | `exportPipeline.ts` cachedDiContainer | `exportPipeline.test.ts` | ✅ |
-| L5 配置时序 | `service.ts` 管道前快照 | `service.test.ts` | ✅ |
-| L6 轮询进度 | `AutoClipManagement/Index.vue` pollingProgress | 手动 | ✅ |
-| L7 newEnd 边界 | `boundaryRefiner.ts` guard 1s保底 | `boundaryRefiner.test.ts` | ✅ |
-| L8 过期索引 | `AutoClipPresetDialog.vue` findIndex(id) | 手动 | ✅ |
-| DB 约束 | `db/autoClip.ts` migration v5 | `dbConstraint.test.ts` | ✅ |
+| AC（来自 CHANGE.md）      | 实现                                                        | 测试                           | 状态 |
+| ------------------------- | ----------------------------------------------------------- | ------------------------------ | ---- |
+| H1 定时器泄漏             | `exportPipeline.ts` setTimeout 移入 try 块                  | `exportPipeline.test.ts`       | ✅   |
+| H2 取消返回空 ID          | `service.ts` effectiveId 快照                               | `service.test.ts`              | ✅   |
+| H3 retry 原子性           | `autoClip.ts` retryAndReschedule 单事务                     | `service.test.ts`              | ✅   |
+| H4 openai provider        | `sendMessage.ts` case "openai" 分支                         | `sendMessage.test.ts`          | ✅   |
+| H5 abort resolve 已删文件 | `contentUnderstanding.ts` existsSync guard                  | `contentUnderstanding.test.ts` | ✅   |
+| M1 重叠级联               | `boundaryRefiner.ts` while 回溯                             | `boundaryRefiner.test.ts`      | ✅   |
+| M2 裁剪后重合并           | `signalDetector.ts` mergeTimeWindows 重调                   | `signalDetector.test.ts`       | ✅   |
+| M3 双重 reject            | `contentUnderstanding.ts` + `frameSampler.ts` settled guard | 两文件测试                     | ✅   |
+| M4 评分下限 clamp         | `llmRanker.ts` Math.max(0, ...)                             | `llmRanker.test.ts`            | ✅   |
+| M5 上下文距离序           | `llmRanker.ts` distance sort                                | `llmRanker.test.ts`            | ✅   |
+| M6 TOCTOU 竞态            | `service.ts` capturedErr 重抛                               | `service.test.ts`              | ✅   |
+| M7 原地变异               | `exportPipeline.ts` 展开运算符                              | `exportPipeline.test.ts`       | ✅   |
+| M8 LLM 分页               | `danmakuFilter.ts` 3000 char 分批                           | `danmakuFilter.test.ts`        | ✅   |
+| M9 abort 传播             | `frameSampler.ts` AbortError re-throw                       | `frameSampler.test.ts`         | ✅   |
+| M10 空 ID（同 H2）        | 随 H2 修复                                                  | `service.test.ts`              | ✅   |
+| L1 任务完成检测           | `exportPipeline.ts` close/exit 监听                         | `exportPipeline.test.ts`       | ✅   |
+| L2 ASS 清理竞态           | `exportPipeline.ts` 延迟+try/catch                          | `exportPipeline.test.ts`       | ✅   |
+| L3 AbortSignal 传播       | `exportPipeline.ts` signal 传入                             | `exportPipeline.test.ts`       | ✅   |
+| L4 重复 import            | `exportPipeline.ts` cachedDiContainer                       | `exportPipeline.test.ts`       | ✅   |
+| L5 配置时序               | `service.ts` 管道前快照                                     | `service.test.ts`              | ✅   |
+| L6 轮询进度               | `AutoClipManagement/Index.vue` pollingProgress              | 手动                           | ✅   |
+| L7 newEnd 边界            | `boundaryRefiner.ts` guard 1s保底                           | `boundaryRefiner.test.ts`      | ✅   |
+| L8 过期索引               | `AutoClipPresetDialog.vue` findIndex(id)                    | 手动                           | ✅   |
+| DB 约束                   | `db/autoClip.ts` migration v5                               | `dbConstraint.test.ts`         | ✅   |
 
 ### 范围蔓延检查
 
@@ -136,6 +136,7 @@
 **Source**：Evans · Domain-Driven Design · Chapter 2 — "The model and the heart of the design shape each other."
 
 **Consequence**：无扭曲。关键命名评估：
+
 - `effectiveId` — 清晰表达"实际使用的 ID"（vs `params.id` 可能为空）
 - `settled` — 精确描述 Promise 状态（已决议，不可再决议）
 - `retryAndReschedule` — 动词准确（先 retry inc 再 schedule 到 pending）
@@ -173,17 +174,17 @@
 
 ## 审查结论
 
-| 轮次 | 结果 | 发现 |
-|---|---|---|
-| 第一轮 · Spec 合规 | ✅ 通过 | 22 AC 全覆盖，0 蔓延 |
-| 第二轮 · 代码质量 | ✅ 通过 | 1 个 🟡 Major（R5 facade 间接层），0 个 🔴 Critical |
-| 第三轮 · UI | ⏭️ 跳过 | 后端项目 |
-| 第四轮 · 补充 | ⏭️ 跳过 | 均未命中触发条件 |
+| 轮次               | 结果    | 发现                                                |
+| ------------------ | ------- | --------------------------------------------------- |
+| 第一轮 · Spec 合规 | ✅ 通过 | 22 AC 全覆盖，0 蔓延                                |
+| 第二轮 · 代码质量  | ✅ 通过 | 1 个 🟡 Major（R5 facade 间接层），0 个 🔴 Critical |
+| 第三轮 · UI        | ⏭️ 跳过 | 后端项目                                            |
+| 第四轮 · 补充      | ⏭️ 跳过 | 均未命中触发条件                                    |
 
 ### 🟡 Major 问题
 
-| 编号 | 维度 | 描述 | 建议 |
-|---|---|---|---|
+| 编号     | 维度        | 描述                                                               | 建议                                               |
+| -------- | ----------- | ------------------------------------------------------------------ | -------------------------------------------------- |
 | R5-DD-01 | R5 依赖混乱 | `autoClip/autoClip.ts` facade 引入一个仅 9 行 re-export 的中间模块 | 可接受。替代方案需改 DI 容器（禁动清单），风险更大 |
 
 ### 🔴 Critical 问题

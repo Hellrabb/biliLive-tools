@@ -3,6 +3,7 @@
 ## Date: 2026-06-01
 
 ## Files modified
+
 - `packages/shared/src/autoClip/service.ts` — H2, M6, L5 fixes
 - `packages/shared/src/autoClip/autoClip.ts` — new module (re-exports DB facade)
 - `packages/shared/src/autoClip/exportPipeline.ts` — H3: ExportClipByIdDeps + caller migration
@@ -12,21 +13,26 @@
 ## Bugs fixed
 
 ### H2 (HIGH) — Cancel returns empty ID, DB pollution
+
 **Root cause**: `analyzeAndSave` catch block returned `id: params.id ?? ""`. When `params.id` is undefined (recorder-triggered calls), returns empty string.
 **Fix**: Compute `effectiveId = id ?? uuidv4()` before pipeline call, pass it as `id: effectiveId` to pipeline, use `effectiveId` in cancel response.
 
 ### M10 (same root as H2)
+
 Fixed by H2 fix above — effectiveId shared between pipeline and catch block.
 
 ### H3 (HIGH) — incrementRetry non-atomic with caller
+
 **Root cause**: `doExportClips` called `deps.incrementRetry(resultId)` then `deps.updateStatus(resultId, "pending")` — two non-atomic calls, allowing TOCTOU gap.
 **Fix**: Callers now use `deps.retryAndReschedule(resultId)` — single SQLite transaction in AutoClipModel that increments retry_count AND sets status to "pending" atomically. If retry_count >= 3, status is set to "failed" and returns false.
 
 ### M6 (MEDIUM) — TOCTOU race in catch
+
 **Root cause**: `catch` checked `signal?.aborted` to decide cancel vs. error, but abort could fire between pipeline throw and catch block execution, causing real errors to be swallowed as cancel responses.
 **Fix**: Capture `err` immediately as `capturedErr`. Check `capturedErr.name === "AbortError"` (the specific error thrown by `signal.throwIfAborted()`). Only return cancel if it IS an AbortError AND signal is aborted. Otherwise re-throw the real error.
 
 ### L5 (LOW) — Config read timing
+
 **Root cause**: `autoClipReviewMode`, `autoClipExport`, `autoClipUpload` read from `appConfig` AFTER pipeline completes. If user changes settings during long pipeline, behavior inconsistent.
 **Fix**: Snapshot these three config values before pipeline into local variables (`reviewMode`, `autoExportEnabled`, `autoUploadEnabled`). Use snapshots throughout. Removed duplicate reads from `appConfig.videoCut`.
 
@@ -54,6 +60,7 @@ Full autoclip suite: 480 passed, 6 pre-existing failures (none from T02).
 6. **Coverage**: 4 new test cases covering H2 (auto-id + explicit-id) and M6 (real error re-thrown + AbortError handled).
 
 ## Boundary check
+
 - `autoExportAndUpload` is private, only called from within `AutoClipService.analyzeAndSave`. Adding `autoUploadEnabled` parameter is safe.
 - `runAutoClipPipeline` already handles `id ?? uuidv4()` internally — passing our pre-computed `effectiveId` just ensures the returned result.id matches what we have.
 - `ExportClipByIdDeps.retryAndReschedule` is required — callers MUST provide it. The HTTP routes wiring was updated.

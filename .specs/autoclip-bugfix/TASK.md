@@ -41,6 +41,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     **L4（重复 import）**：resolveExportPresets 中提取 `await import("../index.js")` 到模块顶层或缓存变量，避免双重容器 resolve。
 
     新建 exportPipeline.test.ts，覆盖 H1（同步异常不泄漏定时器）和 H5 类 abort 场景。
+
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/exportPipeline.test.ts</verify>
   <done>✅ DONE (2026-06-01). 13/13 exportPipeline tests pass; 11/11 pipeline tests pass (no regression). Fixes already applied in HEAD (commit 69de392d via T02). Regression test coverage added via exportPipeline.test.ts.</done>
@@ -77,6 +78,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     **L5（配置读取时序）**：service.ts analyzeAndSave 入口处（管道启动前）快照 autoClipReviewMode/autoClipExport/autoClipUpload 到局部变量，后续使用快照值而非重新读取 appConfig。
 
     扩展现有 service.test.ts，覆盖 H2（取消返回正确 ID）、M6（真实错误不被 abort 信号吞掉）场景。
+
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/service.test.ts</verify>
   <done>✅ DONE (2026-06-01). service.test.ts 8/8 通过（含 H2/M6 4 新测试）；H2/H3/M6/L5 修复完成；commit 已提交</done>
@@ -123,6 +125,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     **M8（LLM pattern 分页）**：danmakuFilter.ts llmReviewPatterns 中，当 topK patterns 的字符总量超过阈值（如 3000 chars）时，分批次发送 LLM 请求，合并结果。
 
     扩展现有测试：signalDetector 加 M2 场景（超长窗口裁剪后间隙）、boundaryRefiner 加 M1 级联场景（4+ 重叠）、llmRanker 加 M4 负权重场景、danmakuFilter 加 M8 分页场景。
+
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/signalDetector.test.ts autoClip/boundaryRefiner.test.ts autoClip/llmRanker.test.ts autoClip/danmakuFilter.test.ts</verify>
   <done>所有 4 个测试文件通过，覆盖了对应 bug 的修复场景</done>
@@ -163,6 +166,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     **H4（openai provider 对称）**：sendMessage.ts buildSendMessage 中加 `case "openai":` 分支，复用 buildSendMultimodalMessage 中的 openai vendor 创建逻辑（`vendor.provider("openai")` + chat completions endpoint），确保文本排序功能不静默降级。同时检查 routes/autoClip.ts 中 openai 校验是否需要调整。
 
     扩展测试：contentUnderstanding 加 abort 场景、sendMessage 加 openai provider 单元测试。
+
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/contentUnderstanding.test.ts autoClip/frameSampler.test.ts autoClip/sendMessage.test.ts</verify>
   <done>DONE (2026-06-01). 40/40 tests pass. H5: existsSync guard, M3: settled guard x2, M9: AbortError propagation, H4: openai provider added.</done>
@@ -194,6 +198,7 @@ Wave 1 (all parallel): T01[P] + T02[P] + T03[P] + T04[P] + T05[P]
     **L8（过期索引）**：AutoClipPresetDialog.vue 中 filter rule 的 toggle/delete 回调不再依赖数组 index，改用 rule 的唯一标识（如 `rule.pattern` 或加 `rule.id`）查找目标。
 
     新建 dbConstraint.test.ts 验证：空 ID 插入被拒绝、已有脏数据迁移后表结构正常。
+
   </action>
   <verify>cd packages/shared && pnpm run test -- autoClip/dbConstraint.test.ts && cd ../../packages/app && pnpm run build</verify>
   <done>✅ DONE (2026-06-01). DB 约束测试 8/8 通过；前端 L6/L8 修复完成；commit 2891a896</done>
