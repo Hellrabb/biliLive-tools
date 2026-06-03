@@ -12,39 +12,42 @@
 一次性修复全部 22 个审计发现的 bug：
 
 ### 高严重度（4个）
-| ID | 问题 | 文件 |
-|---|---|---|
-| H1 | 定时器泄漏：同步代码在 try 前抛异常时 10 分钟定时器永不清理 | `exportPipeline.ts` |
-| H2 | 取消管道返回 `id: ""`，recorder 触发时写入空 ID 污染 DB | `service.ts` |
-| H4 | `provider: "openai"` 被路由校验接受但 buildSendMessage 不处理，LLM 文本排序静默降级 | `sendMessage.ts`, `routes/autoClip.ts` |
-| H5 | abort 触发的 close 回调 resolve 已删除的音频文件 | `contentUnderstanding.ts` |
+
+| ID  | 问题                                                                                | 文件                                   |
+| --- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| H1  | 定时器泄漏：同步代码在 try 前抛异常时 10 分钟定时器永不清理                         | `exportPipeline.ts`                    |
+| H2  | 取消管道返回 `id: ""`，recorder 触发时写入空 ID 污染 DB                             | `service.ts`                           |
+| H4  | `provider: "openai"` 被路由校验接受但 buildSendMessage 不处理，LLM 文本排序静默降级 | `sendMessage.ts`, `routes/autoClip.ts` |
+| H5  | abort 触发的 close 回调 resolve 已删除的音频文件                                    | `contentUnderstanding.ts`              |
 
 ### 中严重度（10个）
-| ID | 问题 | 文件 |
-|---|---|---|
-| M1 | resolveOverlaps 向后合并后只检查一层，4+ 重叠片段可能残留 | `boundaryRefiner.ts` |
-| M2 | 裁剪超长窗口后不重新合并，可能产生覆盖间隙 | `signalDetector.ts` |
-| M3 | extractOneFrame/extractAudioSegment abort 时双重 reject → unhandled rejection | `frameSampler.ts`, `contentUnderstanding.ts` |
-| M4 | 启发式评分未 clamp 下限，自定义负权重可产生负分 | `llmRanker.ts` |
-| M5 | 上下文获取用时间序而非距离序，密集弹幕可能遗漏邻近条目 | `llmRanker.ts` |
-| M6 | analyzeAndSave catch TOCTOU：真实错误+延迟 abort 被吞 | `service.ts` |
-| M7 | validateAndNormalizeHighlight 原地变异输入对象 | `exportPipeline.ts` |
-| M8 | LLM pattern review 单 prompt 可能溢出小窗口模型上下文 | `danmakuFilter.ts` |
-| M9 | sampleFrames 两级吞掉 abort 错误 | `frameSampler.ts` |
-| M10 | 取消的 recorder 管道写入 id="" 占位行（与 H2 同源） | `service.ts` |
-| H3 | incrementRetry+updateStatus 非原子调用有竞态窗口 | `autoClip.ts`, `exportPipeline.ts` |
+
+| ID  | 问题                                                                          | 文件                                         |
+| --- | ----------------------------------------------------------------------------- | -------------------------------------------- |
+| M1  | resolveOverlaps 向后合并后只检查一层，4+ 重叠片段可能残留                     | `boundaryRefiner.ts`                         |
+| M2  | 裁剪超长窗口后不重新合并，可能产生覆盖间隙                                    | `signalDetector.ts`                          |
+| M3  | extractOneFrame/extractAudioSegment abort 时双重 reject → unhandled rejection | `frameSampler.ts`, `contentUnderstanding.ts` |
+| M4  | 启发式评分未 clamp 下限，自定义负权重可产生负分                               | `llmRanker.ts`                               |
+| M5  | 上下文获取用时间序而非距离序，密集弹幕可能遗漏邻近条目                        | `llmRanker.ts`                               |
+| M6  | analyzeAndSave catch TOCTOU：真实错误+延迟 abort 被吞                         | `service.ts`                                 |
+| M7  | validateAndNormalizeHighlight 原地变异输入对象                                | `exportPipeline.ts`                          |
+| M8  | LLM pattern review 单 prompt 可能溢出小窗口模型上下文                         | `danmakuFilter.ts`                           |
+| M9  | sampleFrames 两级吞掉 abort 错误                                              | `frameSampler.ts`                            |
+| M10 | 取消的 recorder 管道写入 id="" 占位行（与 H2 同源）                           | `service.ts`                                 |
+| H3  | incrementRetry+updateStatus 非原子调用有竞态窗口                              | `autoClip.ts`, `exportPipeline.ts`           |
 
 ### 低严重度（8个）
-| ID | 问题 | 文件 |
-|---|---|---|
-| L1 | exportClips 任务完成检测只监听 emitter 事件，不监听 close/exit | `exportPipeline.ts` |
-| L2 | ASS 文件清理与任务完成间有竞态窗口（Windows 上更严重） | `exportPipeline.ts` |
-| L3 | doExportClips 不传播 AbortSignal 到 tryLoadExportConfig | `exportPipeline.ts` |
-| L4 | resolveExportPresets 重复 import DI 容器 | `exportPipeline.ts` |
-| L5 | autoClipReviewMode/Export/Upload 在管道完成后读取，可能不一致 | `service.ts` |
-| L6 | AutoClipManagement 延长轮询无进度反馈 | `AutoClipManagement/Index.vue` |
-| L7 | resolveOverlaps newEnd 计算可能产生 start > end | `boundaryRefiner.ts` |
-| L8 | AutoClipPresetDialog 规则操作可能使用过期索引 | `AutoClipPresetDialog.vue` |
+
+| ID  | 问题                                                           | 文件                           |
+| --- | -------------------------------------------------------------- | ------------------------------ |
+| L1  | exportClips 任务完成检测只监听 emitter 事件，不监听 close/exit | `exportPipeline.ts`            |
+| L2  | ASS 文件清理与任务完成间有竞态窗口（Windows 上更严重）         | `exportPipeline.ts`            |
+| L3  | doExportClips 不传播 AbortSignal 到 tryLoadExportConfig        | `exportPipeline.ts`            |
+| L4  | resolveExportPresets 重复 import DI 容器                       | `exportPipeline.ts`            |
+| L5  | autoClipReviewMode/Export/Upload 在管道完成后读取，可能不一致  | `service.ts`                   |
+| L6  | AutoClipManagement 延长轮询无进度反馈                          | `AutoClipManagement/Index.vue` |
+| L7  | resolveOverlaps newEnd 计算可能产生 start > end                | `boundaryRefiner.ts`           |
+| L8  | AutoClipPresetDialog 规则操作可能使用过期索引                  | `AutoClipPresetDialog.vue`     |
 
 ## 影响面
 
@@ -79,6 +82,7 @@
 ```
 
 理由：
+
 - 需求即审计报告中的 22 个 bug 描述，无需额外 REQUIREMENT
 - 修复方案均是局部代码改动（移定时器、加 guard、补 else 分支），无需 DESIGN
 - 22 个 bug 拆为 5 个任务组，按文件耦合度分组并行

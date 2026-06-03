@@ -7,14 +7,14 @@
 
 修复 4 个文件共 6 个 bug：
 
-| Bug | 文件 | 修复 |
-|---|---|---|
-| M1 | boundaryRefiner.ts | 向后合并后级联回检（已有机制，确认正确） |
-| L7 | boundaryRefiner.ts | newEnd < start 时保底 1 秒 duration |
-| M2 | signalDetector.ts | mergeAndDeduplicate 裁剪窗口后调用 mergeTimeWindows 重合并 |
-| M4 | llmRanker.ts | 启发式评分 `Math.max(0, Math.min(10, ...))` 双端 clamp |
-| M5 | llmRanker.ts | surrounding context 按时间距离排序，不再按时间序取前 N |
-| M8 | danmakuFilter.ts | llmReviewPatterns 按 3000 字符阈值分批调用 LLM，合并结果 |
+| Bug | 文件               | 修复                                                       |
+| --- | ------------------ | ---------------------------------------------------------- |
+| M1  | boundaryRefiner.ts | 向后合并后级联回检（已有机制，确认正确）                   |
+| L7  | boundaryRefiner.ts | newEnd < start 时保底 1 秒 duration                        |
+| M2  | signalDetector.ts  | mergeAndDeduplicate 裁剪窗口后调用 mergeTimeWindows 重合并 |
+| M4  | llmRanker.ts       | 启发式评分 `Math.max(0, Math.min(10, ...))` 双端 clamp     |
+| M5  | llmRanker.ts       | surrounding context 按时间距离排序，不再按时间序取前 N     |
+| M8  | danmakuFilter.ts   | llmReviewPatterns 按 3000 字符阈值分批调用 LLM，合并结果   |
 
 ## 改了哪些文件
 
