@@ -331,6 +331,11 @@ export async function runAutoClipPipeline(params: PipelineParams): Promise<AutoC
       }
     } else {
       // Phase 2 only (no Phase 1.5 enrichment)
+      if (presetConfig.enhancement.boundaryRefineEnabled) {
+        logger.warn(
+          "AutoClip: boundary refinement is enabled but requires ASR or visual understanding to be enabled too — boundary refinement skipped",
+        );
+      }
       onProgress?.("title", 90, "Generating styled titles...");
       try {
         highlights = await generateStyledTitles(
