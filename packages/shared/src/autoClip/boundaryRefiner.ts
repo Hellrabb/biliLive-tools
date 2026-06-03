@@ -161,6 +161,7 @@ function buildPerClipPrompt(
 
   parts.push(`视频总时长: ${duration}秒`);
   parts.push(`最大调整幅度: ±${maxAdjustSec}秒`);
+  parts.push(`ASR/帧参考数据覆盖边界前后各 ${contextWindowSec} 秒`);
   parts.push("");
   parts.push(`═══ 片段 ${index} ═══`);
   parts.push(`主题: ${h.title}`);
