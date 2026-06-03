@@ -43,3 +43,30 @@
 ### 风险
 
 无高风险项。唯一的 `sendMessage!` 非空断言在 `if (sendMessage)` 守卫后，安全。
+
+## Hotfix 审查（2026-06-04，3 commits）
+
+### 正确性
+
+| 检查项                                           | 结果                                                        |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| 边界精修 ON 但 ASR+视觉 OFF → log warn + UI 警告 | ✅ pipeline.ts else 分支 + Vue v-if 条件                    |
+| timeoutMs 传递到 QwenLLM 构造器                  | ✅ sendMessage.ts → QwenLLM({ timeout: opts.timeoutMs })    |
+| 边界精修 180s 超时，主 LLM 保持默认              | ✅ service.ts: timeoutMs: 180_000                           |
+| 边界精修逐切片独立 LLM 调用                      | ✅ boundaryRefiner.ts: for 循环 + sendWithTimeout           |
+| 单切片失败不回滚其他                             | ✅ try/catch per clip, continue on error                    |
+| 日志如实反映精修结果                             | ✅ refinements.length > 0 ? "refined (N clips)" : "skipped" |
+
+### 回归风险
+
+| 检查项                           | 结果        |
+| -------------------------------- | ----------- |
+| boundaryRefiner.test.ts 11 tests | ✅ 全部通过 |
+| pipeline.test.ts 11 tests        | ✅ 全部通过 |
+| sendMessage.test.ts 17 tests     | ✅ 全部通过 |
+| service.test.ts 12 tests         | ✅ 全部通过 |
+
+### 风险
+
+- 逐切片调用增加 N-1 次 API 请求，可能触发限流。后续可加并发控制（当前串行，保守安全）
+- boundaryRefiner 的 `sendWithTimeout` 使用默认 60s 超时——单切片 prompt 远小于批量，60s 足够
