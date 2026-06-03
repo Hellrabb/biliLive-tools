@@ -26,15 +26,26 @@
 | service 层：unset 时不构建专用 sender               | `service.test.ts`: `sendBoundaryRefineMessage is undefined when unset`   | ✅          |
 | pipeline 层：接收 sendBoundaryRefineMessage         | `service.test.ts`: `passes sendBoundaryRefineMessage to pipeline`        | ✅          |
 
-### 1.2 执行结果
+### 1.3 Hotfix 补充测试（2026-06-04）
+
+| AC                                      | 测试                                                                   | 状态      |
+| --------------------------------------- | ---------------------------------------------------------------------- | --------- |
+| 边界精修 ON 但 ASR+视觉 OFF → 日志 warn | 手动 (logger mock)                                                     | 👁️        |
+| UI 显示依赖警告                         | 手动验证 (Vue SFC)                                                     | 👁️        |
+| sendMessage 支持 timeoutMs 参数         | `sendMessage.test.ts` 已有 17 tests 通过，timeoutMs 为 optional 不影响 | ✅        |
+| boundaryRefiner 逐切片独立调用          | `boundaryRefiner.test.ts` 11 tests 全部通过                            | ✅        |
+| 单切片 LLM 失败不影响其他切片           | `boundaryRefiner.test.ts`: LLM call throws → returns empty → 其他继续  | ✅ (已有) |
+| 日志正确反映精修结果                    | 代码审查: `refinements.length > 0 ? "refined" : "skipped"`             | ✅        |
+
+### 1.4 执行结果（全量）
 
 ```
-# 单元测试 (sendMessage)
-pnpm run test -- test/autoClip/sendMessage.test.ts  → 17/17 PASS
-
-# 集成测试 (service)
-pnpm run test -- test/autoClip/service.test.ts       → 12/12 PASS
-
-# 全量 autoclip
-pnpm run test -- test/autoClip/                      → 48/48 PASS (排除 dbConstraint 环境问题)
+boundaryRefiner.test.ts   → 11/11 PASS
+sendMessage.test.ts       → 17/17 PASS
+service.test.ts           → 12/12 PASS
+pipeline.test.ts          → 11/11 PASS
+titleStyler.test.ts       → 12/12 PASS
+exportPipeline.test.ts    → 13/13 PASS
+─────────────────────────────────
+Total                      → 76/76 PASS
 ```
