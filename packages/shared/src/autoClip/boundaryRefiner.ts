@@ -6,9 +6,16 @@ import type {
   BoundaryRefinement,
 } from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
+import { sendWithTimeout } from "./llmUtils.js";
 import { MAX_ASR_CHARS_PER_CLIP, MAX_FRAME_CHARS_PER_CLIP } from "./constants.js";
 import logger from "../utils/log.js";
 
+/**
+ * Refine clip boundaries using ASR + frame data.
+ *
+ * Each highlight is sent as an independent LLM call with its own timeout,
+ * so a single slow clip doesn't block the others.
+ */
 export async function refineBoundaries(
   highlights: HighlightSegment[],
   asrMap: Map<number, string>,
@@ -33,22 +40,51 @@ export async function refineBoundaries(
   const contextWindowSec = config.contextWindowSec ?? 60;
 
   const systemPrompt = buildSystemPrompt(maxAdjustSec, hasASR, hasFrames);
-  const userPrompt = buildUserPrompt(
-    highlights,
-    asrMap,
-    frameMap,
-    maxAdjustSec,
-    contextWindowSec,
-    videoDuration,
-  );
 
-  let response: string;
-  try {
-    response = await sendMessage(`System: ${systemPrompt}\n\nUser: ${userPrompt}`, signal);
-  } catch (err) {
-    logger.warn("boundaryRefiner: LLM call failed, keeping original boundaries", err);
+  // Send each highlight independently — smaller prompt, independent timeout
+  const allAdjustments: BoundaryAdjustment[] = [];
+  let successCount = 0;
+
+  for (let i = 0; i < highlights.length; i++) {
+    const h = highlights[i]!;
+    checkAborted(signal);
+
+    const userPrompt = buildPerClipPrompt(
+      i,
+      h,
+      asrMap,
+      frameMap,
+      maxAdjustSec,
+      contextWindowSec,
+      videoDuration,
+    );
+    const fullPrompt = `System: ${systemPrompt}\n\nUser: ${userPrompt}`;
+
+    try {
+      const response = await sendWithTimeout(sendMessage, fullPrompt, {
+        externalSignal: signal,
+      });
+      const adjustments = parseSingleClipResponse(response, i);
+      if (adjustments) {
+        allAdjustments.push(...adjustments);
+        successCount++;
+      }
+    } catch (err) {
+      logger.warn(`boundaryRefiner: clip ${i} LLM call failed, keeping original boundaries`, err);
+      // Continue to next clip — this one keeps original boundaries
+    }
+  }
+
+  if (allAdjustments.length === 0) {
+    logger.info(
+      "boundaryRefiner: no valid adjustments from any clip, keeping all original boundaries",
+    );
     return emptyResult;
   }
+
+  logger.info(
+    `boundaryRefiner: ${successCount}/${highlights.length} clips adjusted (${allAdjustments.length} adjustments)`,
+  );
 
   // Save original boundaries for refinement records
   const originals = highlights.map((h) => ({
@@ -56,12 +92,9 @@ export async function refineBoundaries(
     end: h.timeRange[1],
   }));
 
-  const adjustments = parseRefineResponse(response, highlights.length);
-  if (!adjustments) return emptyResult;
-
   const refined = applyBoundaryAdjustments(
     highlights,
-    adjustments,
+    allAdjustments,
     maxAdjustSec,
     minClipDuration,
     videoDuration,
@@ -75,7 +108,7 @@ export async function refineBoundaries(
       originalEnd: orig.end,
       refinedStart: h.timeRange[0],
       refinedEnd: h.timeRange[1],
-      reason: adjustments
+      reason: allAdjustments
         .filter((a) => a.highlightIndex === i)
         .map((a) => [a.startReason, a.endReason].filter(Boolean).join("; "))
         .join(" | "),
@@ -85,11 +118,15 @@ export async function refineBoundaries(
   return { highlights: refined, refinements };
 }
 
+// ---------------------------------------------------------------------------
+// Prompt builders
+// ---------------------------------------------------------------------------
+
 function buildSystemPrompt(maxAdjustSec: number, hasASR: boolean, hasFrames: boolean): string {
   const asrClause = hasASR ? "- 根据语音转文字（ASR）判断对话是否在完整句子处结束" : "";
   const frameClause = hasFrames ? "- 根据关键帧描述判断是否有场景切换、动作收尾" : "";
 
-  return `你是一个专业的视频剪辑师。你需要根据以下信息判断高光片段的起止边界是否合理，并给出调整建议。
+  return `你是一个专业的视频剪辑师。你需要根据以下信息判断这个高光片段的起止边界是否合理，并给出调整建议。
 
 评估标准：
 1. 起点处"前因是否完整"：观众能否理解正在发生什么
@@ -106,12 +143,12 @@ ${frameClause}
 - startAdjustment: 负数=向前扩展起点，正数=后移起点，0=不变
 - endAdjustment: 正数=向后扩展终点，负数=提前终点，0=不变
 - confidence: "high"=边界明显不合理，"medium"=可能不合理，"low"=基本合理无需调整
-- confidence 为 "low" 的调整将被系统忽略，仅在边界明显不合理时使用 "high" 或 "medium"
-- 片段之间不能重叠，如有相邻片段请检查调整后是否交叉`;
+- confidence 为 "low" 的调整将被系统忽略，仅在边界明显不合理时使用 "high" 或 "medium"`;
 }
 
-function buildUserPrompt(
-  highlights: HighlightSegment[],
+function buildPerClipPrompt(
+  index: number,
+  h: HighlightSegment,
   asrMap: Map<number, string>,
   frameMap: Map<number, string>,
   maxAdjustSec: number,
@@ -119,61 +156,56 @@ function buildUserPrompt(
   duration: number,
 ): string {
   const parts: string[] = [];
+  const [start, end] = h.timeRange;
+  const clipDuration = end - start;
+
   parts.push(`视频总时长: ${duration}秒`);
   parts.push(`最大调整幅度: ±${maxAdjustSec}秒`);
-  parts.push(`周边参考数据范围: ±${contextWindowSec}秒`);
+  parts.push("");
+  parts.push(`═══ 片段 ${index} ═══`);
+  parts.push(`主题: ${h.title}`);
+  parts.push(`当前区间: ${formatTime(start)} → ${formatTime(end)} (${clipDuration}秒)`);
+  parts.push(`评分: ${h.score} | 类型: ${h.highlightType}`);
   parts.push("");
 
-  for (let i = 0; i < highlights.length; i++) {
-    const h = highlights[i]!;
-    const [start, end] = h.timeRange;
-    const clipDuration = end - start;
-
-    parts.push(`═══ 片段 ${i} ═══`);
-    parts.push(`主题: ${h.title}`);
-    parts.push(`当前区间: ${formatTime(start)} → ${formatTime(end)} (${clipDuration}秒)`);
-    parts.push(`评分: ${h.score} | 类型: ${h.highlightType}`);
+  const asrText = asrMap.get(index);
+  if (asrText) {
+    parts.push("--- 语音转文字 (ASR) ---");
+    const truncated =
+      asrText.length > MAX_ASR_CHARS_PER_CLIP
+        ? asrText.slice(0, MAX_ASR_CHARS_PER_CLIP) + "..."
+        : asrText;
+    parts.push(truncated);
     parts.push("");
+  }
 
-    const asrText = asrMap.get(i);
-    if (asrText) {
-      parts.push("--- 语音转文字 (ASR) ---");
-      const truncated =
-        asrText.length > MAX_ASR_CHARS_PER_CLIP
-          ? asrText.slice(0, MAX_ASR_CHARS_PER_CLIP) + "..."
-          : asrText;
-      parts.push(truncated);
-      parts.push("");
-    }
-
-    const frames = frameMap.get(i);
-    if (frames) {
-      parts.push("--- 关键帧描述 ---");
-      const truncated =
-        frames.length > MAX_FRAME_CHARS_PER_CLIP
-          ? frames.slice(0, MAX_FRAME_CHARS_PER_CLIP) + "..."
-          : frames;
-      parts.push(truncated);
-      parts.push("");
-    }
+  const frames = frameMap.get(index);
+  if (frames) {
+    parts.push("--- 关键帧描述 ---");
+    const truncated =
+      frames.length > MAX_FRAME_CHARS_PER_CLIP
+        ? frames.slice(0, MAX_FRAME_CHARS_PER_CLIP) + "..."
+        : frames;
+    parts.push(truncated);
+    parts.push("");
   }
 
   parts.push("---");
-  parts.push("请评估每个片段并返回 JSON。只返回 JSON，不要其他内容。");
+  parts.push("请评估这个片段并返回 JSON。只返回 JSON，不要其他内容。");
 
   return parts.join("\n");
 }
 
-function formatTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+// ---------------------------------------------------------------------------
+// Response parsing
+// ---------------------------------------------------------------------------
 
-function parseRefineResponse(raw: string, expectedCount: number): BoundaryAdjustment[] | null {
+function parseSingleClipResponse(raw: string, expectedIndex: number): BoundaryAdjustment[] | null {
   const parsed = extractAndParseJSON<BoundaryRefineResult>(raw);
   if (!parsed || !Array.isArray(parsed.adjustments)) {
-    logger.warn("boundaryRefiner: failed to parse LLM response", { raw: raw.slice(0, 200) });
+    logger.warn(`boundaryRefiner: failed to parse LLM response for clip ${expectedIndex}`, {
+      raw: raw.slice(0, 200),
+    });
     return null;
   }
 
@@ -181,20 +213,28 @@ function parseRefineResponse(raw: string, expectedCount: number): BoundaryAdjust
     (a) =>
       typeof a.highlightIndex === "number" &&
       a.highlightIndex >= 0 &&
-      a.highlightIndex < expectedCount &&
       typeof a.startAdjustment === "number" &&
       typeof a.endAdjustment === "number" &&
       !isNaN(a.startAdjustment) &&
       !isNaN(a.endAdjustment),
   );
 
+  // Force highlightIndex to match the clip we sent (safety: LLM may return wrong index)
+  for (const adj of adjustments) {
+    adj.highlightIndex = expectedIndex;
+  }
+
   if (adjustments.length === 0) {
-    logger.warn("boundaryRefiner: no valid adjustments in response");
+    logger.warn(`boundaryRefiner: no valid adjustments in response for clip ${expectedIndex}`);
     return null;
   }
 
   return adjustments;
 }
+
+// ---------------------------------------------------------------------------
+// Constraint application
+// ---------------------------------------------------------------------------
 
 function applyBoundaryAdjustments(
   highlights: HighlightSegment[],
@@ -243,8 +283,22 @@ function applyBoundaryAdjustments(
   return resolveOverlaps(result);
 }
 
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
+}
+
+function checkAborted(signal?: AbortSignal): void {
+  signal?.throwIfAborted();
 }
 
 function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
@@ -263,9 +317,7 @@ function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
 
     if (overlap <= 3) {
       const newEnd = Math.max(curr.timeRange[0], next.timeRange[0] - 1);
-      // L7: guard against degenerate end — ensure clip retains positive duration
       if (newEnd < curr.timeRange[0]) {
-        // keep at least 1s duration to avoid zero-length clips
         curr.timeRange = [curr.timeRange[0], curr.timeRange[0] + 1];
         curr.bestRange = [curr.timeRange[0], curr.timeRange[0] + 1];
       } else {
@@ -288,7 +340,6 @@ function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
         signalSources: [...new Set([...curr.signalSources, ...next.signalSources])],
       };
       working.splice(i + 1, 1);
-      // Check backward overlap with previous clip after merge
       let backwardMerged = false;
       if (i > 0) {
         const prev = working[i - 1]!;
