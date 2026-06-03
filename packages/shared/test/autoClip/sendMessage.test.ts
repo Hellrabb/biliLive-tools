@@ -165,6 +165,46 @@ describe("buildSendMessage", () => {
     expect(result).toBeUndefined();
   });
 
+  // ==========================================================================
+  // overrideModelId — boundary-refine / sub-feature model override
+  // ==========================================================================
+
+  it("uses overrideModelId when provided, ignoring llm.modelId", async () => {
+    const presetConfig = makePresetConfig({
+      llm: { ...makePresetConfig().llm, modelId: "qwen-model-1" },
+    });
+
+    const result = await buildSendMessage({
+      presetConfig,
+      aiConfig: makeAiConfig({
+        models: [
+          { modelId: "override-model", modelName: "override-gpt", vendorId: "vendor-1" },
+          { modelId: "qwen-model-1", modelName: "qwen-plus", vendorId: "vendor-1" },
+        ],
+      }),
+      overrideModelId: "override-model",
+    });
+
+    expect(result).toBeDefined();
+    mockQwenSendMessage.mockResolvedValue({ content: "override-response" });
+    const msg = await result!("test");
+    expect(msg).toBe("override-response");
+  });
+
+  it("returns undefined when overrideModelId not found in aiConfig", async () => {
+    const presetConfig = makePresetConfig({
+      llm: { ...makePresetConfig().llm, modelId: "qwen-model-1" },
+    });
+
+    const result = await buildSendMessage({
+      presetConfig,
+      aiConfig: makeAiConfig(),
+      overrideModelId: "nonexistent-model",
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   // ---------------------------------------------------------------------------
   // Qwen provider
   // ---------------------------------------------------------------------------
