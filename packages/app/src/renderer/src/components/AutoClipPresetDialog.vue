@@ -329,6 +329,16 @@
                       <span style="font-size: 12px; color: #999"
                         >分析语音和画面，自动优化切片起止位置，避免剧情不完整</span
                       >
+                      <span
+                        v-if="
+                          editingPreset.config.enhancement.boundaryRefineEnabled &&
+                          !editingPreset.config.enhancement.asrEnabled &&
+                          !editingPreset.config.enhancement.visualEnabled
+                        "
+                        style="font-size: 12px; color: #f0a020; display: block; margin-top: 4px"
+                      >
+                        ⚠ 边界精修需要开启「ASR 语音识别」或「视觉理解」中的至少一项，否则不会生效
+                      </span>
                     </template>
                   </n-form-item>
                   <n-form-item
