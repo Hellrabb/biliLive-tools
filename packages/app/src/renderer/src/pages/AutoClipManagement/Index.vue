@@ -667,26 +667,36 @@ onUnmounted(() => {
 .master-detail {
   display: flex;
   gap: 0;
+  height: calc(100vh - 280px);
   min-height: 400px;
 }
 
 .list-panel {
-  flex: 0 0 44%;
-  min-width: 320px;
+  flex: 1;
+  min-width: 0;
   border-right: 1px solid var(--divider-color);
   padding-right: 12px;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 .detail-panel {
-  flex: 1;
+  flex: 0 0 420px;
+  width: 420px;
   padding-left: 12px;
   overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  .detail-panel {
+    flex: 0 0 360px;
+    width: 360px;
+  }
 }
 
 @media (max-width: 900px) {
   .master-detail {
     flex-direction: column;
+    height: auto;
   }
   .list-panel {
     flex: 0 0 auto;
@@ -698,6 +708,8 @@ onUnmounted(() => {
     margin-bottom: 12px;
   }
   .detail-panel {
+    flex: 1;
+    width: auto;
     padding-left: 0;
     min-height: 40vh;
   }
