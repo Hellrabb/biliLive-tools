@@ -10,6 +10,8 @@ export interface AIConfig {
 export interface SendMessageOptions {
   presetConfig: AutoClipConfig;
   aiConfig: AIConfig;
+  /** 可选：覆盖 presetConfig.llm.modelId，用于边界精修等子功能使用独立模型 */
+  overrideModelId?: string;
 }
 
 /**
@@ -24,19 +26,23 @@ export async function buildSendMessage(
 
   if (!llmCfg.enabled) return undefined;
 
-  let model = aiConfig.models.find((m) => m.modelId === llmCfg.modelId);
-  if (!model && llmCfg.modelId) {
-    model = aiConfig.models.find((m) => m.modelName === llmCfg.modelId);
+  const effectiveModelId = opts.overrideModelId ?? llmCfg.modelId;
+
+  let model = aiConfig.models.find((m) => m.modelId === effectiveModelId);
+  if (!model && effectiveModelId) {
+    model = aiConfig.models.find((m) => m.modelName === effectiveModelId);
   }
   if (!model) {
-    logger.warn(`AutoClip: model "${llmCfg.modelId}" not found in AI config, LLM ranking disabled`);
+    logger.warn(
+      `AutoClip: model "${effectiveModelId}" not found in AI config, LLM ranking disabled`,
+    );
     return undefined;
   }
 
   const vendor = aiConfig.vendors.find((v) => v.id === model.vendorId);
   if (!vendor) {
     logger.warn(
-      `AutoClip: vendor "${model.vendorId}" not found for model "${llmCfg.modelId}", LLM ranking disabled`,
+      `AutoClip: vendor "${model.vendorId}" not found for model "${effectiveModelId}", LLM ranking disabled`,
     );
     return undefined;
   }

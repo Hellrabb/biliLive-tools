@@ -332,6 +332,21 @@
                     </template>
                   </n-form-item>
                   <n-form-item
+                    v-if="editingPreset.config.enhancement.boundaryRefineEnabled"
+                    label="边界精修模型 ID"
+                  >
+                    <n-input
+                      v-model:value="editingPreset.config.llm.boundaryRefineModelId"
+                      placeholder="留空使用 LLM 模型"
+                      style="width: 250px"
+                    />
+                    <template #feedback>
+                      <span style="font-size: 12px; color: #999"
+                        >留空则使用 LLM 模型；填写则以独立模型执行边界精修</span
+                      >
+                    </template>
+                  </n-form-item>
+                  <n-form-item
                     v-if="editingPreset.config.enhancement.visualEnabled"
                     label="视觉模型 ID"
                   >

@@ -89,6 +89,16 @@ export class AutoClipService {
       aiConfig: appConfig.ai,
     });
 
+    // Build boundary-refine-specific sendMessage (Phase 1.6), fallback to main sendMessage
+    let sendBoundaryRefineMessage: typeof sendMessage;
+    if (presetConfig.llm.boundaryRefineModelId) {
+      sendBoundaryRefineMessage = await buildSendMessage({
+        presetConfig,
+        aiConfig: appConfig.ai,
+        overrideModelId: presetConfig.llm.boundaryRefineModelId,
+      });
+    }
+
     // Build multimodal message sender for Phase 1.5 frame description
     const sendMultimodalMessage = await buildSendMultimodalMessage({
       llmConfig: presetConfig.llm,
@@ -152,6 +162,7 @@ export class AutoClipService {
         danmuPath,
         presetConfig,
         sendMessage,
+        sendBoundaryRefineMessage,
         sendMultimodalMessage,
         recognizeASR,
         onProgress,
