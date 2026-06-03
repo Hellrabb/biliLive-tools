@@ -214,6 +214,7 @@ interface ClipRow extends AutoClipClipRow {
   previewTitle: string;
   previewScore: number | null;
   highlightCount: number;
+  evidence?: Record<string, unknown> | null;
 }
 
 const router = useRouter();
@@ -379,6 +380,7 @@ async function refreshList() {
         preset_id: r.preset_id,
         llmFallback: r.llmFallback ?? false,
         highlights,
+        evidence: r.evidence ?? null,
         previewTitle: highlights.length ? first.title || "（无标题）" : "（无高光片段）",
         previewScore: highlights.length ? (first.score ?? 0) : null,
         highlightCount: highlights.length,
