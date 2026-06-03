@@ -89,13 +89,16 @@ export class AutoClipService {
       aiConfig: appConfig.ai,
     });
 
-    // Build boundary-refine-specific sendMessage (Phase 1.6), fallback to main sendMessage
+    // Build boundary-refine-specific sendMessage (Phase 1.6), fallback to main sendMessage.
+    // Uses a longer timeout (180s) because the boundary refinement prompt bundles ASR+frame
+    // data for ALL highlights into a single LLM call, which can be very large.
     let sendBoundaryRefineMessage: typeof sendMessage;
     if (presetConfig.llm.boundaryRefineModelId) {
       sendBoundaryRefineMessage = await buildSendMessage({
         presetConfig,
         aiConfig: appConfig.ai,
         overrideModelId: presetConfig.llm.boundaryRefineModelId,
+        timeoutMs: 180_000,
       });
     }
 

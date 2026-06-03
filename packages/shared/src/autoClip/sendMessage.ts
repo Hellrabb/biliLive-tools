@@ -12,6 +12,8 @@ export interface SendMessageOptions {
   aiConfig: AIConfig;
   /** 可选：覆盖 presetConfig.llm.modelId，用于边界精修等子功能使用独立模型 */
   overrideModelId?: string;
+  /** LLM HTTP 请求超时 (ms)，默认 60000。边界精修等大 prompt 场景可用更长超时 */
+  timeoutMs?: number;
 }
 
 /**
@@ -53,6 +55,7 @@ export async function buildSendMessage(
       apiKey: vendor.apiKey ?? "",
       model: model.modelName,
       baseURL: vendor.baseURL,
+      timeout: opts.timeoutMs,
     });
     return async (prompt: string, signal?: AbortSignal) => {
       const result = await llm.sendMessage(prompt, undefined, { signal });
@@ -82,6 +85,7 @@ export async function buildSendMessage(
       apiKey: vendor.apiKey ?? "",
       model: model.modelName,
       baseURL: vendor.baseURL,
+      timeout: opts.timeoutMs,
     });
     return async (prompt: string, signal?: AbortSignal) => {
       const result = await llm.sendMessage(prompt, undefined, { signal });
