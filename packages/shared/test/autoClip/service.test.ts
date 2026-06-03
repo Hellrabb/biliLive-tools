@@ -210,6 +210,123 @@ describe("AutoClipService.analyzeAndSave — preset fallback", () => {
     const bsmCall = buildSendMessage.mock.calls[0][0];
     expect(bsmCall.presetConfig.llm.modelId).toBe("");
   });
+
+  it("builds dedicated boundary refine sendMessage when boundaryRefineModelId is set", async () => {
+    const CONFIG_WITH_BOUNDARY_REFINE: AutoClipConfig = {
+      ...SAMPLE_PRESET_CONFIG,
+      llm: {
+        ...SAMPLE_PRESET_CONFIG.llm,
+        modelId: "main-model",
+        boundaryRefineModelId: "boundary-refine-model",
+      },
+    };
+
+    mockGetAppConfig.mockReturnValue({
+      ai: {
+        models: [
+          { modelId: "main-model", vendorId: "v1", modelName: "main" },
+          { modelId: "boundary-refine-model", vendorId: "v1", modelName: "refine" },
+        ],
+        vendors: [{ id: "v1", provider: "ollama" }],
+      },
+      videoCut: {},
+    });
+
+    mockGetPreset.mockResolvedValue({ id: "p1", config: CONFIG_WITH_BOUNDARY_REFINE });
+
+    await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      presetId: "p1",
+      skipAutoExport: true,
+    });
+
+    // Should call buildSendMessage twice: main + boundary refine
+    expect(buildSendMessage.mock.calls.length).toBe(2);
+
+    // First call: main model (no override)
+    expect(buildSendMessage.mock.calls[0][0].presetConfig.llm.modelId).toBe("main-model");
+    expect(buildSendMessage.mock.calls[0][0].overrideModelId).toBeUndefined();
+
+    // Second call: boundary refine model (with override)
+    expect(buildSendMessage.mock.calls[1][0].presetConfig.llm.modelId).toBe("main-model");
+    expect(buildSendMessage.mock.calls[1][0].overrideModelId).toBe("boundary-refine-model");
+  });
+
+  it("does NOT build boundary refine sendMessage when boundaryRefineModelId is unset", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    mockGetPreset.mockResolvedValue({ id: "p1", config: SAMPLE_PRESET_CONFIG });
+
+    await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      presetId: "p1",
+      skipAutoExport: true,
+    });
+
+    // Only one buildSendMessage call (main only, no boundary refine)
+    expect(buildSendMessage.mock.calls.length).toBe(1);
+  });
+
+  it("passes sendBoundaryRefineMessage to pipeline when built", async () => {
+    const CONFIG_WITH_BOUNDARY_REFINE: AutoClipConfig = {
+      ...SAMPLE_PRESET_CONFIG,
+      llm: {
+        ...SAMPLE_PRESET_CONFIG.llm,
+        modelId: "main-model",
+        boundaryRefineModelId: "refine-model",
+      },
+    };
+
+    mockGetAppConfig.mockReturnValue({
+      ai: {
+        models: [
+          { modelId: "main-model", vendorId: "v1", modelName: "m" },
+          { modelId: "refine-model", vendorId: "v1", modelName: "r" },
+        ],
+        vendors: [{ id: "v1", provider: "ollama" }],
+      },
+      videoCut: {},
+    });
+
+    mockGetPreset.mockResolvedValue({ id: "p1", config: CONFIG_WITH_BOUNDARY_REFINE });
+
+    await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      presetId: "p1",
+      skipAutoExport: true,
+    });
+
+    const pipelineCall = runAutoClipPipeline.mock.calls[0][0];
+    // sendBoundaryRefineMessage should be defined (built from the second buildSendMessage call)
+    expect(pipelineCall.sendBoundaryRefineMessage).toBeDefined();
+    expect(typeof pipelineCall.sendBoundaryRefineMessage).toBe("function");
+  });
+
+  it("sendBoundaryRefineMessage is undefined when boundaryRefineModelId is unset", async () => {
+    mockGetAppConfig.mockReturnValue({
+      ai: { models: [], vendors: [] },
+      videoCut: {},
+    });
+
+    mockGetPreset.mockResolvedValue({ id: "p1", config: SAMPLE_PRESET_CONFIG });
+
+    await service.analyzeAndSave({
+      videoPath: "/fake/v.mp4",
+      danmuPath: "/fake/d.xml",
+      presetId: "p1",
+      skipAutoExport: true,
+    });
+
+    const pipelineCall = runAutoClipPipeline.mock.calls[0][0];
+    // sendBoundaryRefineMessage should be undefined (falls back to sendMessage in pipeline)
+    expect(pipelineCall.sendBoundaryRefineMessage).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
