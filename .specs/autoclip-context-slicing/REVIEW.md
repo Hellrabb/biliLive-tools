@@ -6,13 +6,14 @@
 
 ### 正确性
 
-| 检查项                                                         | 结果                                                           |
-| -------------------------------------------------------------- | -------------------------------------------------------------- |
-| `overrideModelId` 正确覆盖 `llm.modelId`                       | ✅ `effectiveModelId = opts.overrideModelId ?? llmCfg.modelId` |
-| 未提供 overrideModelId 时 fallback 到 modelId                  | ✅ nullish coalescing `??`                                     |
-| `sendBoundaryRefineMessage` 未提供时 fallback 到 `sendMessage` | ✅ `?? sendMessage!`                                           |
-| 仅 `boundaryRefineModelId` 有值时构建专用 sender               | ✅ service.ts 条件判断                                         |
-| UI 仅开关 ON 时显示模型输入                                    | ✅ `v-if="boundaryRefineEnabled"`                              |
+| 检查项                                                         | 结果                                                               |
+| -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `overrideModelId` 正确覆盖 `llm.modelId`                       | ✅ `effectiveModelId = opts.overrideModelId ?? llmCfg.modelId`     |
+| 未提供 overrideModelId 时 fallback 到 modelId                  | ✅ nullish coalescing `??`                                         |
+| `sendBoundaryRefineMessage` 未提供时 fallback 到 `sendMessage` | ✅ `?? sendMessage!`                                               |
+| 仅 `boundaryRefineModelId` 有值时构建专用 sender               | ✅ service.ts 条件判断 + service.test.ts 集成测试                  |
+| pipeline 接收 sendBoundaryRefineMessage                        | ✅ service.test.ts: `passes sendBoundaryRefineMessage to pipeline` |
+| UI 仅开关 ON 时显示模型输入                                    | ✅ `v-if="boundaryRefineEnabled"`                                  |
 
 ### 向后兼容
 
