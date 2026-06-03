@@ -308,7 +308,13 @@ export async function runAutoClipPipeline(params: PipelineParams): Promise<AutoC
             );
             highlights = refined.highlights;
             evidenceRefinements = refined.refinements;
-            onProgress?.("refine", 92, "Boundaries refined");
+            onProgress?.(
+              "refine",
+              92,
+              refined.refinements.length > 0
+                ? `Boundaries refined (${refined.refinements.length} clips adjusted)`
+                : "Boundary refinement skipped (no adjustments made)",
+            );
           } catch (err) {
             logger.warn("AutoClip: boundary refinement failed, using original boundaries", err);
           }
