@@ -28,24 +28,24 @@
 
 ## 技术栈
 
-| 层级        | 技术                                       | 证据                                                         |
-| ----------- | ------------------------------------------ | ------------------------------------------------------------ |
-| 运行时      | Node.js 24.10.0 (ESM, `"type": "module"`)  | `package.json`                                               |
-| 包管理      | pnpm 9.15.2 (workspace monorepo)           | `pnpm-workspace.yaml`, `package.json`                        |
-| 语言        | TypeScript                                 | `tsconfig.json`                                              |
-| 桌面框架    | Electron + electron-vite                   | `packages/app/electron.vite.config.ts`                       |
-| 前端 UI     | Vue 3 (Composition API) + Naive UI + Pinia | `electron.vite.config.ts` (AutoImport vue/pinia/naive-ui)    |
-| 前端路由    | Vue Router (hash mode)                     | CLAUDE.md:40                                                 |
-| HTTP 服务   | Koa + @koa/router                          | `packages/http/src/index.ts`                                 |
-| HTTP 客户端 | axios (with axios-retry)                   | `packages/shared/src/recorder/index.ts`, git log: `d0395c79` |
-| 数据库      | better-sqlite3（同步 SQLite）              | `packages/shared/package.json`, `packages/shared/src/db/`    |
-| DI 容器     | awilix                                     | `packages/shared/src/index.ts:3`                             |
-| 日志        | 自研 logger（基于 winston?）               | `packages/shared/src/utils/log.ts`                           |
-| 测试        | vitest                                     | `packages/shared/test/` (`.test.ts` files, vitest runner)    |
-| 构建（CLI） | rollup + pkg                               | CLAUDE.md:48                                                 |
-| 代码规范    | ESLint + Prettier                          | `.eslintrc.*`, `.prettier*`                                  |
-| CI          | GitHub Actions                             | `.github/workflows/`                                         |
-| 容器化      | Docker + docker-compose                    | `docker/`, `docker-compose.*`                                |
+| 层级        | 技术                                       | 证据                                                                |
+| ----------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| 运行时      | Node.js 22.22.1 (ESM, `"type": "module"`)  | `package.json`（实际运行版本，非 package.json engines 声明的 24.x） |
+| 包管理      | pnpm 9.15.2 (workspace monorepo)           | `pnpm-workspace.yaml`, `package.json`                               |
+| 语言        | TypeScript                                 | `tsconfig.json`                                                     |
+| 桌面框架    | Electron + electron-vite                   | `packages/app/electron.vite.config.ts`                              |
+| 前端 UI     | Vue 3 (Composition API) + Naive UI + Pinia | `electron.vite.config.ts` (AutoImport vue/pinia/naive-ui)           |
+| 前端路由    | Vue Router (hash mode)                     | CLAUDE.md:40                                                        |
+| HTTP 服务   | Koa + @koa/router                          | `packages/http/src/index.ts`                                        |
+| HTTP 客户端 | axios (with axios-retry)                   | `packages/shared/src/recorder/index.ts`, git log: `d0395c79`        |
+| 数据库      | better-sqlite3（同步 SQLite）              | `packages/shared/package.json`, `packages/shared/src/db/`           |
+| DI 容器     | awilix                                     | `packages/shared/src/index.ts:3`                                    |
+| 日志        | 自研 logger（基于 winston?）               | `packages/shared/src/utils/log.ts`                                  |
+| 测试        | vitest                                     | `packages/shared/test/` (`.test.ts` files, vitest runner)           |
+| 构建（CLI） | rollup + pkg                               | CLAUDE.md:48                                                        |
+| 代码规范    | ESLint + Prettier                          | `.eslintrc.*`, `.prettier*`                                         |
+| CI          | GitHub Actions                             | `.github/workflows/`                                                |
+| 容器化      | Docker + docker-compose                    | `docker/`, `docker-compose.*`                                       |
 
 ## 既有抽象索引
 
@@ -213,9 +213,31 @@ types → shared → (http, liveManager, 各 recorder) → (app / CLI)
 
 `pnpm run build:base` 执行 types + shared + http + 各 recorder 的构建。
 
+## 禁动清单
+
+> 以下依赖已确认为未使用，下次清理窗口移除。AI 不应在新代码中导入这些包。
+
+| 依赖                  | 所在包      | 确认日期   | 状态      |
+| --------------------- | ----------- | ---------- | --------- |
+| `arktype`             | shared      | 2026-06-05 | 🟡 待移除 |
+| `cli-progress`        | http        | 2026-06-05 | 🟡 待移除 |
+| `@types/cli-progress` | http        | 2026-06-05 | 🟡 待移除 |
+| `fs-extra`            | liveManager | 2026-06-05 | 🟡 待移除 |
+
+> 以下编码约束同样属于禁动规则：
+
+| 规则                             | 说明                                                      | 来源                                |
+| -------------------------------- | --------------------------------------------------------- | ----------------------------------- |
+| 禁止 `JSON.parse(evidence)` 裸调 | evidence 字段可能为 null/损坏，必须走 `parseEvidenceSafe` | autoclip-evidence-chain DESIGN §9.5 |
+
 ## 已知技术债 / 注意事项
 
 - 无自定义 Error 类（`grep "class.*Error" shared/src/` 为空）——错误处理依赖 try/catch + 字符串
 - 测试覆盖不均衡：`packages/shared/test/` 有测试，但 recorder 包未见测试文件
 - `packages/http/src/routes/autoClip.ts` 直接 import DI container（`import { container } from "../index.js"`），耦合较紧
 - 部分包使用 `lib/` 作为构建产物（与 `src/` 并存），构建前必须先 `build:base`
+- better-sqlite3 原生模块版本不匹配（NODE_MODULE_VERSION 143 vs 127），需 `pnpm rebuild better-sqlite3`（2026-06-05 巡检发现）
+- ESLint 配置损坏（`.eslintrc.cjs` 中 `@vue/eslint-config-typescript` 子路径导出问题）（2026-06-05 巡检发现）
+- 无测试覆盖率工具（`@vitest/coverage-v8` 未安装）（2026-06-05 巡检发现）
+- `exportPipeline.ts` (566行) 职责过多，待拆分为 pathResolver + executor + retryManager（2026-06-05 巡检建议）
+- `files.ts` 路由内部路径校验逻辑重复（7-10行 × 2），待提取 `validateFilePath()` 公共函数（2026-06-05 巡检建议）
