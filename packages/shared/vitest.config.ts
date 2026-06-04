@@ -8,5 +8,9 @@ export default defineConfig({
     globalSetup: "./test-globals.js",
     setupFiles: ["./test/setup-mocks.ts"],
     globals: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "text-summary"],
+    },
   },
 });

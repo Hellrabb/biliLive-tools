@@ -36,7 +36,6 @@
     "@koa/cors": "^5.0.0",
     "@koa/router": "^14.0.0",
     "chokidar": "^3.6.0",
-    "cli-progress": "^3.12.0",
     "koa": "^2.15.3",
     "koa-sse-stream": "^0.2.0",
     "multer": "1.4.5-lts.1",
@@ -44,7 +43,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/cli-progress": "^3.11.6",
     "@types/koa": "^2.15.0",
     "@types/koa__router": "^12.0.5",
     "tsx": "^4.19.2"
