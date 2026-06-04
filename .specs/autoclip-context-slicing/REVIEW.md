@@ -70,3 +70,12 @@
 
 - 逐切片调用增加 N-1 次 API 请求，可能触发限流。后续可加并发控制（当前串行，保守安全）
 - boundaryRefiner 的 `sendWithTimeout` 使用默认 60s 超时——单切片 prompt 远小于批量，60s 足够
+
+## TS6133 修复（2026-06-04，1 commit）
+
+| 检查项 | 结果 |
+|---|---|
+| `buildPerClipPrompt` 中 `contextWindowSec` 未使用 → TS6133 | ✅ 已修复：输出到 prompt 作为上下文提示 |
+| app typecheck:web (vue-tsc) 通过 | ✅ |
+| shared typecheck 通过 | ✅ |
+| 76 autoclip tests 通过 | ✅ |
