@@ -230,10 +230,12 @@
                     />
                   </n-form-item>
                   <n-form-item label="视频编码器">
-                    <n-input
+                    <n-select
                       v-model:value="editingPreset.config.export.encoder"
-                      style="width: 200px"
+                      :options="videoEncoders"
+                      style="width: 220px"
                       placeholder="libx264"
+                      filterable
                     />
                   </n-form-item>
                   <n-form-item label="音频编码器">
@@ -244,9 +246,13 @@
                     />
                   </n-form-item>
                   <n-form-item label="FFmpeg 预设">
-                    <n-input
+                    <n-select
                       v-model:value="editingPreset.config.export.ffmpegPresetId"
-                      style="width: 200px"
+                      :options="ffmpegPresetOptions"
+                      style="width: 220px"
+                      placeholder="选择FFmpeg预设"
+                      filterable
+                      clearable
                     />
                   </n-form-item>
                   <n-form-item label="压制弹幕到视频">
@@ -264,6 +270,91 @@
                   <n-form-item label="上传到B站">
                     <n-switch v-model:value="editingPreset.config.export.uploadToBili" />
                   </n-form-item>
+                  <!-- B站稿件模板（uploadToBili 开启时显示） -->
+                  <template v-if="editingPreset.config.export.uploadToBili">
+                    <n-form-item label="标题模板">
+                      <n-input
+                        v-model:value="editingPreset.config.export.biliUpTemplate.titleTemplate"
+                        placeholder="{{highlightTitle}} - {{roomName}}【直播切片】"
+                      />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999">
+                          可用变量：{{ '{{' }}highlightTitle{{ '}}' }} {{ '{{' }}roomName{{ '}}' }} {{ '{{' }}date{{ '}}' }} {{ '{{' }}uploadDate{{ '}}' }}
+                        </span>
+                      </template>
+                    </n-form-item>
+                    <n-form-item label="标签">
+                      <DynamicTags
+                        v-model="editingPreset.config.export.biliUpTemplate.tag"
+                        :max="10"
+                        placeholder="回车输入标签，最多十个"
+                      />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999">回车添加标签，最多10个</span>
+                      </template>
+                    </n-form-item>
+                    <n-form-item label="投稿分区">
+                      <n-cascader
+                        v-model:value="editingPreset.config.export.biliUpTemplate.tid"
+                        :options="areaData"
+                        label-field="name"
+                        value-field="id"
+                        check-strategy="child"
+                        filterable
+                        placeholder="选择投稿分区"
+                      />
+                    </n-form-item>
+                    <n-form-item label="自制/转载">
+                      <n-radio-group
+                        v-model:value="editingPreset.config.export.biliUpTemplate.copyright"
+                      >
+                        <n-radio :value="1">自制</n-radio>
+                        <n-radio :value="2">转载</n-radio>
+                      </n-radio-group>
+                    </n-form-item>
+                    <n-form-item
+                      v-if="editingPreset.config.export.biliUpTemplate.copyright === 1"
+                      label="禁止转载"
+                    >
+                      <n-switch
+                        v-model:value="editingPreset.config.export.biliUpTemplate.noReprint"
+                        :checked-value="1"
+                        :unchecked-value="0"
+                      />
+                    </n-form-item>
+                    <n-form-item
+                      v-if="editingPreset.config.export.biliUpTemplate.copyright === 2"
+                      label="转载来源"
+                    >
+                      <n-input
+                        v-model:value="editingPreset.config.export.biliUpTemplate.source"
+                        placeholder="注明视频来源网址"
+                        clearable
+                      />
+                    </n-form-item>
+                    <n-form-item label="简介模板">
+                      <n-input
+                        type="textarea"
+                        v-model:value="editingPreset.config.export.biliUpTemplate.descTemplate"
+                        placeholder="本视频由AI自动切片生成\n直播间：{{ '{{' }}roomName{{ '}}' }}"
+                        :autosize="{ minRows: 2, maxRows: 4 }"
+                      />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999">支持与标题相同的变量</span>
+                      </template>
+                    </n-form-item>
+                    <n-form-item label="封面图">
+                      <n-input
+                        v-model:value="editingPreset.config.export.biliUpTemplate.cover"
+                        placeholder="留空自动提取高光帧作为封面"
+                      />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999"
+                          >留空自动从高光时刻提取封面，或手动指定图片路径</span
+                        >
+                      </template>
+                    </n-form-item>
+                  </template>
                   <n-form-item
                     label="保存路径"
                     :rule="{
@@ -427,11 +518,13 @@
 <script setup lang="ts">
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
 import { NSpace, NButton } from "naive-ui";
-import { autoClipPresetApi, danmuPresetApi } from "@renderer/apis/presets";
+import { autoClipPresetApi, danmuPresetApi, ffmpegPresetApi } from "@renderer/apis/presets";
+import { videoEncoders } from "@biliLive-tools/shared/enum.js";
 import { useConfirm } from "@renderer/hooks";
 import { useNotice } from "@renderer/hooks/useNotice";
 import { cloneDeep } from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
+import DynamicTags from "./DynamicTags.vue";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const emit = defineEmits<{ (e: "updated"): void }>();
@@ -447,6 +540,15 @@ const presets = ref<AutoClipPresetType[]>([]);
 const selectedId = ref<string>("");
 const editingPreset = ref<AutoClipPresetType | null>(null);
 const activeTab = ref("signal");
+const areaData = ref<Array<{ name: string; id: number; children?: Array<{ name: string; id: number }> }>>(
+  (() => {
+    try {
+      return JSON.parse(localStorage.getItem("areaData") || "[]");
+    } catch {
+      return [];
+    }
+  })(),
+);
 
 const filterRuleColumns = [
   {
@@ -511,6 +613,7 @@ const confirm = useConfirm();
 const notice = useNotice();
 
 const danmuPresetOptions = ref<{ label: string; value: string }[]>([]);
+const ffmpegPresetOptions = ref<{ label: string; value: string }[]>([]);
 const initialSnapshot = ref<string>("");
 
 const defaultConfig = ref<AutoClipConfig | null>(null);
@@ -547,6 +650,18 @@ async function loadDanmuPresets() {
   }
 }
 
+async function loadFfmpegPresets() {
+  try {
+    const res = await ffmpegPresetApi.list();
+    ffmpegPresetOptions.value = (res || []).map((p: any) => ({
+      label: p.name || p.id,
+      value: p.id,
+    }));
+  } catch {
+    /* non-critical, presets may not be configured */
+  }
+}
+
 async function selectPreset(id: string) {
   // Guard against unsaved changes — same logic as closeDialog
   if (editingPreset.value && JSON.stringify(editingPreset.value) !== initialSnapshot.value) {
@@ -566,6 +681,18 @@ async function selectPreset(id: string) {
     // Ensure titleStyleConfig exists for older presets that lack it
     if (!editingPreset.value.config.llm.titleStyleConfig) {
       editingPreset.value.config.llm.titleStyleConfig = { maxLength: 30, minLength: 20 };
+    }
+    // Ensure biliUpTemplate exists for older presets that lack it
+    if (!editingPreset.value.config.export.biliUpTemplate) {
+      editingPreset.value.config.export.biliUpTemplate = {
+        titleTemplate: "{{highlightTitle}}",
+        descTemplate: "",
+        tag: ["biliLive-tools"],
+        tid: 138,
+        copyright: 1,
+        cover: "",
+        noReprint: 0,
+      };
     }
     initialSnapshot.value = JSON.stringify(editingPreset.value);
   }
@@ -658,6 +785,7 @@ watch(visible, async (v) => {
     await fetchDefaultConfig();
     await loadPresets();
     await loadDanmuPresets();
+    await loadFfmpegPresets();
   }
 });
 </script>
