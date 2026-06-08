@@ -1282,6 +1282,28 @@ export interface AutoClipExportConfig {
   uploadToBili: boolean;
   savePath: string;
   namingTemplate: string;
+  /** B站稿件上传模板（启用 uploadToBili 时生效） */
+  biliUpTemplate?: BiliUpTemplateConfig;
+}
+
+/** 精简版 B站稿件上传模板，嵌入 AutoClipExportConfig */
+export interface BiliUpTemplateConfig {
+  /** 标题模板，支持 {{highlightTitle}} {{roomName}} {{date}} {{uploadDate}} */
+  titleTemplate: string;
+  /** 简介模板，支持与标题相同的变量 */
+  descTemplate: string;
+  /** 标签，最多10个 */
+  tag: string[];
+  /** 投稿分区 */
+  tid: number;
+  /** 1: 自制, 2: 转载 */
+  copyright: 1 | 2;
+  /** 转载来源（copyright=2 时必填） */
+  source?: string;
+  /** 封面路径，留空自动从高光时刻提取 */
+  cover?: string;
+  /** 自制声明 0: 允许转载, 1: 禁止转载 */
+  noReprint?: 0 | 1;
 }
 
 export interface AutoClipConfig {
