@@ -17,7 +17,7 @@
       desc="将视频和弹幕压制到一个文件中，请选择视频以及弹幕文件，如果为xml将自动转换为ass"
       :max="2"
     ></FileArea>
-    <n-tabs type="segment" style="margin-top: 10px" class="tabs">
+    <n-tabs type="segment" style="margin-top: 10px" class="tabs" v-model:value="activeTab">
       <n-tab-pane name="common-setting" tab="基础设置" display-directive="show:lazy">
         <div class="flex column">
           <div></div>
@@ -165,6 +165,7 @@ import { cloneDeep } from "lodash-es";
 import { showSaveDialog } from "@renderer/utils/fileSystem";
 import ButtonGroup from "@renderer/components/ButtonGroup.vue";
 import { usePresetFile } from "@renderer/hooks/danmuPreset";
+import { useRoute } from "vue-router";
 
 import type { File, FfmpegOptions, DanmuConfig, FfmpegPreset } from "@biliLive-tools/types";
 
@@ -184,6 +185,7 @@ onUnmounted(() => {
   hotkeys.unbind();
 });
 
+const route = useRoute();
 const notice = useNotification();
 const confirm = useConfirm();
 const { danmuPresetsOptions, danmuPresetId, danmuPreset } = storeToRefs(useDanmuPreset());
@@ -193,6 +195,20 @@ const { appConfig } = storeToRefs(useAppConfig());
 
 const { handlePresetOptions, presetOptions } = useBili();
 const isWeb = computed(() => window.isWeb);
+const activeTab = ref("common-setting");
+
+watchEffect(() => {
+  const tab = route.query.tab as string | undefined;
+  const validTabs = [
+    "common-setting",
+    "upload-setting",
+    "danmukufactory-setting",
+    "ffmpeg-setting",
+  ];
+  if (tab && validTabs.includes(tab)) {
+    activeTab.value = tab;
+  }
+});
 
 const fileList = ref<
   (File & {

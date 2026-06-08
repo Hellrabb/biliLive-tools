@@ -10,11 +10,7 @@ import { cloneDeep } from "lodash-es";
 import { renderTitleTemplate, renderDescTemplate } from "./templateRenderer.js";
 import { sampleFrames } from "./frameSampler.js";
 
-import type {
-  AutoClipConfig,
-  AutoClipPreset as AutoClipPresetType,
-  BiliUpTemplateConfig,
-} from "@biliLive-tools/types";
+import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 import type { AutoClipResult, HighlightSegment } from "./types.js";
 import type { ProgressCallback } from "./pipeline.js";
 
