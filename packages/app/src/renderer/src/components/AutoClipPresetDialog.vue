@@ -255,6 +255,59 @@
                       clearable
                     />
                   </n-form-item>
+                  <!-- FFmpeg 预设参数预览（选中后显示） -->
+                  <div v-if="selectedPresetConfig" style="margin-bottom: 16px">
+                    <n-descriptions label-placement="left" :column="1" size="small" bordered>
+                      <n-descriptions-item label="编码器">
+                        {{ selectedPresetConfig.encoder || "-" }}
+                      </n-descriptions-item>
+                      <n-descriptions-item label="码率控制">
+                        {{ selectedPresetConfig.bitrateControl || "-" }}
+                      </n-descriptions-item>
+                      <n-descriptions-item label="码率">
+                        {{
+                          selectedPresetConfig.bitrate
+                            ? selectedPresetConfig.bitrate + " kbps"
+                            : "-"
+                        }}
+                      </n-descriptions-item>
+                      <n-descriptions-item label="Preset">
+                        {{
+                          selectedPresetConfig.preset
+                            ? getPresetLabel(
+                                selectedPresetConfig.encoder,
+                                selectedPresetConfig.preset,
+                              )
+                            : "-"
+                        }}
+                      </n-descriptions-item>
+                      <n-descriptions-item label="CRF">
+                        {{ selectedPresetConfig.crf ?? "-" }}
+                      </n-descriptions-item>
+                      <n-descriptions-item label="10-bit">
+                        {{ selectedPresetConfig.bit10 ? "是" : "否" }}
+                      </n-descriptions-item>
+                    </n-descriptions>
+                    <div style="margin-top: 8px">
+                      <template
+                        v-if="
+                          editingPreset.config.export.ffmpegPresetId &&
+                          !editingPreset.config.export.ffmpegPresetId.startsWith('b_')
+                        "
+                      >
+                        <n-button
+                          text
+                          type="info"
+                          @click="router.push({ path: '/home', query: { tab: 'ffmpeg-setting' } })"
+                        >
+                          编辑此预设 →
+                        </n-button>
+                      </template>
+                      <template v-else>
+                        <n-text depth="3">内置预设 · 在预设管理中复制后编辑</n-text>
+                      </template>
+                    </div>
+                  </div>
                   <n-form-item label="压制弹幕到视频">
                     <n-switch v-model:value="editingPreset.config.export.burnDanmaku" />
                   </n-form-item>
@@ -271,16 +324,19 @@
                     <n-switch v-model:value="editingPreset.config.export.uploadToBili" />
                   </n-form-item>
                   <!-- B站稿件模板（uploadToBili 开启时显示） -->
-                  <template v-if="editingPreset.config.export.uploadToBili">
+                  <template
+                    v-if="
+                      editingPreset.config.export.uploadToBili &&
+                      editingPreset.config.export.biliUpTemplate
+                    "
+                  >
                     <n-form-item label="标题模板">
                       <n-input
                         v-model:value="editingPreset.config.export.biliUpTemplate.titleTemplate"
                         placeholder="{{highlightTitle}} - {{roomName}}【直播切片】"
                       />
                       <template #feedback>
-                        <span style="font-size: 12px; color: #999">
-                          可用变量：{{ '{{' }}highlightTitle{{ '}}' }} {{ '{{' }}roomName{{ '}}' }} {{ '{{' }}date{{ '}}' }} {{ '{{' }}uploadDate{{ '}}' }}
-                        </span>
+                        <span style="font-size: 12px; color: #999">{{ biliTemplateHint }}</span>
                       </template>
                     </n-form-item>
                     <n-form-item label="标签">
@@ -519,11 +575,20 @@
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
 import { NSpace, NButton } from "naive-ui";
 import { autoClipPresetApi, danmuPresetApi, ffmpegPresetApi } from "@renderer/apis/presets";
-import { videoEncoders } from "@biliLive-tools/shared/enum.js";
+import {
+  videoEncoders,
+  nvencPresets,
+  qsvPresets,
+  amfPresets,
+  amfAv1Presets,
+  cpuPresets,
+  videoToolBoxPresets,
+} from "@biliLive-tools/shared/enum.js";
 import { useConfirm } from "@renderer/hooks";
 import { useNotice } from "@renderer/hooks/useNotice";
 import { cloneDeep } from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
+import { useRouter } from "vue-router";
 import DynamicTags from "./DynamicTags.vue";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -540,7 +605,9 @@ const presets = ref<AutoClipPresetType[]>([]);
 const selectedId = ref<string>("");
 const editingPreset = ref<AutoClipPresetType | null>(null);
 const activeTab = ref("signal");
-const areaData = ref<Array<{ name: string; id: number; children?: Array<{ name: string; id: number }> }>>(
+const areaData = ref<
+  Array<{ name: string; id: number; children?: Array<{ name: string; id: number }> }>
+>(
   (() => {
     try {
       return JSON.parse(localStorage.getItem("areaData") || "[]");
@@ -613,7 +680,14 @@ const confirm = useConfirm();
 const notice = useNotice();
 
 const danmuPresetOptions = ref<{ label: string; value: string }[]>([]);
-const ffmpegPresetOptions = ref<{ label: string; value: string }[]>([]);
+const ffmpegPresetOptions = ref<
+  {
+    type: "group";
+    label: string;
+    key: string;
+    children: { label: string; value: string; config?: any }[];
+  }[]
+>([]);
 const initialSnapshot = ref<string>("");
 
 const defaultConfig = ref<AutoClipConfig | null>(null);
@@ -652,15 +726,54 @@ async function loadDanmuPresets() {
 
 async function loadFfmpegPresets() {
   try {
-    const res = await ffmpegPresetApi.list();
-    ffmpegPresetOptions.value = (res || []).map((p: any) => ({
-      label: p.name || p.id,
-      value: p.id,
+    const res = await ffmpegPresetApi.options();
+    ffmpegPresetOptions.value = (res || []).map((group: any) => ({
+      type: "group" as const,
+      label: group.label,
+      key: group.value,
+      children: (group.children || []).map((child: any) => ({
+        label: child.label,
+        value: child.value,
+        config: child.config,
+      })),
     }));
-  } catch {
-    /* non-critical, presets may not be configured */
+  } catch (e) {
+    notice.error("FFmpeg 预设加载失败，请检查服务状态");
   }
 }
+
+// HACK: vue-router useRouter not auto-imported in this project
+const router = useRouter();
+
+const biliTemplateHint = "可用变量：{{highlightTitle}} {{roomName}} {{date}} {{uploadDate}}";
+
+const selectedPresetConfig = computed(() => {
+  const presetId = editingPreset.value?.config?.export?.ffmpegPresetId;
+  if (!presetId) return null;
+  for (const group of ffmpegPresetOptions.value) {
+    const child = group.children?.find((c) => c.value === presetId);
+    if (child?.config) return child.config;
+  }
+  return null;
+});
+
+function getPresetLabel(encoder: string, presetValue: string): string {
+  let presets: { value: string; label: string }[] = [];
+  if (encoder.includes("nvenc") || encoder.includes("av1_nvenc")) presets = nvencPresets;
+  else if (encoder.includes("qsv")) presets = qsvPresets;
+  else if (encoder.includes("amf")) {
+    presets = encoder.startsWith("av1_") ? amfAv1Presets : amfPresets;
+  } else if (encoder.includes("videotoolbox")) presets = videoToolBoxPresets;
+  else presets = cpuPresets;
+  const match = presets.find((p) => p.value === presetValue);
+  return match ? `${presetValue} (${match.label})` : presetValue;
+}
+
+watch(selectedPresetConfig, (cfg) => {
+  if (cfg && cfg.encoder && editingPreset.value) {
+    editingPreset.value.config.export.encoder = cfg.encoder;
+  }
+});
 
 async function selectPreset(id: string) {
   // Guard against unsaved changes — same logic as closeDialog
