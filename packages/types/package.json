@@ -26,5 +26,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json --composite false",
     "test": "vitest run"
   },
+  "dependencies": {
+    "arktype": "^2.1.2"
+  },
   "keywords": []
 }
