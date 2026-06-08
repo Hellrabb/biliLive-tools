@@ -7,7 +7,14 @@ import { AUTO_CLIP_DEFAULT_CONFIG } from "../presets/autoClipPreset.js";
 import { autoClipModel } from "../db/index.js";
 import { cloneDeep } from "lodash-es";
 
-import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
+import { renderTitleTemplate, renderDescTemplate } from "./templateRenderer.js";
+import { sampleFrames } from "./frameSampler.js";
+
+import type {
+  AutoClipConfig,
+  AutoClipPreset as AutoClipPresetType,
+  BiliUpTemplateConfig,
+} from "@biliLive-tools/types";
 import type { AutoClipResult, HighlightSegment } from "./types.js";
 import type { ProgressCallback } from "./pipeline.js";
 
@@ -360,7 +367,7 @@ export class AutoClipService {
         // L5: autoUploadEnabled is snapshot from pipeline start
         // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
         if (autoUploadEnabled && (presetConfig.export.uploadToBili ?? false)) {
-          await this.uploadToBili(exportResult.success, appConfig);
+          await this.uploadToBili(exportResult.success, appConfig, presetConfig, videoPath);
         }
 
         try {
@@ -392,11 +399,12 @@ export class AutoClipService {
   private async uploadToBili(
     exportedResults: { path: string; highlight: HighlightSegment }[],
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
+    presetConfig: AutoClipConfig,
+    videoPath: string,
   ) {
     try {
       const biliApi = (await import("../task/bili.js")).default;
       const { DEFAULT_BILIUP_CONFIG } = await import("../presets/videoPreset.js");
-      const { container } = await import("../index.js");
 
       const uid = appConfig.uid;
       if (!uid) {
@@ -404,25 +412,71 @@ export class AutoClipService {
         return;
       }
 
-      let biliupConfig = DEFAULT_BILIUP_CONFIG;
-      try {
-        const videoPreset = container.resolve("videoPreset");
-        const presets = await videoPreset.list();
+      // Build template context
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const ctx = {
+        highlightTitle: "", // filled per-highlight below
+        roomName: path.basename(path.dirname(videoPath)) || "",
+        date: todayStr,
+        uploadDate: todayStr,
+      };
 
-        // Match preset by exact name — avoids false matches from substring inclusion
-        const autoClipBiliPreset = presets.find(
-          (p: { name?: string; config?: unknown }) => p.name === "autoClip",
-        );
-        if (autoClipBiliPreset?.config) {
-          biliupConfig = autoClipBiliPreset.config;
-        }
-      } catch {
-        // fallback to DEFAULT_BILIUP_CONFIG
-      }
+      // Read biliUpTemplate from autoclip preset, with field-level defaults
+      const tpl = presetConfig.export.biliUpTemplate;
+      const titleTemplate = tpl?.titleTemplate || "{{highlightTitle}}";
+      const descTemplate = tpl?.descTemplate || "";
+      const tag = tpl?.tag?.length ? tpl.tag : DEFAULT_BILIUP_CONFIG.tag;
+      const tid = tpl?.tid ?? DEFAULT_BILIUP_CONFIG.tid;
+      const copyright = tpl?.copyright ?? DEFAULT_BILIUP_CONFIG.copyright;
+      const source = tpl?.source ?? DEFAULT_BILIUP_CONFIG.source;
+      const noReprint = tpl?.noReprint;
+      const coverPath = tpl?.cover || "";
 
       for (const { path: expPath, highlight } of exportedResults) {
-        const title = highlight?.title || path.parse(expPath).name;
-        await biliApi.addMedia([{ path: expPath, title }], { ...biliupConfig, title }, uid);
+        ctx.highlightTitle = highlight?.title || path.parse(expPath).name;
+
+        const title = renderTitleTemplate(titleTemplate, ctx);
+        const desc = descTemplate
+          ? renderDescTemplate(descTemplate, ctx)
+          : DEFAULT_BILIUP_CONFIG.desc;
+
+        // Auto cover extraction: use bestRange midpoint if no manual cover
+        let resolvedCover = coverPath;
+        if (!resolvedCover) {
+          try {
+            const bestRange = highlight.bestRange ?? highlight.timeRange;
+            const midSec = bestRange[0] + (bestRange[1] - bestRange[0]) / 2;
+            const frames = await sampleFrames(videoPath, [midSec]);
+            if (frames.length > 0 && frames[0]) {
+              const fs = await import("node:fs/promises");
+              const coverFile = path.join(
+                path.dirname(expPath),
+                `${path.parse(expPath).name}_cover.jpg`,
+              );
+              await fs.writeFile(coverFile, Buffer.from(frames[0], "base64"));
+              resolvedCover = coverFile;
+            }
+          } catch (coverErr) {
+            logger.warn("AutoClip: 封面自动提取失败，将不上传封面", coverErr);
+          }
+        }
+
+        await biliApi.addMedia(
+          [{ path: expPath, title }],
+          {
+            ...DEFAULT_BILIUP_CONFIG,
+            title,
+            desc,
+            tag,
+            tid,
+            copyright,
+            source,
+            ...(noReprint !== undefined ? { noReprint } : {}),
+            ...(resolvedCover ? { cover: resolvedCover } : {}),
+          },
+          uid,
+        );
       }
       logger.info(`AutoClip: 已添加 ${exportedResults.length} 个B站上传任务到队列`);
     } catch (uploadError) {
