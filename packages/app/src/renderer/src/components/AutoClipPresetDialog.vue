@@ -573,7 +573,7 @@
 
 <script setup lang="ts">
 import type { AutoClipPreset as AutoClipPresetType, AutoClipConfig } from "@biliLive-tools/types";
-import { NSpace, NButton } from "naive-ui";
+import { NSpace, NButton, NSwitch } from "naive-ui";
 import { autoClipPresetApi, danmuPresetApi, ffmpegPresetApi } from "@renderer/apis/presets";
 import {
   videoEncoders,
@@ -639,22 +639,17 @@ const filterRuleColumns = [
     width: 120,
     render: (row: any) => {
       return h(NSpace, {}, () => [
-        h(
-          NButton,
-          {
-            size: "tiny",
-            type: row.enabled ? "success" : "default",
-            ghost: true,
-            onClick: () => {
-              const rules = editingPreset.value!.config.danmakuFilter.rules;
-              if (rules) {
-                const idx = rules.findIndex((r: any) => r.id === row.id);
-                if (idx !== -1) rules[idx]!.enabled = !rules[idx]!.enabled;
-              }
-            },
+        h(NSwitch, {
+          size: "small",
+          value: row.enabled,
+          onUpdateValue: (v: boolean) => {
+            const rules = editingPreset.value!.config.danmakuFilter.rules;
+            if (rules) {
+              const idx = rules.findIndex((r: any) => r.id === row.id);
+              if (idx !== -1) rules[idx]!.enabled = v;
+            }
           },
-          () => (row.enabled ? "启用" : "禁用"),
-        ),
+        }),
         h(
           NButton,
           {
