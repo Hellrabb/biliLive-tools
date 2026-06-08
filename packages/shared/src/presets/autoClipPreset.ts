@@ -1,6 +1,6 @@
 import CommonPreset from "./preset.js";
 
-import type { AutoClipConfig, GlobalConfig } from "@biliLive-tools/types";
+import type { AutoClipConfig, BiliUpTemplateConfig, GlobalConfig } from "@biliLive-tools/types";
 
 export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
   signal: {
@@ -45,6 +45,15 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
     uploadToBili: false,
     savePath: "",
     namingTemplate: "{{title}}_{{index}}",
+    biliUpTemplate: {
+      titleTemplate: "{{highlightTitle}}",
+      descTemplate: "",
+      tag: ["biliLive-tools"],
+      tid: 138,
+      copyright: 1,
+      cover: "",
+      noReprint: 0,
+    } as BiliUpTemplateConfig,
   },
   danmakuFilter: {
     enabled: true,
