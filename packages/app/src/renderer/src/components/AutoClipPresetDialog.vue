@@ -500,6 +500,34 @@
                     </template>
                   </n-form-item>
                   <n-form-item
+                    v-if="editingPreset.config.enhancement.boundaryRefineEnabled"
+                    label="重叠合并阈值 (秒)"
+                  >
+                    <n-input-number
+                      :value="
+                        editingPreset.config.enhancement.boundaryRefine?.overlapMergeThreshold ?? 60
+                      "
+                      :min="0"
+                      :step="5"
+                      placeholder="60"
+                      style="width: 120px"
+                      @update:value="
+                        (v) => {
+                          if (!editingPreset.config.enhancement.boundaryRefine) {
+                            editingPreset.config.enhancement.boundaryRefine = {};
+                          }
+                          editingPreset.config.enhancement.boundaryRefine.overlapMergeThreshold =
+                            v ?? undefined;
+                        }
+                      "
+                    />
+                    <template #feedback>
+                      <span style="font-size: 12px; color: #999"
+                        >相邻片段重叠超过该值则合并，否则各自独立（默认 60 秒）</span
+                      >
+                    </template>
+                  </n-form-item>
+                  <n-form-item
                     v-if="editingPreset.config.enhancement.visualEnabled"
                     label="视觉模型 ID"
                   >

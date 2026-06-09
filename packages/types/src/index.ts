@@ -1265,6 +1265,8 @@ export interface AutoClipEnhancementConfig {
     minClipDuration?: number;
     /** 边界前后采样窗口 (秒)，默认 60 */
     contextWindowSec?: number;
+    /** 相邻高光片段重叠合并阈值 (秒)，默认 60。重叠 ≤ 阈值裁剪前一片段；> 阈值合并 */
+    overlapMergeThreshold?: number;
   };
 }
 

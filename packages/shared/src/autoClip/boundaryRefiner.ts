@@ -38,6 +38,7 @@ export async function refineBoundaries(
   const maxAdjustSec = config.maxAdjustSec ?? 30;
   const minClipDuration = config.minClipDuration ?? 15;
   const contextWindowSec = config.contextWindowSec ?? 60;
+  const overlapMergeThreshold = config.overlapMergeThreshold ?? 60;
 
   const systemPrompt = buildSystemPrompt(maxAdjustSec, hasASR, hasFrames);
 
@@ -98,6 +99,7 @@ export async function refineBoundaries(
     maxAdjustSec,
     minClipDuration,
     videoDuration,
+    overlapMergeThreshold,
   );
 
   // Build refinement records: compare original vs refined boundaries
@@ -243,6 +245,7 @@ function applyBoundaryAdjustments(
   maxAdjustSec: number,
   minClipDuration: number,
   videoDuration: number,
+  overlapMergeThreshold: number,
 ): HighlightSegment[] {
   const result = highlights.map((h) => ({ ...h, timeRange: [...h.timeRange] as [number, number] }));
 
@@ -281,7 +284,7 @@ function applyBoundaryAdjustments(
   }
 
   // Constraint 4: resolve overlaps
-  return resolveOverlaps(result);
+  return resolveOverlaps(result, overlapMergeThreshold);
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +305,10 @@ function checkAborted(signal?: AbortSignal): void {
   signal?.throwIfAborted();
 }
 
-function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
+function resolveOverlaps(
+  highlights: HighlightSegment[],
+  overlapMergeThreshold: number,
+): HighlightSegment[] {
   const working = highlights.map((h) => ({
     ...h,
     timeRange: [...h.timeRange] as [number, number],
@@ -316,7 +322,7 @@ function resolveOverlaps(highlights: HighlightSegment[]): HighlightSegment[] {
       continue;
     }
 
-    if (overlap <= 3) {
+    if (overlap <= overlapMergeThreshold) {
       const newEnd = Math.max(curr.timeRange[0], next.timeRange[0] - 1);
       if (newEnd < curr.timeRange[0]) {
         curr.timeRange = [curr.timeRange[0], curr.timeRange[0] + 1];
