@@ -40,13 +40,13 @@ function ve(e, t, i, s, a, r, n) {
 }
 function ge(e, t) {
   var i, s, a, r, n;
-  (e[t >> 5] |= 128 << t % 32), (e[14 + (((t + 64) >>> 9) << 4)] = t);
+  ((e[t >> 5] |= 128 << t % 32), (e[14 + (((t + 64) >>> 9) << 4)] = t));
   var o = 1732584193,
     h = -271733879,
     u = -1732584194,
     l = 271733878;
   for (i = 0; i < e.length; i += 16)
-    (s = o),
+    ((s = o),
       (a = h),
       (r = u),
       (n = l),
@@ -114,7 +114,7 @@ function ge(e, t) {
       (o = pe(o, s)),
       (h = pe(h, a)),
       (u = pe(u, r)),
-      (l = pe(l, n));
+      (l = pe(l, n)));
   return [o, h, u, l];
 }
 function Se(e) {
@@ -137,8 +137,8 @@ function Pe(e) {
     i,
     s = "";
   for (i = 0; i < e.length; i += 1)
-    (t = e.charCodeAt(i)),
-      (s += "0123456789abcdef".charAt((t >>> 4) & 15) + "0123456789abcdef".charAt(15 & t));
+    ((t = e.charCodeAt(i)),
+      (s += "0123456789abcdef".charAt((t >>> 4) & 15) + "0123456789abcdef".charAt(15 & t)));
   return s;
 }
 function Ee(e) {
@@ -157,8 +157,8 @@ function Ae(e, t) {
       r = [],
       n = [];
     for (r[15] = n[15] = void 0, a.length > 16 && (a = ge(a, 8 * e.length)), i = 0; i < 16; i += 1)
-      (r[i] = 909522486 ^ a[i]), (n[i] = 1549556828 ^ a[i]);
-    return (s = ge(r.concat(Te(t)), 512 + 8 * t.length)), Se(ge(n.concat(s), 640));
+      ((r[i] = 909522486 ^ a[i]), (n[i] = 1549556828 ^ a[i]));
+    return ((s = ge(r.concat(Te(t)), 512 + 8 * t.length)), Se(ge(n.concat(s), 640)));
   })(Ee(e), Ee(t));
 }
 var keHash = function (e, t, i) {
