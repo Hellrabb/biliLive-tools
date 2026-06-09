@@ -13,6 +13,7 @@
 ### Task 1: 类型定义 — types 包加 `boundaryRefineEnabled`
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts:1252-1254`
 
 - [ ] **Step 1: 修改 `AutoClipEnhancementConfig` 接口**
@@ -31,6 +32,7 @@
 ```bash
 cd packages/types && pnpm run build
 ```
+
 Expected: PASS，无类型错误
 
 - [ ] **Step 3: Commit**
@@ -47,6 +49,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 2: 类型定义 — autoClip 模块内部类型
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/types.ts`
 
 - [ ] **Step 1: 在文件末尾追加新类型**
@@ -88,6 +91,7 @@ export interface BoundaryRefineResult {
 ```bash
 cd packages/shared && pnpm run build
 ```
+
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -104,12 +108,18 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 3: 核心实现 — `boundaryRefiner.ts` (prompt 构建)
 
 **Files:**
+
 - Create: `packages/shared/src/autoClip/boundaryRefiner.ts`
 
 - [ ] **Step 1: 创建文件骨架**
 
 ```ts
-import type { HighlightSegment, BoundaryRefineConfig, BoundaryAdjustment, BoundaryRefineResult } from "./types.js";
+import type {
+  HighlightSegment,
+  BoundaryRefineConfig,
+  BoundaryAdjustment,
+  BoundaryRefineResult,
+} from "./types.js";
 import { extractAndParseJSON } from "./jsonParser.js";
 import logger from "../utils/log.js";
 
@@ -156,12 +166,8 @@ function buildSystemPrompt(
   hasASR: boolean,
   hasFrames: boolean,
 ): string {
-  const asrClause = hasASR
-    ? "- 根据语音转文字（ASR）判断对话是否在完整句子处结束"
-    : "";
-  const frameClause = hasFrames
-    ? "- 根据关键帧描述判断是否有场景切换、动作收尾"
-    : "";
+  const asrClause = hasASR ? "- 根据语音转文字（ASR）判断对话是否在完整句子处结束" : "";
+  const frameClause = hasFrames ? "- 根据关键帧描述判断是否有场景切换、动作收尾" : "";
 
   return `你是一个专业的视频剪辑师。你需要根据以下信息判断高光片段的起止边界是否合理，并给出调整建议。
 
@@ -199,6 +205,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 4: 核心实现 — `boundaryRefiner.ts` (User Prompt + 解析)
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/boundaryRefiner.ts`
 
 - [ ] **Step 1: 实现 `buildUserPrompt()`**
@@ -260,10 +267,7 @@ function formatTime(sec: number): string {
 - [ ] **Step 2: 实现 `parseRefineResponse()`**
 
 ```ts
-function parseRefineResponse(
-  raw: string,
-  expectedCount: number,
-): BoundaryAdjustment[] | null {
+function parseRefineResponse(raw: string, expectedCount: number): BoundaryAdjustment[] | null {
   const parsed = extractAndParseJSON<BoundaryRefineResult>(raw);
   if (!parsed || !Array.isArray(parsed.adjustments)) {
     logger.warn("boundaryRefiner: failed to parse LLM response", { raw: raw.slice(0, 200) });
@@ -300,6 +304,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 5: 核心实现 — `boundaryRefiner.ts` (约束校验 + 调整应用)
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/boundaryRefiner.ts`
 
 - [ ] **Step 1: 实现 `applyBoundaryAdjustments()`**
@@ -335,7 +340,9 @@ function applyBoundaryAdjustments(
 
     // Constraint 2: min clip duration
     if (newEnd - newStart < config.minClipDuration) {
-      logger.info(`boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`);
+      logger.info(
+        `boundaryRefiner: clip ${adj.highlightIndex} would be too short (${(newEnd - newStart).toFixed(1)}s), keeping original`,
+      );
       continue;
     }
 
@@ -354,10 +361,7 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-function resolveOverlaps(
-  highlights: HighlightSegment[],
-  minDuration: number,
-): HighlightSegment[] {
+function resolveOverlaps(highlights: HighlightSegment[], minDuration: number): HighlightSegment[] {
   for (let i = 0; i < highlights.length - 1; i++) {
     const curr = highlights[i]!;
     const next = highlights[i + 1]!;
@@ -400,6 +404,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 6: 管线集成 — `pipeline.ts`
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/pipeline.ts`
 
 - [ ] **Step 1: 添加 import**
@@ -423,7 +428,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ```diff
          onProgress?.("understand", 88, "Content understanding complete");
- 
+
 +        // Phase 1.6: Boundary refinement
 +        if (presetConfig.enhancement.boundaryRefineEnabled) {
 +          onProgress?.("refine", 89, "Refining clip boundaries...");
@@ -454,6 +459,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ```bash
 cd packages/shared && pnpm run build
 ```
+
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -470,6 +476,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 7: 导出 & 预设默认值
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/index.ts`
 - Modify: `packages/shared/src/presets/autoClipPreset.ts`
 
@@ -505,6 +512,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ```bash
 cd packages/shared && pnpm run build
 ```
+
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -521,6 +529,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 8: UI — 增强面板新增边界精修开关
 
 **Files:**
+
 - Modify: `packages/app/src/renderer/src/components/AutoClipPresetDialog.vue`
 
 - [ ] **Step 1: 在增强 Tab 中添加开关**
@@ -528,7 +537,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 在"启用视觉理解"开关之后、"视觉模型 ID"之前（Tab 5 区域内）添加：
 
 ```vue
-                  <n-form-item label="启用边界智能精修">
+<n-form-item label="启用边界智能精修">
                     <n-switch v-model:value="editingPreset.config.enhancement.boundaryRefineEnabled" />
                     <template #feedback>
                       <span style="font-size:12px;color:#999">分析语音和画面，自动优化切片起止位置，避免剧情不完整</span>
@@ -543,6 +552,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ```bash
 cd packages/app && pnpm run build
 ```
+
 Expected: PASS（或至少类型检查通过）
 
 - [ ] **Step 3: Commit**
@@ -559,6 +569,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ### Task 9: 单元测试 — `boundaryRefiner.test.ts`
 
 **Files:**
+
 - Create: `packages/shared/test/autoClip/boundaryRefiner.test.ts`
 
 - [ ] **Step 1: 创建测试文件骨架 + 导入**
@@ -570,9 +581,14 @@ import { describe, it, expect, vi } from "vitest";
 // The main refineBoundaries function is tested via integration.
 
 // For unit tests, we create minimal test fixtures
-function makeHighlight(overrides: Partial<{
-  start: number; end: number; title: string; score: number;
-}> = {}): import("../../src/autoClip/types.js").HighlightSegment {
+function makeHighlight(
+  overrides: Partial<{
+    start: number;
+    end: number;
+    title: string;
+    score: number;
+  }> = {},
+): import("../../src/autoClip/types.js").HighlightSegment {
   const start = overrides.start ?? 100;
   const end = overrides.end ?? 200;
   return {
@@ -628,128 +644,159 @@ describe("applyBoundaryAdjustments constraint checks", () => {
 - [ ] **Step 3: Constraint tests — minClipDuration**
 
 ```ts
-  it("should preserve original boundaries when adjusted clip is too short", async () => {
-    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+it("should preserve original boundaries when adjusted clip is too short", async () => {
+  const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 100, end: 120 })]; // 20s clip
-    const asrMap = new Map([[0, "test asr"]]);
-    const frameMap = new Map<number, string[]>();
+  const highlights = [makeHighlight({ start: 100, end: 120 })]; // 20s clip
+  const asrMap = new Map([[0, "test asr"]]);
+  const frameMap = new Map<number, string[]>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: 10,   // would make it 110-110 = 0s
-        endAdjustment: -10,
-        startReason: "trim",
-        endReason: "trim",
-        confidence: "high",
-      }],
-    }));
+  const mockSend = vi.fn().mockResolvedValue(
+    JSON.stringify({
+      adjustments: [
+        {
+          highlightIndex: 0,
+          startAdjustment: 10, // would make it 110-110 = 0s
+          endAdjustment: -10,
+          startReason: "trim",
+          endReason: "trim",
+          confidence: "high",
+        },
+      ],
+    }),
+  );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
-      { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
-      1000,
-    );
+  const result = await refineBoundaries(
+    highlights,
+    asrMap,
+    frameMap,
+    mockSend,
+    { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
+    1000,
+  );
 
-    // Should reject: adjusted duration 0s < min 15s
-    expect(result[0]!.timeRange).toEqual([100, 120]);
-  });
+  // Should reject: adjusted duration 0s < min 15s
+  expect(result[0]!.timeRange).toEqual([100, 120]);
+});
 ```
 
 - [ ] **Step 4: Constraint tests — video bounds + low confidence**
 
 ```ts
-  it("should clamp to video bounds [0, duration]", async () => {
-    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+it("should clamp to video bounds [0, duration]", async () => {
+  const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 5, end: 50 })];
-    const asrMap = new Map([[0, "test"]]);
-    const frameMap = new Map<number, string[]>();
+  const highlights = [makeHighlight({ start: 5, end: 50 })];
+  const asrMap = new Map([[0, "test"]]);
+  const frameMap = new Map<number, string[]>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: -20,  // would go to -15
-        endAdjustment: 0,
-        startReason: "extend",
-        endReason: "",
-        confidence: "high",
-      }],
-    }));
+  const mockSend = vi.fn().mockResolvedValue(
+    JSON.stringify({
+      adjustments: [
+        {
+          highlightIndex: 0,
+          startAdjustment: -20, // would go to -15
+          endAdjustment: 0,
+          startReason: "extend",
+          endReason: "",
+          confidence: "high",
+        },
+      ],
+    }),
+  );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
-      { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
-      1000,
-    );
+  const result = await refineBoundaries(
+    highlights,
+    asrMap,
+    frameMap,
+    mockSend,
+    { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
+    1000,
+  );
 
-    expect(result[0]!.timeRange[0]).toBe(0);
-  });
+  expect(result[0]!.timeRange[0]).toBe(0);
+});
 
-  it("should skip adjustments with confidence=low", async () => {
-    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+it("should skip adjustments with confidence=low", async () => {
+  const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [makeHighlight({ start: 100, end: 200 })];
-    const asrMap = new Map([[0, "test"]]);
-    const frameMap = new Map<number, string[]>();
+  const highlights = [makeHighlight({ start: 100, end: 200 })];
+  const asrMap = new Map([[0, "test"]]);
+  const frameMap = new Map<number, string[]>();
 
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: -15,
-        endAdjustment: 15,
-        startReason: "maybe",
-        endReason: "maybe",
-        confidence: "low",
-      }],
-    }));
+  const mockSend = vi.fn().mockResolvedValue(
+    JSON.stringify({
+      adjustments: [
+        {
+          highlightIndex: 0,
+          startAdjustment: -15,
+          endAdjustment: 15,
+          startReason: "maybe",
+          endReason: "maybe",
+          confidence: "low",
+        },
+      ],
+    }),
+  );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
-      { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
-      1000,
-    );
+  const result = await refineBoundaries(
+    highlights,
+    asrMap,
+    frameMap,
+    mockSend,
+    { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
+    1000,
+  );
 
-    expect(result[0]!.timeRange).toEqual([100, 200]);
-  });
+  expect(result[0]!.timeRange).toEqual([100, 200]);
+});
 ```
 
 - [ ] **Step 5: Overlap resolution tests**
 
 ```ts
-  it("should trim minor overlap (< 3s) between adjacent clips", async () => {
-    const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
+it("should trim minor overlap (< 3s) between adjacent clips", async () => {
+  const { refineBoundaries } = await import("../../src/autoClip/boundaryRefiner.js");
 
-    const highlights = [
-      makeHighlight({ start: 100, end: 200 }),
-      makeHighlight({ start: 250, end: 350 }),
-    ];
-    const asrMap = new Map([[0, "a"], [1, "b"]]);
-    const frameMap = new Map<number, string[]>();
+  const highlights = [
+    makeHighlight({ start: 100, end: 200 }),
+    makeHighlight({ start: 250, end: 350 }),
+  ];
+  const asrMap = new Map([
+    [0, "a"],
+    [1, "b"],
+  ]);
+  const frameMap = new Map<number, string[]>();
 
-    // Adjust clip 0 end to 253, creating 3s overlap with clip 1
-    const mockSend = vi.fn().mockResolvedValue(JSON.stringify({
-      adjustments: [{
-        highlightIndex: 0,
-        startAdjustment: 0,
-        endAdjustment: 53,
-        startReason: "",
-        endReason: "extend",
-        confidence: "high",
-      }],
-    }));
+  // Adjust clip 0 end to 253, creating 3s overlap with clip 1
+  const mockSend = vi.fn().mockResolvedValue(
+    JSON.stringify({
+      adjustments: [
+        {
+          highlightIndex: 0,
+          startAdjustment: 0,
+          endAdjustment: 53,
+          startReason: "",
+          endReason: "extend",
+          confidence: "high",
+        },
+      ],
+    }),
+  );
 
-    const result = await refineBoundaries(
-      highlights, asrMap, frameMap, mockSend,
-      { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
-      1000,
-    );
+  const result = await refineBoundaries(
+    highlights,
+    asrMap,
+    frameMap,
+    mockSend,
+    { maxAdjustSec: 30, minClipDuration: 15, contextWindowSec: 60 },
+    1000,
+  );
 
-    // Clip 0 end should be trimmed to clip 1 start - 1
-    expect(result[0]!.timeRange[1]).toBe(249);
-    expect(result[1]!.timeRange[0]).toBe(250);
-  });
+  // Clip 0 end should be trimmed to clip 1 start - 1
+  expect(result[0]!.timeRange[1]).toBe(249);
+  expect(result[1]!.timeRange[0]).toBe(250);
+});
 ```
 
 - [ ] **Step 6: Error handling tests**
@@ -817,6 +864,7 @@ describe("applyBoundaryAdjustments constraint checks", () => {
 ```bash
 cd packages/shared && pnpm run test -- --run test/autoClip/boundaryRefiner.test.ts
 ```
+
 Expected: 7 tests PASS
 
 - [ ] **Step 8: Commit**
@@ -837,6 +885,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 ```bash
 cd packages/shared && pnpm run test -- --run test/autoClip/
 ```
+
 Expected: 所有已有测试 + 新增 7 个测试 全部 PASS
 
 - [ ] **Step 2: 完整构建检查**
@@ -844,6 +893,7 @@ Expected: 所有已有测试 + 新增 7 个测试 全部 PASS
 ```bash
 pnpm run build:base
 ```
+
 Expected: PASS
 
 - [ ] **Step 3: Commit (如有 CI 配置文件变更)**
@@ -856,13 +906,13 @@ git status
 
 ## 文件变更汇总
 
-| 文件 | 操作 | 内容 |
-|------|------|------|
-| `packages/types/src/index.ts` | 改 | `AutoClipEnhancementConfig` 加 `boundaryRefineEnabled` |
-| `packages/shared/src/autoClip/types.ts` | 改 | 新增 3 个边界精修类型 |
-| `packages/shared/src/autoClip/boundaryRefiner.ts` | **新** | 核心实现：prompt 构建 + 解析 + 约束校验 |
-| `packages/shared/src/autoClip/index.ts` | 改 | 导出 `boundaryRefiner` |
-| `packages/shared/src/autoClip/pipeline.ts` | 改 | 插入 Phase 1.6 调用 |
-| `packages/shared/src/presets/autoClipPreset.ts` | 改 | 默认值 `boundaryRefineEnabled: true` |
-| `packages/app/src/renderer/src/components/AutoClipPresetDialog.vue` | 改 | 增强面板新增开关 |
-| `packages/shared/test/autoClip/boundaryRefiner.test.ts` | **新** | 7 个单元测试 |
+| 文件                                                                | 操作   | 内容                                                   |
+| ------------------------------------------------------------------- | ------ | ------------------------------------------------------ |
+| `packages/types/src/index.ts`                                       | 改     | `AutoClipEnhancementConfig` 加 `boundaryRefineEnabled` |
+| `packages/shared/src/autoClip/types.ts`                             | 改     | 新增 3 个边界精修类型                                  |
+| `packages/shared/src/autoClip/boundaryRefiner.ts`                   | **新** | 核心实现：prompt 构建 + 解析 + 约束校验                |
+| `packages/shared/src/autoClip/index.ts`                             | 改     | 导出 `boundaryRefiner`                                 |
+| `packages/shared/src/autoClip/pipeline.ts`                          | 改     | 插入 Phase 1.6 调用                                    |
+| `packages/shared/src/presets/autoClipPreset.ts`                     | 改     | 默认值 `boundaryRefineEnabled: true`                   |
+| `packages/app/src/renderer/src/components/AutoClipPresetDialog.vue` | 改     | 增强面板新增开关                                       |
+| `packages/shared/test/autoClip/boundaryRefiner.test.ts`             | **新** | 7 个单元测试                                           |

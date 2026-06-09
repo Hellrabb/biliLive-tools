@@ -14,15 +14,15 @@
 
 ## 核心决策
 
-| 决策点 | 结论 |
-|--------|------|
-| 开关粒度 | 全局开关 + 单直播间覆盖（沿用 webhook 的 global + rooms 模式） |
-| 配置管理 | AutoClipPreset 预设系统（与 DanmuPreset / VideoPreset 同级） |
-| 设置入口 | 扩展现有"切片" Tab（CutSetting.vue），新增 autoClip 配置区 |
-| 预设编辑 | Tab 分页表单：信号检测 / LLM精排 / 导出设置 / 增强 |
-| 切片管理页 | 左侧菜单新增"自动切片"入口，独立页面 |
-| 手动触发 | 工具页录播列表 + 切片管理页，两处都有入口 |
-| 扩展功能 | 自动导出+上传闭环、切片管理+手动触发、通知+prompt定制+时间窗口、审核流程 |
+| 决策点     | 结论                                                                     |
+| ---------- | ------------------------------------------------------------------------ |
+| 开关粒度   | 全局开关 + 单直播间覆盖（沿用 webhook 的 global + rooms 模式）           |
+| 配置管理   | AutoClipPreset 预设系统（与 DanmuPreset / VideoPreset 同级）             |
+| 设置入口   | 扩展现有"切片" Tab（CutSetting.vue），新增 autoClip 配置区               |
+| 预设编辑   | Tab 分页表单：信号检测 / LLM精排 / 导出设置 / 增强                       |
+| 切片管理页 | 左侧菜单新增"自动切片"入口，独立页面                                     |
+| 手动触发   | 工具页录播列表 + 切片管理页，两处都有入口                                |
+| 扩展功能   | 自动导出+上传闭环、切片管理+手动触发、通知+prompt定制+时间窗口、审核流程 |
 
 ---
 
@@ -38,17 +38,18 @@ videoCut: {
   autoSave: boolean;
   cacheWaveform: boolean;
   // 新增 ↓
-  autoClipEnabled: boolean;     // 全局 autoClip 开关，默认 false
-  autoClipPresetId: string;     // 全局默认预设ID
-  autoClipExport: boolean;      // 自动导出切片视频，默认 false
-  autoClipUpload: boolean;      // 自动上传B站，默认 false
-  autoClipReviewMode: boolean;  // 审核模式：true=先审核再导出，false=直接导出，默认 true
-  autoClipTimeWindow: {         // 运行时间窗口
+  autoClipEnabled: boolean; // 全局 autoClip 开关，默认 false
+  autoClipPresetId: string; // 全局默认预设ID
+  autoClipExport: boolean; // 自动导出切片视频，默认 false
+  autoClipUpload: boolean; // 自动上传B站，默认 false
+  autoClipReviewMode: boolean; // 审核模式：true=先审核再导出，false=直接导出，默认 true
+  autoClipTimeWindow: {
+    // 运行时间窗口
     enabled: boolean;
-    start: string;              // "00:00"
-    end: string;                // "23:59"
-  };
-};
+    start: string; // "00:00"
+    end: string; // "23:59"
+  }
+}
 ```
 
 ### 1.2 AppRoomConfig 扩展
@@ -59,8 +60,8 @@ videoCut: {
 interface AppRoomConfig {
   // ... existing fields ...
   // 新增 ↓
-  autoClipEnabled?: boolean;       // 覆盖全局开关
-  autoClipPresetId?: string;       // 覆盖全局预设
+  autoClipEnabled?: boolean; // 覆盖全局开关
+  autoClipPresetId?: string; // 覆盖全局预设
 }
 ```
 
@@ -120,6 +121,7 @@ notification: {
 ```
 
 关键变更：
+
 - 移除当前的"无条件执行"逻辑
 - `autoClipEnabled` 默认 `false`，用户需主动开启
 - 无 preset 绑定时使用 `AUTO_CLIP_DEFAULT_CONFIG`
@@ -158,16 +160,16 @@ deleteResult(id: string): void;
 
 `packages/http/src/routes/autoClip.ts` 新增路由：
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auto-clip/preset` | 创建/更新预设 |
-| GET | `/auto-clip/presets` | 列出所有预设 |
-| DELETE | `/auto-clip/preset/:id` | 删除预设 |
-| GET | `/auto-clip/clips` | 查询切片结果列表（支持筛选） |
-| GET | `/auto-clip/clip/:id` | 获取单条切片详情 |
-| POST | `/auto-clip/clip/:id/approve` | 审核通过，触发导出 |
-| POST | `/auto-clip/clip/:id/delete` | 删除切片结果 |
-| POST | `/auto-clip/clip/:id/re-export` | 重新导出切片 |
+| Method | Path                            | Description                  |
+| ------ | ------------------------------- | ---------------------------- |
+| POST   | `/auto-clip/preset`             | 创建/更新预设                |
+| GET    | `/auto-clip/presets`            | 列出所有预设                 |
+| DELETE | `/auto-clip/preset/:id`         | 删除预设                     |
+| GET    | `/auto-clip/clips`              | 查询切片结果列表（支持筛选） |
+| GET    | `/auto-clip/clip/:id`           | 获取单条切片详情             |
+| POST   | `/auto-clip/clip/:id/approve`   | 审核通过，触发导出           |
+| POST   | `/auto-clip/clip/:id/delete`    | 删除切片结果                 |
+| POST   | `/auto-clip/clip/:id/re-export` | 重新导出切片                 |
 
 ---
 
@@ -212,6 +214,7 @@ deleteResult(id: string): void;
 预设列表支持新建、复制、删除，与其他预设（B站上传预设）管理模式一致。
 
 **Tab 1: 信号检测**
+
 ```
 弹幕密度阈值                    [2.5] x 均值
 SC 最低金额触发                 [30] 元
@@ -226,6 +229,7 @@ SC 最低金额触发                 [30] 元
 ```
 
 **Tab 2: LLM 精排**
+
 ```
 启用 LLM 精排                   [ON]
 LLM Provider              [qwen ▼|ollama]
@@ -238,6 +242,7 @@ Prompt 模板                     [_____________] (textarea)
 ```
 
 **Tab 3: 导出设置**
+
 ```
 切片格式                   [mp4 ▼|flv]
 FFmpeg 预设                [default ▼]
@@ -248,6 +253,7 @@ FFmpeg 预设                [default ▼]
 ```
 
 **Tab 4: 增强（预留）**
+
 ```
 ASR 语音识别增强             [OFF] (灰色，标注"即将上线")
 视觉关键帧分析               [OFF] (灰色，标注"即将上线")
@@ -260,6 +266,7 @@ ASR 语音识别增强             [OFF] (灰色，标注"即将上线")
 路由：`/autoClip`，在左侧菜单注册"自动切片"项。
 
 页面结构：
+
 ```
 ┌─────────────────────────────────────────────┐
 │ 自动切片管理              [+ 手动分析] [刷新] │
@@ -353,6 +360,7 @@ keep-alive include 列表增加 `"AutoClipManagement"`。
 鉴于范围较大，分 4 个阶段交付：
 
 ### Phase 1: 开关 + 预设 UI（核心配置能力）
+
 - AppConfig/AppRoomConfig 类型扩展
 - 录制器开关集成（默认 false）
 - CutSetting.vue 扩展
@@ -362,6 +370,7 @@ keep-alive include 列表增加 `"AutoClipManagement"`。
 - 切片结果数据库表
 
 ### Phase 2: 自动导出 & 上传闭环
+
 - `exportClips()` 实现
 - 自动导出+压制弹幕
 - 自动上传B站（复用现有 pipeline）
@@ -369,12 +378,14 @@ keep-alive include 列表增加 `"AutoClipManagement"`。
 - 通知配置 & 触发
 
 ### Phase 3: 切片管理页
+
 - 切片管理页面（列表+筛选+状态）
 - 审核流程（预览/确认/删除）
 - 手动触发按钮（工具页+管理页）
 - 左侧导航菜单
 
 ### Phase 4: 高级功能
+
 - 自定义 LLM prompt 模板
 - 运行时间窗口
 - 重新导出功能
@@ -394,12 +405,12 @@ keep-alive include 列表增加 `"AutoClipManagement"`。
 
 ## 7. 测试策略
 
-| 层 | 测试内容 |
-|----|---------|
-| 类型 | `AppConfig`/`AppRoomConfig` 扩展字段类型检查 |
-| 预设 CRUD | 创建/读取/更新/删除 AutoClipPreset 单元测试 |
-| 开关逻辑 | 录制完成后跳过/执行的集成测试 |
-| 导出 pipeline | `exportClips()` 各路径（导出/压制/上传）单元测试 |
-| DB 操作 | `auto_clip_results` 增删改查单元测试 |
-| API | HTTP routes 集成测试 |
-| UI | Vue 组件渲染测试（CutSetting, RoomSettingDialog 扩展部分） |
+| 层            | 测试内容                                                   |
+| ------------- | ---------------------------------------------------------- |
+| 类型          | `AppConfig`/`AppRoomConfig` 扩展字段类型检查               |
+| 预设 CRUD     | 创建/读取/更新/删除 AutoClipPreset 单元测试                |
+| 开关逻辑      | 录制完成后跳过/执行的集成测试                              |
+| 导出 pipeline | `exportClips()` 各路径（导出/压制/上传）单元测试           |
+| DB 操作       | `auto_clip_results` 增删改查单元测试                       |
+| API           | HTTP routes 集成测试                                       |
+| UI            | Vue 组件渲染测试（CutSetting, RoomSettingDialog 扩展部分） |

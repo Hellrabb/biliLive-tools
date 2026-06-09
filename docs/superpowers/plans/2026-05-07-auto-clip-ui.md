@@ -50,6 +50,7 @@ packages/app/src/renderer/src/pages/Main/index.vue  [MODIFY] 导航菜单 + keep
 ### Task 1: 类型定义扩展
 
 **Files:**
+
 - Modify: `packages/types/src/index.ts`
 
 - [ ] **Step 1: 扩展 GlobalConfig 和 AppConfig videoCut**
@@ -59,7 +60,7 @@ packages/app/src/renderer/src/pages/Main/index.vue  [MODIFY] 导航菜单 + keep
 ```typescript
 export interface GlobalConfig {
   // ... existing fields ...
-  autoClipPresetPath: string;  // 新增
+  autoClipPresetPath: string; // 新增
 }
 ```
 
@@ -79,8 +80,8 @@ videoCut: {
     enabled: boolean;
     start: string;
     end: string;
-  };
-};
+  }
+}
 ```
 
 找到 `notification.task` 定义（约653行），追加一行：
@@ -119,6 +120,7 @@ git commit -m "feat(types): add autoClip fields to AppConfig, AppRoomConfig, and
 ### Task 2: AppConfig 默认值 & DI 注册
 
 **Files:**
+
 - Modify: `packages/shared/src/enum.ts`
 - Modify: `packages/shared/src/index.ts`
 - Modify: `packages/shared/src/config.ts`
@@ -181,7 +183,13 @@ autoClipPresetPath: path.join(userDataPath, "autoClipPresets.json"),
 引入 `AutoClipPreset`：
 
 ```typescript
-import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset, AutoClipPreset } from "./presets/index.js";
+import {
+  DanmuPreset,
+  VideoPreset,
+  FFmpegPreset,
+  SubtitleStylePreset,
+  AutoClipPreset,
+} from "./presets/index.js";
 ```
 
 在 `awilix` 接口类型声明中追加：
@@ -216,6 +224,7 @@ git commit -m "feat(shared): add AutoClipPreset DI registration and default conf
 ### Task 3: AutoClipPreset HTTP CRUD 路由
 
 **Files:**
+
 - Modify: `packages/http/src/routes/autoClip.ts`
 
 - [ ] **Step 1: 重写 autoClip.ts 路由文件**
@@ -294,12 +303,16 @@ router.post("/run", async (ctx) => {
     try {
       const preset = getAutoClipPreset();
       const p = await preset.get(presetId);
-      presetConfig = p?.config ?? (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
+      presetConfig =
+        p?.config ??
+        (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
     } catch {
-      presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
+      presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js"))
+        .AUTO_CLIP_DEFAULT_CONFIG;
     }
   } else {
-    presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js")).AUTO_CLIP_DEFAULT_CONFIG;
+    presetConfig = (await import("@biliLive-tools/shared/presets/autoClipPreset.js"))
+      .AUTO_CLIP_DEFAULT_CONFIG;
   }
 
   const sendMessage = await buildSendMessage(presetConfig);
@@ -432,6 +445,7 @@ git commit -m "feat(http): add AutoClipPreset CRUD and clip management routes"
 ### Task 4: 录制器开关集成
 
 **Files:**
+
 - Modify: `packages/shared/src/recorder/index.ts`
 
 - [ ] **Step 1: 修改 videoFileCompleted handler**
@@ -504,7 +518,9 @@ try {
     } else {
       logger.info(`AutoClip: 检测到 ${result.highlights.length} 个高光片段`);
       for (const h of result.highlights) {
-        logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
+        logger.info(
+          `AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`,
+        );
       }
       // Phase 2 将实现：持久化 + 根据 reviewMode 导出
     }
@@ -534,6 +550,7 @@ git commit -m "feat(recorder): add autoClip toggle and time window check"
 ### Task 5: 数据库 — autoClip 结果表
 
 **Files:**
+
 - Create: `packages/shared/src/db/autoClip.ts`
 - Modify: `packages/shared/src/db/index.ts`
 
@@ -621,7 +638,9 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
 
   private checkIndexExists(indexName: string): boolean {
     const result = this.db
-      .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`)
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='auto_clip_results' AND name=?`,
+      )
       .get(indexName);
     return !!result;
   }
@@ -630,12 +649,10 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
     return this.insert(row);
   }
 
-  getResults(filter?: {
-    status?: string;
-    recorderId?: string;
-    limit?: number;
-    offset?: number;
-  }): { data: AutoClipResultRow[]; total: number } {
+  getResults(filter?: { status?: string; recorderId?: string; limit?: number; offset?: number }): {
+    data: AutoClipResultRow[];
+    total: number;
+  } {
     const conditions: string[] = [];
     const params: any[] = [];
 
@@ -662,7 +679,9 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
   }
 
   getResultById(id: string): AutoClipResultRow | undefined {
-    return this.db.prepare("SELECT * FROM auto_clip_results WHERE id = ?").get(id) as AutoClipResultRow | undefined;
+    return this.db.prepare("SELECT * FROM auto_clip_results WHERE id = ?").get(id) as
+      | AutoClipResultRow
+      | undefined;
   }
 
   updateStatus(id: string, status: string) {
@@ -671,13 +690,17 @@ export default class AutoClipModel extends BaseModel<AutoClipResultRow> {
 
   markExported(id: string, exportedPaths: string[]) {
     return this.db
-      .prepare("UPDATE auto_clip_results SET status = 'exported', exported_at = datetime('now'), exported_paths = ? WHERE id = ?")
+      .prepare(
+        "UPDATE auto_clip_results SET status = 'exported', exported_at = datetime('now'), exported_paths = ? WHERE id = ?",
+      )
       .run(JSON.stringify(exportedPaths), id);
   }
 
   markUploaded(id: string, biliAids: string[]) {
     return this.db
-      .prepare("UPDATE auto_clip_results SET status = 'uploaded', uploaded_at = datetime('now'), bili_aids = ? WHERE id = ?")
+      .prepare(
+        "UPDATE auto_clip_results SET status = 'uploaded', uploaded_at = datetime('now'), bili_aids = ? WHERE id = ?",
+      )
       .run(JSON.stringify(biliAids), id);
   }
 
@@ -715,6 +738,7 @@ git commit -m "feat(db): add autoClip results table model"
 ### Task 6: CutSetting.vue 扩展 — 切片 Tab autoClip 配置区
 
 **Files:**
+
 - Modify: `packages/app/src/renderer/src/pages/setting/CutSetting.vue`
 
 - [ ] **Step 1: 重写 CutSetting.vue**
@@ -807,10 +831,7 @@ git commit -m "feat(db): add autoClip results table model"
   </n-form>
 
   <!-- 预设编辑弹窗 -->
-  <AutoClipPresetDialog
-    v-model:visible="presetEditorVisible"
-    @updated="refreshPresets"
-  />
+  <AutoClipPresetDialog v-model:visible="presetEditorVisible" @updated="refreshPresets" />
 </template>
 
 <script setup lang="ts">
@@ -883,7 +904,13 @@ export default autoClipPresetApi;
 
 ```typescript
 import autoClipPresetApi from "./autoClip";
-export { danmuPresetApi, ffmpegPresetApi, videoPresetApi, subtitleStylePresetApi, autoClipPresetApi };
+export {
+  danmuPresetApi,
+  ffmpegPresetApi,
+  videoPresetApi,
+  subtitleStylePresetApi,
+  autoClipPresetApi,
+};
 ```
 
 - [ ] **Step 3: 验证前端编译**
@@ -908,6 +935,7 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
 ### Task 7: AutoClipPresetDialog — 预设编辑弹窗
 
 **Files:**
+
 - Create: `packages/app/src/renderer/src/components/AutoClipPresetDialog.vue`
 
 - [ ] **Step 1: 创建预设编辑弹窗组件**
@@ -925,9 +953,14 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
           <div
             v-for="p in presets"
             :key="p.id"
-            :style="{ padding: '6px 8px', cursor: 'pointer', borderRadius: '3px', marginBottom: '4px',
+            :style="{
+              padding: '6px 8px',
+              cursor: 'pointer',
+              borderRadius: '3px',
+              marginBottom: '4px',
               background: selectedId === p.id ? '#e8f5e9' : 'transparent',
-              fontWeight: selectedId === p.id ? 'bold' : 'normal' }"
+              fontWeight: selectedId === p.id ? 'bold' : 'normal',
+            }"
             @click="selectPreset(p.id)"
           >
             {{ p.name }}
@@ -945,9 +978,20 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
 
           <template v-else>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-              <n-input v-model:value="editingPreset.name" placeholder="预设名称" style="width:200px" />
+              <n-input
+                v-model:value="editingPreset.name"
+                placeholder="预设名称"
+                style="width:200px"
+              />
               <n-button size="small" @click="savePreset" type="primary">保存</n-button>
-              <n-button v-if="editingPreset.id !== 'default'" size="small" @click="deletePreset" type="error" ghost>删除</n-button>
+              <n-button
+                v-if="editingPreset.id !== 'default'"
+                size="small"
+                @click="deletePreset"
+                type="error"
+                ghost
+                >删除</n-button
+              >
               <n-button size="small" @click="copyPreset">复制</n-button>
             </div>
 
@@ -956,47 +1000,94 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
               <n-tab-pane name="signal" tab="信号检测">
                 <n-form label-placement="left" :label-width="170" size="small">
                   <n-form-item label="弹幕密度阈值">
-                    <n-input-number v-model:value="editingPreset.config.signal.danmakuDensityThreshold" :step="0.1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.danmakuDensityThreshold"
+                      :step="0.1"
+                      min="1"
+                    />
                     <span style="margin-left:4px">x 均值</span>
                   </n-form-item>
                   <n-form-item label="SC 最低金额触发">
-                    <n-input-number v-model:value="editingPreset.config.signal.scMinAmount" :step="1" min="0" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.scMinAmount"
+                      :step="1"
+                      min="0"
+                    />
                     <span style="margin-left:4px">元</span>
                   </n-form-item>
                   <n-form-item label="礼物爆发阈值">
-                    <n-input-number v-model:value="editingPreset.config.signal.giftBurstThreshold" :step="1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.giftBurstThreshold"
+                      :step="1"
+                      min="1"
+                    />
                     <span style="margin-left:4px">个</span>
                   </n-form-item>
                   <n-form-item label="礼物统计窗口">
-                    <n-input-number v-model:value="editingPreset.config.signal.giftBurstWindowSec" :step="1" min="5" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.giftBurstWindowSec"
+                      :step="1"
+                      min="5"
+                    />
                     <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="候选窗口 Padding (前/后)">
                     <n-space>
-                      <n-input-number v-model:value="editingPreset.config.signal.windowPadding[0]" :step="1" min="0" style="width:80px" />
+                      <n-input-number
+                        v-model:value="editingPreset.config.signal.windowPadding[0]"
+                        :step="1"
+                        min="0"
+                        style="width:80px"
+                      />
                       <span>/</span>
-                      <n-input-number v-model:value="editingPreset.config.signal.windowPadding[1]" :step="1" min="0" style="width:80px" />
+                      <n-input-number
+                        v-model:value="editingPreset.config.signal.windowPadding[1]"
+                        :step="1"
+                        min="0"
+                        style="width:80px"
+                      />
                       <span>秒</span>
                     </n-space>
                   </n-form-item>
                   <n-form-item label="最短候选窗口">
-                    <n-input-number v-model:value="editingPreset.config.signal.minWindowDuration" :step="1" min="10" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.minWindowDuration"
+                      :step="1"
+                      min="10"
+                    />
                     <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="最长候选窗口">
-                    <n-input-number v-model:value="editingPreset.config.signal.maxWindowDuration" :step="1" min="30" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.maxWindowDuration"
+                      :step="1"
+                      min="30"
+                    />
                     <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="分析桶宽">
-                    <n-input-number v-model:value="editingPreset.config.signal.bucketSec" :step="1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.bucketSec"
+                      :step="1"
+                      min="1"
+                    />
                     <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="相邻合并最大间隔">
-                    <n-input-number v-model:value="editingPreset.config.signal.mergeGapSec" :step="1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.mergeGapSec"
+                      :step="1"
+                      min="1"
+                    />
                     <span style="margin-left:4px">秒</span>
                   </n-form-item>
                   <n-form-item label="刷屏检测相似度阈值">
-                    <n-input-number v-model:value="editingPreset.config.signal.brushSimilarityThreshold" :step="0.05" min="0" max="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.signal.brushSimilarityThreshold"
+                      :step="0.05"
+                      min="0"
+                      max="1"
+                    />
                   </n-form-item>
                 </n-form>
               </n-tab-pane>
@@ -1008,22 +1099,45 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
                     <n-switch v-model:value="editingPreset.config.llm.enabled" />
                   </n-form-item>
                   <n-form-item label="LLM Provider">
-                    <n-select v-model:value="editingPreset.config.llm.provider" :options="[{label:'Qwen',value:'qwen'},{label:'Ollama',value:'ollama'}]" style="width:150px" />
+                    <n-select
+                      v-model:value="editingPreset.config.llm.provider"
+                      :options="[
+                        { label: 'Qwen', value: 'qwen' },
+                        { label: 'Ollama', value: 'ollama' },
+                      ]"
+                      style="width:150px"
+                    />
                   </n-form-item>
                   <n-form-item label="Model ID">
                     <n-input v-model:value="editingPreset.config.llm.modelId" style="width:200px" />
                   </n-form-item>
                   <n-form-item label="Max Tokens">
-                    <n-input-number v-model:value="editingPreset.config.llm.maxTokens" :step="100" min="100" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.llm.maxTokens"
+                      :step="100"
+                      min="100"
+                    />
                   </n-form-item>
                   <n-form-item label="保留片段数 (Top-K)">
-                    <n-input-number v-model:value="editingPreset.config.llm.topK" :step="1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.llm.topK"
+                      :step="1"
+                      min="1"
+                    />
                   </n-form-item>
                   <n-form-item label="每视频最大候选数">
-                    <n-input-number v-model:value="editingPreset.config.llm.maxCandidatesPerVideo" :step="1" min="1" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.llm.maxCandidatesPerVideo"
+                      :step="1"
+                      min="1"
+                    />
                   </n-form-item>
                   <n-form-item label="弹幕采样上限">
-                    <n-input-number v-model:value="editingPreset.config.llm.danmakuSampleMax" :step="10" min="10" />
+                    <n-input-number
+                      v-model:value="editingPreset.config.llm.danmakuSampleMax"
+                      :step="10"
+                      min="10"
+                    />
                   </n-form-item>
                   <n-form-item label="Prompt 模板">
                     <n-input
@@ -1040,10 +1154,20 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
               <n-tab-pane name="export" tab="导出设置">
                 <n-form label-placement="left" :label-width="170" size="small">
                   <n-form-item label="切片格式">
-                    <n-select v-model:value="editingPreset.config.export.cutFormat" :options="[{label:'mp4',value:'mp4'},{label:'flv',value:'flv'}]" style="width:120px" />
+                    <n-select
+                      v-model:value="editingPreset.config.export.cutFormat"
+                      :options="[
+                        { label: 'mp4', value: 'mp4' },
+                        { label: 'flv', value: 'flv' },
+                      ]"
+                      style="width:120px"
+                    />
                   </n-form-item>
                   <n-form-item label="FFmpeg 预设">
-                    <n-input v-model:value="editingPreset.config.export.ffmpegPresetId" style="width:200px" />
+                    <n-input
+                      v-model:value="editingPreset.config.export.ffmpegPresetId"
+                      style="width:200px"
+                    />
                   </n-form-item>
                   <n-form-item label="压制弹幕到视频">
                     <n-switch v-model:value="editingPreset.config.export.burnDanmaku" />
@@ -1052,7 +1176,10 @@ git commit -m "feat(ui): add autoClip config section to CutSetting tab"
                     <n-switch v-model:value="editingPreset.config.export.uploadToBili" />
                   </n-form-item>
                   <n-form-item label="保存路径">
-                    <n-input v-model:value="editingPreset.config.export.savePath" placeholder="留空使用录制保存路径" />
+                    <n-input
+                      v-model:value="editingPreset.config.export.savePath"
+                      placeholder="留空使用录制保存路径"
+                    />
                   </n-form-item>
                   <n-form-item label="文件命名模板">
                     <n-input v-model:value="editingPreset.config.export.namingTemplate" />
@@ -1093,7 +1220,9 @@ const emit = defineEmits<{ (e: "updated"): void }>();
 
 const showModal = computed({
   get: () => visible.value,
-  set: (v) => { visible.value = v; },
+  set: (v) => {
+    visible.value = v;
+  },
 });
 
 const presets = ref<AutoClipPresetType[]>([]);
@@ -1104,18 +1233,34 @@ const confirm = useConfirm();
 
 const defaultConfig: AutoClipConfig = {
   signal: {
-    danmakuDensityThreshold: 2.5, scMinAmount: 30, giftBurstThreshold: 10,
-    giftBurstWindowSec: 30, windowPadding: [30, 30], minWindowDuration: 60,
-    maxWindowDuration: 300, bucketSec: 10, mergeGapSec: 30, brushSimilarityThreshold: 0.8,
+    danmakuDensityThreshold: 2.5,
+    scMinAmount: 30,
+    giftBurstThreshold: 10,
+    giftBurstWindowSec: 30,
+    windowPadding: [30, 30],
+    minWindowDuration: 60,
+    maxWindowDuration: 300,
+    bucketSec: 10,
+    mergeGapSec: 30,
+    brushSimilarityThreshold: 0.8,
   },
   llm: {
-    enabled: true, provider: "qwen", modelId: "", maxTokens: 1000,
-    topK: 5, maxCandidatesPerVideo: 15, danmakuSampleMax: 200,
+    enabled: true,
+    provider: "qwen",
+    modelId: "",
+    maxTokens: 1000,
+    topK: 5,
+    maxCandidatesPerVideo: 15,
+    danmakuSampleMax: 200,
   },
   enhancement: { asrEnabled: false, visualEnabled: false },
   export: {
-    cutFormat: "mp4", ffmpegPresetId: "default", burnDanmaku: false,
-    uploadToBili: false, savePath: "", namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
+    cutFormat: "mp4",
+    ffmpegPresetId: "default",
+    burnDanmaku: false,
+    uploadToBili: false,
+    savePath: "",
+    namingTemplate: "{{title}}_{{index}}_{{highlight_name}}",
   },
 };
 
@@ -1125,7 +1270,9 @@ async function loadPresets() {
     if (presets.value.length > 0 && !selectedId.value) {
       selectPreset(presets.value[0].id);
     }
-  } catch { /* preset file doesn't exist yet */ }
+  } catch {
+    /* preset file doesn't exist yet */
+  }
 }
 
 function selectPreset(id: string) {
@@ -1199,6 +1346,7 @@ git commit -m "feat(ui): add AutoClipPreset editor dialog component"
 ### Task 8: RoomSettingDialog — 单直播间 autoClip 开关
 
 **Files:**
+
 - Modify: `packages/app/src/renderer/src/pages/setting/RoomSettingDialog.vue`
 - Modify: `packages/app/src/renderer/src/pages/setting/CommonWebhookSetting.vue`
 
@@ -1250,7 +1398,9 @@ onMounted(async () => {
   try {
     const presets = await autoClipPresetApi.list();
     autoClipPresetOptions.value = presets.map((p: any) => ({ label: p.name, value: p.id }));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 });
 ```
 
@@ -1312,11 +1462,12 @@ Expected: 所有已有测试通过。
 
 ## Phase 2: 自动导出 & 上传闭环
 
-*(Phase 2-4 的详细实现将在 Phase 1 完成后根据实际状态细化，此处列出高层次任务)*
+_(Phase 2-4 的详细实现将在 Phase 1 完成后根据实际状态细化，此处列出高层次任务)_
 
 ### Task 10: exportClips 完善 + 持久化
 
 **Files:**
+
 - Modify: `packages/shared/src/autoClip/pipeline.ts`
 
 - 将 pipeline 运行结果持久化到 `auto_clip_results` 表
@@ -1341,6 +1492,7 @@ Expected: 所有已有测试通过。
 ### Task 13: AutoClipManagement 页面
 
 **Files:**
+
 - Create: `packages/app/src/renderer/src/pages/AutoClipManagement/Index.vue`
 
 - 路由 `/autoClip`，组件名 `AutoClipManagement`

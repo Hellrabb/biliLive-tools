@@ -119,14 +119,12 @@ Server酱支持免费推送信息到手机微信，免费账户有限制。
 ### 配置步骤
 
 1. **创建Bot**
-
    - 在 Telegram 中找到 `@BotFather`
    - 发送 `/newbot` 创建新Bot
    - 按提示设置Bot名称
    - 获取 Bot Token
 
 2. **获取Chat ID**
-
    - 在 Telegram 中找到 `@userinfobot`
    - 发送任意消息
    - 获取你的 Chat ID

@@ -49,8 +49,8 @@ export interface BoundaryRefineConfig {
 
 export interface BoundaryAdjustment {
   highlightIndex: number;
-  startAdjustment: number;   // 负数=向前扩展，正数=后移起点
-  endAdjustment: number;     // 正数=向后扩展，负数=提前终点
+  startAdjustment: number; // 负数=向前扩展，正数=后移起点
+  endAdjustment: number; // 正数=向后扩展，负数=提前终点
   startReason: string;
   endReason: string;
   confidence: "high" | "medium" | "low";
@@ -72,7 +72,7 @@ export async function refineBoundaries(
   frameMap: Map<number, string[]>,
   sendMessage: (prompt: string, signal?: AbortSignal) => Promise<string>,
   config: BoundaryRefineConfig,
-): Promise<HighlightSegment[]>
+): Promise<HighlightSegment[]>;
 ```
 
 **处理流程：**
@@ -88,15 +88,16 @@ export async function refineBoundaries(
 
 **约束校验（按优先级）：**
 
-| 优先级 | 约束 | 违规处理 |
-|--------|------|----------|
-| 1 | 调整幅度 ≤ `maxAdjustSec` | 裁剪到 `[-max, +max]` |
-| 2 | 调整后时长 ≥ `minClipDuration` | 回退到原始边界 |
-| 3 | 不超出视频时长 `[0, duration]` | 裁剪到有效范围 |
-| 4 | 不与相邻片段重叠 | 压缩当前起点到前片段终点+1s |
-| 5 | `confidence === "low"` | 保持原始边界不变 |
+| 优先级 | 约束                           | 违规处理                    |
+| ------ | ------------------------------ | --------------------------- |
+| 1      | 调整幅度 ≤ `maxAdjustSec`      | 裁剪到 `[-max, +max]`       |
+| 2      | 调整后时长 ≥ `minClipDuration` | 回退到原始边界              |
+| 3      | 不超出视频时长 `[0, duration]` | 裁剪到有效范围              |
+| 4      | 不与相邻片段重叠               | 压缩当前起点到前片段终点+1s |
+| 5      | `confidence === "low"`         | 保持原始边界不变            |
 
 **特殊处理：**
+
 - 相邻片段调整后重叠 > 3s → 合并为一个片段（保留更完整的边界）
 
 ## LLM Prompt 设计
@@ -161,24 +162,24 @@ export async function refineBoundaries(
 
 ### 边界判断规则（prompt 内嵌）
 
-| 信号 | 判断 | 动作 |
-|------|------|------|
-| ASR 终点处句子不完整 | 对话截断 | 向后扩展找到句子结束 |
-| ASR 起点处缺少铺垫 | 缺前因 | 向前扩展找到话题起点 |
-| 终点后 ASR 出现总结性语句 | 自然断点 | 收缩到总结之前 |
-| 关键帧显示场景切换 | 视觉断点 | 优先对齐到场景切换点 |
-| 终点附近长时间沉默 (>3s) | 自然停顿 | 以此为参考边界 |
+| 信号                      | 判断     | 动作                 |
+| ------------------------- | -------- | -------------------- |
+| ASR 终点处句子不完整      | 对话截断 | 向后扩展找到句子结束 |
+| ASR 起点处缺少铺垫        | 缺前因   | 向前扩展找到话题起点 |
+| 终点后 ASR 出现总结性语句 | 自然断点 | 收缩到总结之前       |
+| 关键帧显示场景切换        | 视觉断点 | 优先对齐到场景切换点 |
+| 终点附近长时间沉默 (>3s)  | 自然停顿 | 以此为参考边界       |
 
 ## 容错策略
 
-| 场景 | 策略 |
-|------|------|
-| LLM 调用失败/超时 | 返回原始 highlights，日志 warn，管线继续 |
-| JSON 解析失败 | 降级到 jsonParser 修复逻辑，修复失败则跳过全部调整 |
-| ASR 完全不可用 (asrMap 为空) | 只用帧描述做精修，所有 confidence 上限 medium |
-| ASR + 帧描述都不可用 | 跳过边界精修，直接进入标题生成 |
-| adjustments 数组长度与 highlights 不匹配 | 匹配索引应用，多余的忽略，缺少的保持原边界 |
-| 单个片段调整后越界 | 裁剪到有效范围，confidence 降为 low |
+| 场景                                     | 策略                                               |
+| ---------------------------------------- | -------------------------------------------------- |
+| LLM 调用失败/超时                        | 返回原始 highlights，日志 warn，管线继续           |
+| JSON 解析失败                            | 降级到 jsonParser 修复逻辑，修复失败则跳过全部调整 |
+| ASR 完全不可用 (asrMap 为空)             | 只用帧描述做精修，所有 confidence 上限 medium      |
+| ASR + 帧描述都不可用                     | 跳过边界精修，直接进入标题生成                     |
+| adjustments 数组长度与 highlights 不匹配 | 匹配索引应用，多余的忽略，缺少的保持原边界         |
+| 单个片段调整后越界                       | 裁剪到有效范围，confidence 降为 low                |
 
 ## 配置 & UI
 
@@ -192,22 +193,22 @@ export async function refineBoundaries(
 
 ## 测试策略
 
-| 测试 | 内容 |
-|------|------|
+| 测试                               | 内容                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | 单元测试 `boundaryRefiner.test.ts` | `applyBoundaryAdjustments()` 的 5 层约束校验：超幅裁剪、最小时长保护、边界裁剪、重叠压缩、低置信度回退。mock 掉 `sendMessage` |
-| 单元测试 `boundaryRefiner.test.ts` | `buildBoundaryRefinePrompt()` 输出格式验证 |
-| 单元测试 `boundaryRefiner.test.ts` | `parseRefineResponse()` 正常 JSON、畸形 JSON、空数组、部分字段缺失 |
-| 集成测试 | mock LLM 返回调整项 → 验证最终 highlight 的 timeRange 正确变更 |
-| 集成测试 | mock LLM 抛异常 → 验证 fallback 到原始边界，管线不中断 |
+| 单元测试 `boundaryRefiner.test.ts` | `buildBoundaryRefinePrompt()` 输出格式验证                                                                                    |
+| 单元测试 `boundaryRefiner.test.ts` | `parseRefineResponse()` 正常 JSON、畸形 JSON、空数组、部分字段缺失                                                            |
+| 集成测试                           | mock LLM 返回调整项 → 验证最终 highlight 的 timeRange 正确变更                                                                |
+| 集成测试                           | mock LLM 抛异常 → 验证 fallback 到原始边界，管线不中断                                                                        |
 
 ## 文件变更清单
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `packages/types/src/index.ts` | 修改 | `AutoClipEnhancementConfig` 加 `boundaryRefineEnabled` |
-| `packages/shared/src/autoClip/types.ts` | 修改 | 新增 `BoundaryRefineConfig`, `BoundaryAdjustment`, `BoundaryRefineResult` |
-| `packages/shared/src/autoClip/boundaryRefiner.ts` | **新增** | 核心实现：`buildPrompt` + `parseResponse` + `applyAdjustments` |
-| `packages/shared/src/autoClip/pipeline.ts` | 修改 | Phase 1.5 后插入 `refineBoundaries()` 调用 |
-| `packages/shared/src/autoClip/index.ts` | 修改 | 导出新模块 |
-| `packages/app/src/renderer/` | 修改 | 预设编辑页新增开关 UI |
-| `packages/shared/test/autoClip/boundaryRefiner.test.ts` | **新增** | 单元测试 + 集成测试 |
+| 文件                                                    | 操作     | 说明                                                                      |
+| ------------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| `packages/types/src/index.ts`                           | 修改     | `AutoClipEnhancementConfig` 加 `boundaryRefineEnabled`                    |
+| `packages/shared/src/autoClip/types.ts`                 | 修改     | 新增 `BoundaryRefineConfig`, `BoundaryAdjustment`, `BoundaryRefineResult` |
+| `packages/shared/src/autoClip/boundaryRefiner.ts`       | **新增** | 核心实现：`buildPrompt` + `parseResponse` + `applyAdjustments`            |
+| `packages/shared/src/autoClip/pipeline.ts`              | 修改     | Phase 1.5 后插入 `refineBoundaries()` 调用                                |
+| `packages/shared/src/autoClip/index.ts`                 | 修改     | 导出新模块                                                                |
+| `packages/app/src/renderer/`                            | 修改     | 预设编辑页新增开关 UI                                                     |
+| `packages/shared/test/autoClip/boundaryRefiner.test.ts` | **新增** | 单元测试 + 集成测试                                                       |

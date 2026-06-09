@@ -24,6 +24,7 @@
 ```
 
 **依赖:**
+
 - `jq` — JSON 解析（已预装于大多数 Linux 发行版）
 - `~/.claude/flow-kit/` — flow-kit 仓库（已存在）
 
@@ -32,6 +33,7 @@
 ### Task 1: 创建共享函数库 `flow-kit-lib.sh`
 
 **Files:**
+
 - Create: `.claude/hooks/flow-kit-lib.sh`
 
 - [ ] **Step 1: 写入 flow-kit-lib.sh**
@@ -123,6 +125,7 @@ chmod +x .claude/hooks/flow-kit-lib.sh
 ### Task 2: 创建 SessionStart hook `flow-kit-session.sh`
 
 **Files:**
+
 - Create: `.claude/hooks/flow-kit-session.sh`
 
 - [ ] **Step 1: 写入 flow-kit-session.sh**
@@ -182,6 +185,7 @@ chmod +x .claude/hooks/flow-kit-session.sh
 ### Task 3: 创建 UserPromptSubmit hook `flow-kit-prompt.sh`
 
 **Files:**
+
 - Create: `.claude/hooks/flow-kit-prompt.sh`
 
 - [ ] **Step 1: 写入 flow-kit-prompt.sh**
@@ -259,6 +263,7 @@ chmod +x .claude/hooks/flow-kit-prompt.sh
 ### Task 4: 创建 PreToolUse hook `flow-kit-pretool.sh`
 
 **Files:**
+
 - Create: `.claude/hooks/flow-kit-pretool.sh`
 
 - [ ] **Step 1: 写入 flow-kit-pretool.sh**
@@ -348,11 +353,13 @@ chmod +x .claude/hooks/flow-kit-pretool.sh
 ### Task 5: 配置 project settings.json 的 hooks
 
 **Files:**
+
 - Modify: `.claude/settings.json`
 
 - [ ] **Step 1: 在现有 hooks 对象中添加 3 个 hook 配置**
 
 现有 `.claude/settings.json`:
+
 ```json
 {
   "hooks": {
@@ -388,56 +395,60 @@ chmod +x .claude/hooks/flow-kit-pretool.sh
     "SessionStart": [
       {
         "matcher": "startup|resume|clear|compact",
-        "hooks": [{
-          "type": "command",
-          "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-session.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-session.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
         "matcher": "",
-        "hooks": [{
-          "type": "command",
-          "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-prompt.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-prompt.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "hooks": [{
-          "type": "command",
-          "command": "npx prettier --write \"${CLAUDE_TOOL_INPUT_FILE_PATH}\" 2>/dev/null || true"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"${CLAUDE_TOOL_INPUT_FILE_PATH}\" 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "condition": "filePath.includes('.env') && !filePath.includes('.env.example')",
-        "hooks": [{
-          "type": "command",
-          "command": "echo '[BLOCKED] Editing .env files is disabled to protect credentials' && exit 1"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[BLOCKED] Editing .env files is disabled to protect credentials' && exit 1"
+          }
+        ]
       },
       {
         "matcher": "Edit|Write",
-        "hooks": [{
-          "type": "command",
-          "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-pretool.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-pretool.sh"
+          }
+        ]
       }
     ]
   },
   "permissions": {
-    "allow": [
-      "Bash(npm:*)",
-      "Bash(pnpm:*)",
-      "Bash(git:*)",
-      "Bash(docker:*)",
-      "Bash(npx:*)"
-    ]
+    "allow": ["Bash(npm:*)", "Bash(pnpm:*)", "Bash(git:*)", "Bash(docker:*)", "Bash(npx:*)"]
   }
 }
 ```
@@ -449,6 +460,7 @@ chmod +x .claude/hooks/flow-kit-pretool.sh
 ```bash
 jq empty .claude/settings.json
 ```
+
 Expected: 无输出（exit 0）
 
 ---
@@ -456,6 +468,7 @@ Expected: 无输出（exit 0）
 ### Task 6: 添加 .flow-active 到 .gitignore
 
 **Files:**
+
 - Modify: `.gitignore`
 
 - [ ] **Step 1: 追加 .flow-active**
@@ -478,15 +491,19 @@ git commit -m "chore: add .flow-active to gitignore"
 - [ ] **Step 1: 验证 /flow start**
 
 在新 session 中输入:
+
 ```
 /flow start
 ```
+
 Expected: 看到 `flow-kit 已激活 (phase 0)` 提示
 
 检查:
+
 ```bash
 cat .flow-active
 ```
+
 Expected: `{"change_id": null, "phase": 0, "task_id": null}`
 
 - [ ] **Step 2: 验证 SessionStart prompt 注入**
@@ -498,9 +515,11 @@ Expected: session 开始时看到 SYSTEM.md 内容 + 0-change prompt
 - [ ] **Step 3: 验证 PreToolUse G1 门禁**
 
 在 phase 0 时尝试写 `.ts` 文件:
+
 ```
 请创建一个 src/test.ts 文件
 ```
+
 Expected: AI 看到 `[flow-kit gate] 阶段 0 禁止写非 .md 文件` 警告
 
 - [ ] **Step 4: 验证正常写 .md 不受阻**
@@ -508,6 +527,7 @@ Expected: AI 看到 `[flow-kit gate] 阶段 0 禁止写非 .md 文件` 警告
 ```
 请创建 .specs/test/CHANGE.md
 ```
+
 Expected: 无门禁警告（.md 文件在 phase < 4 允许写入）
 
 - [ ] **Step 5: 验证 /flow stop**
@@ -515,14 +535,17 @@ Expected: 无门禁警告（.md 文件在 phase < 4 允许写入）
 ```
 /flow stop
 ```
+
 Expected: 看到停止提示，`.flow-active` 被删除
 
 - [ ] **Step 6: 验证其他 skill 不受影响**
 
 在非 flow 状态下调用任意 skill（如 brainstorming）:
+
 ```
 /brainstorming 测试一下
 ```
+
 Expected: skill 正常触发，无 flow-kit 干扰
 
 ---

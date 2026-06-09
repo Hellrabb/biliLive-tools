@@ -3,6 +3,7 @@
 ## 目标
 
 通过 Claude Code hook 机制将 flow-kit 工作流自动化，实现：
+
 - **自动阶段路由**：AI 自动识别当前阶段并加载对应 prompt
 - **运行时门禁**：PreToolUse 强制检查，防止跳阶段写代码
 - **Session 恢复**：新 session 自动恢复上次中断的 change/task
@@ -35,25 +36,25 @@
 
 ### 阶段路由表
 
-| phase | 注入 Prompt | 允许操作 |
-|---|---|---|
-| 0 | 0-change.md | 仅写 .md |
-| 1 | 1-requirement.md | 仅写 .md |
-| 2 | 2-design.md | 仅写 .md |
-| 2a | 2a-ui-design.md | 仅写 .md |
-| 3 | 3-task.md | 仅写 .md |
-| 4 | 4-dev.md | 按 TASK.md 的 write_files 写 |
-| 5 | 5-test.md | 无限制 |
-| 6 | 6-review.md | 无限制 |
-| 7 | 7-integration.md | 无限制 |
+| phase | 注入 Prompt      | 允许操作                     |
+| ----- | ---------------- | ---------------------------- |
+| 0     | 0-change.md      | 仅写 .md                     |
+| 1     | 1-requirement.md | 仅写 .md                     |
+| 2     | 2-design.md      | 仅写 .md                     |
+| 2a    | 2a-ui-design.md  | 仅写 .md                     |
+| 3     | 3-task.md        | 仅写 .md                     |
+| 4     | 4-dev.md         | 按 TASK.md 的 write_files 写 |
+| 5     | 5-test.md        | 无限制                       |
+| 6     | 6-review.md      | 无限制                       |
+| 7     | 7-integration.md | 无限制                       |
 
 ## 命令集
 
-| 命令 | 作用 |
-|---|---|
-| `/flow start` | 创建 `.flow-active`，开始 flow 流程 |
-| `/flow stop` | 删除 `.flow-active`，恢复正常模式 |
-| `/flow phase <n>` | 手动切换阶段（备用） |
+| 命令              | 作用                                |
+| ----------------- | ----------------------------------- |
+| `/flow start`     | 创建 `.flow-active`，开始 flow 流程 |
+| `/flow stop`      | 删除 `.flow-active`，恢复正常模式   |
+| `/flow phase <n>` | 手动切换阶段（备用）                |
 
 ## Hook 架构
 
@@ -87,28 +88,29 @@
 
 ### PreToolUse — 运行时门禁
 
-| 规则 | 触发条件 | 输出 |
-|---|---|---|
-| G1 | phase < 4 且目标文件非 .md | "阶段 {phase} 禁止写非 .md 文件" |
-| G2 | phase=4 且有 task_id，写入文件不在当前 task 的 write_files 列表 | "当前 task 不允许写 {file}" |
-| G3 | phase=4 且 task_id 为空 | "阶段 4 需要 task_id" |
-| G4 | phase=7 尝试新 /flow start | "当前 change 尚未归档" |
+| 规则 | 触发条件                                                        | 输出                             |
+| ---- | --------------------------------------------------------------- | -------------------------------- |
+| G1   | phase < 4 且目标文件非 .md                                      | "阶段 {phase} 禁止写非 .md 文件" |
+| G2   | phase=4 且有 task_id，写入文件不在当前 task 的 write_files 列表 | "当前 task 不允许写 {file}"      |
+| G3   | phase=4 且 task_id 为空                                         | "阶段 4 需要 task_id"            |
+| G4   | phase=7 尝试新 /flow start                                      | "当前 change 尚未归档"           |
 
 门禁向 stderr 输出警告，不阻断工具调用。门禁依据从项目文件读取：
+
 - G2 依据：`.specs/<change_id>/TASK.md` 的 `write_files`
 - G3/G4 依据：`.flow-active` 的 `task_id` / `phase`
 
 ## 边界处理
 
-| 场景 | 行为 |
-|---|---|
-| `.flow-active` 不存在 | 零开销，不影响正常使用 |
-| `.flow-active` JSON 损坏 | exit 0，静默跳过 |
-| flow-kit 目录不存在 | SessionStart 跳过注入 |
-| PreToolUse hook 挂了 | 显示警告但允许继续 |
+| 场景                        | 行为                                    |
+| --------------------------- | --------------------------------------- |
+| `.flow-active` 不存在       | 零开销，不影响正常使用                  |
+| `.flow-active` JSON 损坏    | exit 0，静默跳过                        |
+| flow-kit 目录不存在         | SessionStart 跳过注入                   |
+| PreToolUse hook 挂了        | 显示警告但允许继续                      |
 | 阶段 4 中退出后重开 session | 读 phase=4 + task_id，注入 4-dev prompt |
-| 非 flow 项目 `/flow start` | 正常开始 |
-| `jq` 未安装 | 提示安装，静默跳过 |
+| 非 flow 项目 `/flow start`  | 正常开始                                |
+| `jq` 未安装                 | 提示安装，静默跳过                      |
 
 ## settings.json 配置
 
@@ -118,28 +120,34 @@
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{
-          "type": "command",
-          "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-session.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-session.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
         "matcher": "",
-        "hooks": [{
-          "type": "command",
-          "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-prompt.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-prompt.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
-        "hooks": [{
-          "type": "command",
-          "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-pretool.sh"
-        }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/flow-kit-pretool.sh"
+          }
+        ]
       }
     ]
   }
