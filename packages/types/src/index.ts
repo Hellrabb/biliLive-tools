@@ -1288,24 +1288,75 @@ export interface AutoClipExportConfig {
   biliUpTemplate?: BiliUpTemplateConfig;
 }
 
-/** 精简版 B站稿件上传模板，嵌入 AutoClipExportConfig */
+/**
+ * B站稿件上传模板，嵌入 AutoClipExportConfig。
+ * 字段对齐 {@link BiliupConfig}（除 title/desc/uid/sortByCid 不适用于 autoclip 模板场景外），
+ * 全部字段 optional（不含 titleTemplate/descTemplate），未设置时 fallback 到 DEFAULT_BILIUP_CONFIG 对应值。
+ */
 export interface BiliUpTemplateConfig {
+  // ── autoclip 特有：模板变量字段 ──
   /** 标题模板，支持 {{highlightTitle}} {{roomName}} {{date}} {{uploadDate}} */
   titleTemplate: string;
   /** 简介模板，支持与标题相同的变量 */
   descTemplate: string;
-  /** 标签，最多10个 */
+
+  // ── 以下对齐 BiliupConfig，全部 optional ──
+  /** 分P标题模板 */
+  partTitleTemplate?: string;
+  /** 标签，不能为空，不能超过10个。默认 ["biliLive-tools"] */
   tag: string[];
-  /** 投稿分区 */
+  /** 投稿分区，默认 138 */
   tid: number;
-  /** 1: 自制, 2: 转载 */
+  /** 1: 自制, 2: 转载。默认 1 */
   copyright: 1 | 2;
   /** 转载来源（copyright=2 时必填） */
   source?: string;
   /** 封面路径，留空自动从高光时刻提取 */
   cover?: string;
-  /** 自制声明 0: 允许转载, 1: 禁止转载 */
+  /** 自制声明 0: 允许转载, 1: 禁止转载。默认 0 */
   noReprint?: 0 | 1;
+  /** 杜比音效 0: 关闭, 1: 开启。默认 0 */
+  dolby?: 0 | 1;
+  /** Hi-Res 音质 0: 关闭, 1: 开启。默认 0 */
+  hires?: 0 | 1;
+  /** 空间动态（发布时的动态文案） */
+  dynamic?: string;
+  /** 添加水印 0: 关闭, 1: 开启。默认 0 */
+  watermark?: 0 | 1;
+  /** 充电面板 0: 不开启, 1: 开启。默认 0 */
+  openElec?: 0 | 1;
+  /** 关闭弹幕 0: 不关闭, 1: 关闭。默认 0 */
+  closeDanmu?: 0 | 1;
+  /** 关闭评论 0: 不关闭, 1: 关闭。默认 0 */
+  closeReply?: 0 | 1;
+  /** 开启精选评论 0: 开启, 1: 关闭。默认 0 */
+  selectiionReply?: 0 | 1;
+  /** 是否自动评论。默认 false */
+  autoComment?: boolean;
+  /** 是否评论置顶。默认 false */
+  commentTop?: boolean;
+  /** 评论内容（autoComment 启用时生效） */
+  comment?: string;
+  /** 是否推送到动态 0: 推送, 1: 不推送。默认 0 */
+  no_disturbance?: 0 | 1;
+  /** 是否允许二创 1: 允许, -1: 不允许。默认 -1 */
+  recreate?: 1 | -1;
+  /** 定时发布：10位秒级时间戳。必须距离提交时间 >7200 秒 */
+  dtime?: number;
+  /** 是否仅自己可见 0: 公开, 1: 仅自己。默认 0 */
+  is_only_self?: 0 | 1;
+  /** 在个人空间-投稿中隐藏 1: 隐藏, 2: 不隐藏。默认 2 */
+  space_hidden?: 1 | 2;
+  /** 合集 id */
+  seasonId?: number | null;
+  /** 小节 id */
+  sectionId?: number;
+  /** 话题名称 */
+  topic_name?: string | null;
+  /** 活动 mission_id */
+  mission_id?: number;
+  /** 新分区（替代 tid 的二级分区） */
+  human_type2?: number;
 }
 
 export interface AutoClipConfig {
