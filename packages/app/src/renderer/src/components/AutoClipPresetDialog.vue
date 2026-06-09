@@ -295,11 +295,7 @@
                           !editingPreset.config.export.ffmpegPresetId.startsWith('b_')
                         "
                       >
-                        <n-button
-                          text
-                          type="info"
-                          @click="router.push({ path: '/home', query: { tab: 'ffmpeg-setting' } })"
-                        >
+                        <n-button text type="info" @click="editFfmpegPreset">
                           编辑此预设 →
                         </n-button>
                       </template>
@@ -588,7 +584,6 @@ import { useConfirm } from "@renderer/hooks";
 import { useNotice } from "@renderer/hooks/useNotice";
 import { cloneDeep } from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
-import { useRouter } from "vue-router";
 import DynamicTags from "./DynamicTags.vue";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -737,8 +732,9 @@ async function loadFfmpegPresets() {
   }
 }
 
-// HACK: vue-router useRouter not auto-imported in this project
-const router = useRouter();
+function editFfmpegPreset() {
+  visible.value = false;
+}
 
 const biliTemplateHint = "可用变量：{{highlightTitle}} {{roomName}} {{date}} {{uploadDate}}";
 
