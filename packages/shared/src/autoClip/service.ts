@@ -429,6 +429,41 @@ export class AutoClipService {
       const noReprint = tpl?.noReprint;
       const coverPath = tpl?.cover || "";
 
+      // Collect optional overrides — only include fields explicitly set in tpl
+      const optionalOverrides: Record<string, unknown> = {};
+      const optionalFields = [
+        "partTitleTemplate",
+        "dolby",
+        "hires",
+        "dynamic",
+        "watermark",
+        "openElec",
+        "closeDanmu",
+        "closeReply",
+        "selectiionReply",
+        "autoComment",
+        "commentTop",
+        "comment",
+        "no_disturbance",
+        "recreate",
+        "dtime",
+        "is_only_self",
+        "space_hidden",
+        "seasonId",
+        "sectionId",
+        "topic_name",
+        "mission_id",
+        "human_type2",
+      ] as const;
+      if (tpl) {
+        for (const field of optionalFields) {
+          const val = tpl[field as keyof typeof tpl];
+          if (val !== undefined && val !== null) {
+            optionalOverrides[field] = val;
+          }
+        }
+      }
+
       for (const { path: expPath, highlight } of exportedResults) {
         ctx.highlightTitle = highlight?.title || path.parse(expPath).name;
 
@@ -470,6 +505,7 @@ export class AutoClipService {
             source,
             ...(noReprint !== undefined ? { noReprint } : {}),
             ...(resolvedCover ? { cover: resolvedCover } : {}),
+            ...optionalOverrides,
           },
           uid,
         );
