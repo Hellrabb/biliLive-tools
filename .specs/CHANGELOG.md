@@ -2,9 +2,12 @@
 
 > 所有已归档 change 的时间线。
 
-| 日期       | Change ID                 | 摘要                                                                                               | LESSONS  |
-| ---------- | ------------------------- | -------------------------------------------------------------------------------------------------- | -------- |
-| 2026-06-05 | autoclip-context-slicing  | AutoClip 边界精修独立模型配置：新增 boundaryRefineModelId 字段，支持为 Phase 1.6 指定专用 LLM 模型 | —        |
-| 2026-06-05 | autoclip-encoder-selector | AutoClip 导出设置：编码器和 FFmpeg 预设从文本输入改为下拉选择，支持直接选取 NVENC/QSV/AMF          | —        |
-| 2026-06-05 | health-fix-2026-06        | 健康巡检修复：better-sqlite3 原生模块重编译、ESLint 配置修复、未使用依赖清理、覆盖率工具安装       | 环境修复 |
-| 2026-06-02 | autoclip-evidence-chain   | autoclip 证据链功能：pipeline 决策数据捕获、DB 存储、API 暴露、前端 EvidencePanel 可视化           | —        |
+| 日期       | Change ID                       | 摘要                                                                                               | LESSONS           |
+| ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-10 | fix-autoclip-ffmpeg-edit-preset | 修复 AutoClip 导出设置中 FFmpeg「编辑此预设 →」按钮点击无反应（弹窗遮挡路由跳转）                  | —                 |
+| 2026-06-09 | autoclip-ffmpeg-custom          | AutoClip FFmpeg 预设：下拉分组显示内置+自定义、选中后参数预览、encoder 自动同步、跳转链接          | —                 |
+| 2026-06-05 | autoclip-context-slicing        | AutoClip 边界精修独立模型配置：新增 boundaryRefineModelId 字段，支持为 Phase 1.6 指定专用 LLM 模型 | —                 |
+| 2026-06-05 | autoclip-encoder-selector       | AutoClip 导出设置：编码器和 FFmpeg 预设从文本输入改为下拉选择，支持直接选取 NVENC/QSV/AMF          | —                 |
+| 2026-06-05 | health-fix-2026-06              | 健康巡检修复：better-sqlite3 原生模块重编译、ESLint 配置修复、未使用依赖清理、覆盖率工具安装       | 环境修复          |
+| 2026-06-02 | autoclip-evidence-chain         | autoclip 证据链功能：pipeline 决策数据捕获、DB 存储、API 暴露、前端 EvidencePanel 可视化           | —                 |
+| 2026-06-08 | autoclip-upload-template-ui     | B站稿件上传模板集成到 autoclip 预设页面 + 封面自动提取                                             | feature/auto-clip | —   |
