@@ -355,6 +355,11 @@
                         filterable
                         placeholder="选择投稿分区"
                       />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999"
+                          >默认138（生活），投稿后可在B站修改</span
+                        >
+                      </template>
                     </n-form-item>
                     <n-form-item label="自制/转载">
                       <n-radio-group
@@ -363,6 +368,11 @@
                         <n-radio :value="1">自制</n-radio>
                         <n-radio :value="2">转载</n-radio>
                       </n-radio-group>
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999"
+                          >自制：原创内容；转载：需注明来源网址</span
+                        >
+                      </template>
                     </n-form-item>
                     <n-form-item
                       v-if="editingPreset.config.export.biliUpTemplate.copyright === 1"
@@ -373,6 +383,11 @@
                         :checked-value="1"
                         :unchecked-value="0"
                       />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999"
+                          >开启后其他用户无法转载你的稿件</span
+                        >
+                      </template>
                     </n-form-item>
                     <n-form-item
                       v-if="editingPreset.config.export.biliUpTemplate.copyright === 2"
@@ -383,6 +398,11 @@
                         placeholder="注明视频来源网址"
                         clearable
                       />
+                      <template #feedback>
+                        <span style="font-size: 12px; color: #999"
+                          >必须填写原始视频网址，否则审核不通过</span
+                        >
+                      </template>
                     </n-form-item>
                     <n-form-item label="简介模板">
                       <n-input
@@ -392,7 +412,9 @@
                         :autosize="{ minRows: 2, maxRows: 4 }"
                       />
                       <template #feedback>
-                        <span style="font-size: 12px; color: #999">支持与标题相同的变量</span>
+                        <span style="font-size: 12px; color: #999"
+                          >支持与标题相同的变量，最多250字</span
+                        >
                       </template>
                     </n-form-item>
                     <n-form-item label="封面图">
@@ -406,6 +428,138 @@
                         >
                       </template>
                     </n-form-item>
+                    <!-- B站上传高级设置 -->
+                    <n-collapse>
+                      <n-collapse-item title="B站上传高级设置" name="bili-advanced">
+                        <n-form-item label="杜比音效">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.dolby"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999">需视频源支持杜比音效</span>
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="Hi-Res">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.hires"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999"
+                              >需视频源支持高解析度音质</span
+                            >
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="关闭弹幕">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.closeDanmu"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999">开启后观众无法发送弹幕</span>
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="关闭评论">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.closeReply"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999">开启后观众无法评论</span>
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="精选评论">
+                          <n-switch
+                            v-model:value="
+                              editingPreset.config.export.biliUpTemplate.selectiionReply
+                            "
+                            :checked-value="0"
+                            :unchecked-value="1"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999"
+                              >0：开启，1：关闭。仅展示精选评论</span
+                            >
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="空间动态">
+                          <n-input
+                            v-model:value="editingPreset.config.export.biliUpTemplate.dynamic"
+                            placeholder="发布时同步到空间的动态文案"
+                            clearable
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999">留空不发布动态</span>
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="定时发布">
+                          <n-date-picker
+                            v-model:value="editingBiliDtime"
+                            type="datetime"
+                            placeholder="留空立即发布"
+                            clearable
+                            :is-date-disabled="(ts) => ts < Date.now() + 7200000"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999"
+                              >必须比当前时间晚2小时以上，留空立即发布</span
+                            >
+                          </template>
+                        </n-form-item>
+                        <n-form-item label="水印">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.watermark"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                        </n-form-item>
+                        <n-form-item label="充电面板">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.openElec"
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                        </n-form-item>
+                        <n-form-item label="自动评论">
+                          <n-switch
+                            v-model:value="editingPreset.config.export.biliUpTemplate.autoComment"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999"
+                              >发布后自动用下方评论内容发表评论</span
+                            >
+                          </template>
+                        </n-form-item>
+                        <n-form-item
+                          v-if="editingPreset.config.export.biliUpTemplate.autoComment"
+                          label="评论内容"
+                        >
+                          <n-input
+                            v-model:value="editingPreset.config.export.biliUpTemplate.comment"
+                            placeholder="自动发表的评论内容"
+                          />
+                        </n-form-item>
+                        <n-form-item label="免打扰">
+                          <n-switch
+                            v-model:value="
+                              editingPreset.config.export.biliUpTemplate.no_disturbance
+                            "
+                            :checked-value="1"
+                            :unchecked-value="0"
+                          />
+                          <template #feedback>
+                            <span style="font-size: 12px; color: #999"
+                              >开启后稿件不推送到粉丝动态</span
+                            >
+                          </template>
+                        </n-form-item>
+                      </n-collapse-item>
+                    </n-collapse>
                   </template>
                   <n-form-item
                     label="保存路径"
@@ -765,6 +919,21 @@ function editFfmpegPreset() {
 }
 
 const biliTemplateHint = "可用变量：{{highlightTitle}} {{roomName}} {{date}} {{uploadDate}}";
+
+/** 定时发布时间：biliUpTemplate.dtime（10位秒级时间戳）↔ DatePicker 的毫秒时间戳 */
+const editingBiliDtime = computed({
+  get: () => {
+    const dtime = editingPreset.value?.config?.export?.biliUpTemplate?.dtime;
+    return dtime ? new Date(dtime * 1000).getTime() : null;
+  },
+  set: (val: number | null) => {
+    if (editingPreset.value?.config?.export?.biliUpTemplate) {
+      editingPreset.value.config.export.biliUpTemplate.dtime = val
+        ? Math.floor(val / 1000)
+        : undefined;
+    }
+  },
+});
 
 const selectedPresetConfig = computed(() => {
   const presetId = editingPreset.value?.config?.export?.ffmpegPresetId;
