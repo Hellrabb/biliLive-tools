@@ -56,12 +56,6 @@
     ]
   },
   "permissions": {
-    "allow": [
-      "Bash(npm:*)",
-      "Bash(pnpm:*)",
-      "Bash(git:*)",
-      "Bash(docker:*)",
-      "Bash(npx:*)"
-    ]
+    "allow": ["Bash(npm:*)", "Bash(pnpm:*)", "Bash(git:*)", "Bash(docker:*)", "Bash(npx:*)"]
   }
 }
