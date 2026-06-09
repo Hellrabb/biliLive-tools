@@ -259,12 +259,11 @@ export async function exportClips(
         outputPath,
         {
           ...ffmpegPresetOpts,
-          // Use ffmpeg preset's encoder when preset is configured,
-          // otherwise fall back to autoclip's export.encoder
-          encoder: ((Object.keys(ffmpegPresetOpts).length > 0
-            ? ffmpegPresetOpts.encoder
-            : undefined) ??
-            exportConfig.encoder ??
+          // AutoClip export.encoder takes priority over ffmpeg preset's encoder,
+          // so the user's explicit encoder choice in the UI always wins.
+          // FFmpeg preset's other settings (bitrate, CRF, preset, etc.) still apply.
+          encoder: (exportConfig.encoder ??
+            (Object.keys(ffmpegPresetOpts).length > 0 ? ffmpegPresetOpts.encoder : undefined) ??
             "libx264") as VideoCodec,
           audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],

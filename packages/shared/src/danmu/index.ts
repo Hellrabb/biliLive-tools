@@ -134,7 +134,11 @@ export const parseDanmu = async (input: string) => {
       text: item["#text"],
       user: item["@_user"],
       ts: isDouyin ? rawTs * 1000 : rawTs,
-      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
+      timestamp: isDouyin
+        ? undefined
+        : item["@_timestamp"]
+          ? Number(item["@_timestamp"])
+          : undefined,
       gift_count: 1,
       gift_price: item["@_price"],
     };
@@ -148,7 +152,11 @@ export const parseDanmu = async (input: string) => {
       text: "",
       user: item["@_user"],
       ts: isDouyin ? rawTs * 1000 : rawTs,
-      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
+      timestamp: isDouyin
+        ? undefined
+        : item["@_timestamp"]
+          ? Number(item["@_timestamp"])
+          : undefined,
       gift_name: item["@_giftname"],
       gift_count: item["@_giftcount"],
       gift_price: item["@_price"],
@@ -163,7 +171,11 @@ export const parseDanmu = async (input: string) => {
       text: "",
       user: item["@_user"],
       ts: isDouyin ? rawTs * 1000 : rawTs,
-      timestamp: isDouyin ? undefined : (item["@_timestamp"] ? Number(item["@_timestamp"]) : undefined),
+      timestamp: isDouyin
+        ? undefined
+        : item["@_timestamp"]
+          ? Number(item["@_timestamp"])
+          : undefined,
       gift_name: item["@_giftname"],
       gift_count: item["@_giftcount"],
       gift_price: item["@_price"],

@@ -584,7 +584,9 @@ export async function createRecorderManager(appConfig: AppConfig) {
         } else {
           logger.info(`AutoClip: 检测到 ${result.highlights.length} 个高光片段`);
           for (const h of result.highlights) {
-            logger.info(`AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`);
+            logger.info(
+              `AutoClip highlight: "${h.title}" (score: ${h.score}, ${h.bestRange[0]}-${h.bestRange[1]}s)`,
+            );
           }
         }
       }

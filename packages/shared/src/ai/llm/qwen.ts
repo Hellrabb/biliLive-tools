@@ -201,11 +201,8 @@ export class QwenLLM {
     options?: Omit<ChatOptions, "stream">,
   ): Promise<ChatResponse> {
     const content: Array<
-      { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string } }
-    > = [
-      { type: "text", text: textPrompt },
-    ];
+      { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
+    > = [{ type: "text", text: textPrompt }];
     for (const img of images) {
       content.push({ type: "image_url", image_url: { url: img } });
     }

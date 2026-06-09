@@ -885,7 +885,9 @@ export const genMergeAssMp4Command = async (
 
   if (ffmpegOptions.vf) {
     const vfArray = ffmpegOptions.vf.split(";").filter((vf) => vf);
-    log.debug(`AutoClip: custom vf in use (${vfArray.length} filters), $origin=${vfArray.includes("$origin")}, assFile=${!!assFile}`);
+    log.debug(
+      `AutoClip: custom vf in use (${vfArray.length} filters), $origin=${vfArray.includes("$origin")}, assFile=${!!assFile}`,
+    );
     for (const vf of vfArray) {
       if (vf === "$origin") {
         await addDefaultComplexFilter();
@@ -901,7 +903,9 @@ export const genMergeAssMp4Command = async (
 
   // Diagnostic: verify subtitles filter was actually added when assFile is present
   if (assFile && !complexFilter.getFilters().some((f) => f.filter === "subtitles")) {
-    log.warn("AutoClip: assFile provided but subtitles filter NOT in complex filter — danmaku will NOT be burned");
+    log.warn(
+      "AutoClip: assFile provided but subtitles filter NOT in complex filter — danmaku will NOT be burned",
+    );
   }
 
   // 输入参数
@@ -970,7 +974,9 @@ export const genMergeAssMp4Command = async (
 
   if (assFile) {
     const subtitlesFilter = complexFilter.getFilters().find((f) => f.filter === "subtitles");
-    log.info(`AutoClip: ffmpeg subtitles filter — present=${!!subtitlesFilter}, assFile=${assFile}`);
+    log.info(
+      `AutoClip: ffmpeg subtitles filter — present=${!!subtitlesFilter}, assFile=${assFile}`,
+    );
   }
 
   return command;

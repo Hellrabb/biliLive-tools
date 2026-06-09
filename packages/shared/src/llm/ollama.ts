@@ -18,7 +18,8 @@ export function chat(params: {
   const ollama = new Ollama({
     host,
     fetch: params.signal
-      ? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, signal: params.signal }))
+      ? (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, signal: params.signal })
       : undefined,
   });
   return ollama.chat({
@@ -40,11 +41,13 @@ export async function chatMultimodal(opts: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: opts.model,
-      messages: [{
-        role: "user",
-        content: opts.prompt,
-        images: opts.images,
-      }],
+      messages: [
+        {
+          role: "user",
+          content: opts.prompt,
+          images: opts.images,
+        },
+      ],
       stream: false,
     }),
     signal: opts.signal,
@@ -55,7 +58,7 @@ export async function chatMultimodal(opts: {
     throw new Error(`Ollama multimodal chat failed: ${response.status} ${text}`);
   }
 
-  const data = await response.json() as { message?: { content?: string } };
+  const data = (await response.json()) as { message?: { content?: string } };
   return data?.message?.content ?? "";
 }
 

@@ -7,7 +7,13 @@ export * from "./presets/index.js";
 export * from "./autoClip/index.js";
 import { taskQueue, TaskQueue } from "./task/task.js";
 import { appConfig, AppConfig } from "./config.js";
-import { DanmuPreset, VideoPreset, FFmpegPreset, SubtitleStylePreset, AutoClipPreset } from "./presets/index.js";
+import {
+  DanmuPreset,
+  VideoPreset,
+  FFmpegPreset,
+  SubtitleStylePreset,
+  AutoClipPreset,
+} from "./presets/index.js";
 import { AutoClipService } from "./autoClip/service.js";
 import { setFfmpegPath } from "./task/video.js";
 import logger, { initLogger, setLogLevel } from "./utils/log.js";
