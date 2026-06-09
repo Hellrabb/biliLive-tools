@@ -73,9 +73,9 @@
 
 ## TS6133 修复（2026-06-04，1 commit）
 
-| 检查项 | 结果 |
-|---|---|
+| 检查项                                                     | 结果                                    |
+| ---------------------------------------------------------- | --------------------------------------- |
 | `buildPerClipPrompt` 中 `contextWindowSec` 未使用 → TS6133 | ✅ 已修复：输出到 prompt 作为上下文提示 |
-| app typecheck:web (vue-tsc) 通过 | ✅ |
-| shared typecheck 通过 | ✅ |
-| 76 autoclip tests 通过 | ✅ |
+| app typecheck:web (vue-tsc) 通过                           | ✅                                      |
+| shared typecheck 通过                                      | ✅                                      |
+| 76 autoclip tests 通过                                     | ✅                                      |

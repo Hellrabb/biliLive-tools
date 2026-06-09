@@ -18,6 +18,8 @@
 | **DanmakuDensityCurve** | 时间-密度数据点数组，用于前端渲染弹幕密度时序图                                                         | `Evidence.danmakuDensityCurve`                          |
 | **SignalDetails**       | 信号检测阶段的判定详情：实际密度 vs 阈值、信号来源、窗口合并信息                                        | `Evidence.signalDetails`                                |
 | **BoundaryRefinement**  | 边界精修的前后对比记录：原始窗口起止 → 精修后起止 + 原因                                                | `Evidence.boundaryRefinement`                           |
+| **BiliUpTemplate**      | B站稿件上传模板（精简版），嵌入 AutoClipExportConfig，替代 videoPreset "autoClip"                       | `AutoClipExportConfig.biliUpTemplate`                   |
+| **TitleTemplate**       | 支持变量替换的标题模板字符串，变量如 `{{highlightTitle}}` / `{{roomName}}` / `{{date}}`                 | `AutoClipPresetDialog.vue` 导出设置 tab                 |
 | **Webhook**             | 直播事件自动化处理管线                                                                                  | `packages/http/src/services/webhook/`                   |
 | **StreamGet**           | 各平台直播流 URL 解析库                                                                                 | `packages/StreamGet/`                                   |
 | **mesio**               | 流媒体录制引擎（外部二进制）                                                                            | CLAUDE.md:67                                            |
@@ -241,3 +243,19 @@ types → shared → (http, liveManager, 各 recorder) → (app / CLI)
 - 无测试覆盖率工具（`@vitest/coverage-v8` 未安装）（2026-06-05 巡检发现）
 - `exportPipeline.ts` (566行) 职责过多，待拆分为 pathResolver + executor + retryManager（2026-06-05 巡检建议）
 - `files.ts` 路由内部路径校验逻辑重复（7-10行 × 2），待提取 `validateFilePath()` 公共函数（2026-06-05 巡检建议）
+
+---
+
+## 域语言增量（2026-06-09，autoclip-ffmpeg-custom）
+
+| 术语                  | 定义                                                                                                                                                                                    |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **PresetPreview**     | AutoClip 导出设置中，选中 FFmpeg 预设后显示的只读参数卡片（编码器/码率/preset/CRF/10-bit），不包含编辑控件                                                                              |
+| **FfmpegPresetGroup** | `/ffmpeg/options` API 返回的嵌套分组结构：`{value: "base", label: "基础", children: [...]}` 和 `{value: "custom", label: "自定义", children: [...]}`，供 `<n-select>` 的 group 模式渲染 |
+| **encoder-sync**      | 选中 FFmpeg 预设后，自动从预设 config 提取 `encoder` 字段值写入 AutoClip 的独立 `encoder` 字段                                                                                          | 单向同步；用户随后可手动改 encoder 造成偏离 |
+
+### 已锁决策
+
+- **预设下拉数据源**：从 `/ffmpeg`（`list()`）切换到 `/ffmpeg/options`（`getFfmpegPresetOptions()`），以同时获取内置 + 自定义预设
+- **encoder 与预设的关系**：双字段共存，预设→encoder 单向同步。用户手动改 encoder 后不清空预设选择（两者可偏离）
+- **内联编辑范围**：本次不做可编辑表单，仅做只读预览 + 跳转链接
