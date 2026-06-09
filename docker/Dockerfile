@@ -104,9 +104,34 @@ COPY --from=backend-build /app/packages/CLI/node_modules /app/node_modules
 COPY --from=backend-build /app/packages/app/resources/bin /app/bin
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libfontconfig1-dev && \
+    apt-get install -y --no-install-recommends \
+    libfontconfig1-dev \
+    locales \
+    vim \
+    fonts-noto-color-emoji \
+    git \
+    wget && \
     apt-get install -y /app/bin/audiowaveform.deb && \
+    sed -i '/zh_CN.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen zh_CN.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
+ENV LANG=zh_CN.UTF-8
+ENV LC_ALL=zh_CN.UTF-8
+
+# Install segoe-ui-linux font
+RUN git clone https://github.com/mrbvrz/segoe-ui-linux /tmp/segoe-ui-linux && \
+    cd /tmp/segoe-ui-linux && \
+    chmod +x install.sh && \
+    ./install.sh && \
+    rm -rf /tmp/segoe-ui-linux /tmp/segoe-ui
+
+# Install twemoji-color-font (via .deb package — avoids install.sh failures)
+RUN TWEMOJI_VER="15.1.0" && \
+    wget -q "https://github.com/13rac1/twemoji-color-font/releases/download/v${TWEMOJI_VER}/fonts-twemoji-svginot_${TWEMOJI_VER}-1_all.deb" -O /tmp/twemoji.deb && \
+    apt-get update && apt-get install -y --no-install-recommends /tmp/twemoji.deb && \
+    rm -f /tmp/twemoji.deb && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=backend-build /app/docker/config.json ./
 COPY --from=backend-build /usr/local/share/fonts/NotoSansSC-Regular.ttf /usr/share/fonts/NotoSansSC-Regular.ttf
 COPY --from=backend-build /usr/local/share/fonts/NotoEmoji-Regular.ttf /usr/share/fonts/NotoEmoji-Regular.ttf
@@ -140,9 +165,32 @@ COPY --from=backend-build /app/packages/app/resources/bin /app/bin
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libfontconfig1-dev \
+    locales \
+    vim \
+    fonts-noto-color-emoji \
     curl \
-    ca-certificates && \
+    ca-certificates \
+    git \
+    wget && \
     apt-get install -y /app/bin/audiowaveform.deb && \
+    sed -i '/zh_CN.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen zh_CN.UTF-8 && \
+    rm -rf /var/lib/apt/lists/*
+ENV LANG=zh_CN.UTF-8
+ENV LC_ALL=zh_CN.UTF-8
+
+# Install segoe-ui-linux font
+RUN git clone https://github.com/mrbvrz/segoe-ui-linux /tmp/segoe-ui-linux && \
+    cd /tmp/segoe-ui-linux && \
+    chmod +x install.sh && \
+    ./install.sh && \
+    rm -rf /tmp/segoe-ui-linux /tmp/segoe-ui
+
+# Install twemoji-color-font (via .deb package — avoids install.sh failures)
+RUN TWEMOJI_VER="15.1.0" && \
+    wget -q "https://github.com/13rac1/twemoji-color-font/releases/download/v${TWEMOJI_VER}/fonts-twemoji-svginot_${TWEMOJI_VER}-1_all.deb" -O /tmp/twemoji.deb && \
+    apt-get update && apt-get install -y --no-install-recommends /tmp/twemoji.deb && \
+    rm -f /tmp/twemoji.deb && \
     rm -rf /var/lib/apt/lists/*
 
 # 安装 Caddy（从 GitHub Releases 下载，避免 Cloudsmith 在国内不可达）
