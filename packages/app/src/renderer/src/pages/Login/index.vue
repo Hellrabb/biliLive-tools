@@ -118,7 +118,9 @@ const test = async () => {
 
 // const apiStorage = window.localStorage.getItem("api");
 // const keyStorage = window.localStorage.getItem("key");
-api.value = window.isFullstack ? "" : (import.meta.env.VITE_DEFAULT_SERVER || "http://127.0.0.1:18010");
+api.value = window.isFullstack
+  ? ""
+  : import.meta.env.VITE_DEFAULT_SERVER || "http://127.0.0.1:18010";
 // key.value = keyStorage || "";
 const isFullstack = ref(window.isFullstack);
 const isProxyMode = typeof __VITE_PROXY_MODE__ !== "undefined";

@@ -1,7 +1,7 @@
 <template>
   <n-form label-placement="left" :label-width="150">
     <!-- 手动切片 -->
-    <h3 style="margin-bottom:8px">手动切片</h3>
+    <h3 style="margin-bottom: 8px">手动切片</h3>
     <n-form-item>
       <template #label>
         <Tip text="自动保存" tip="在进行操作之后，自动保存项目文件"></Tip>
@@ -18,7 +18,7 @@
     <n-divider />
 
     <!-- 自动切片 (autoClip) -->
-    <h3 style="margin-bottom:8px">自动切片 (autoClip)</h3>
+    <h3 style="margin-bottom: 8px">自动切片 (autoClip)</h3>
     <n-form-item>
       <template #label>
         <Tip text="启用 autoClip" tip="录制完成后自动检测高光片段，需配合弹幕录制开启"></Tip>
@@ -35,9 +35,9 @@
           v-model:value="config.videoCut.autoClipPresetId"
           :options="presetOptions"
           placeholder="选择预设"
-          style="width:200px"
+          style="width: 200px"
         />
-        <n-button type="primary" ghost style="margin-left:8px" @click="openPresetEditor">
+        <n-button type="primary" ghost style="margin-left: 8px" @click="openPresetEditor">
           编辑预设
         </n-button>
       </n-form-item>
@@ -70,13 +70,13 @@
             <n-time-picker
               v-model:formatted-value="config.videoCut.autoClipTimeWindow.start"
               format="HH:mm"
-              style="width:100px"
+              style="width: 100px"
             />
             -
             <n-time-picker
               v-model:formatted-value="config.videoCut.autoClipTimeWindow.end"
               format="HH:mm"
-              style="width:100px"
+              style="width: 100px"
             />
           </span>
         </n-space>
@@ -85,10 +85,7 @@
   </n-form>
 
   <!-- 预设编辑弹窗 -->
-  <AutoClipPresetDialog
-    v-model:visible="presetEditorVisible"
-    @updated="refreshPresets"
-  />
+  <AutoClipPresetDialog v-model:visible="presetEditorVisible" @updated="refreshPresets" />
 </template>
 
 <script setup lang="ts">
@@ -107,7 +104,9 @@ async function refreshPresets() {
   try {
     const presets = await autoClipPresetApi.list();
     presetOptions.value = presets.map((p: any) => ({ label: p.name, value: p.id }));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function openPresetEditor() {

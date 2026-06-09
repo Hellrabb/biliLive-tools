@@ -4,4 +4,10 @@ import videoPresetApi from "./video";
 import subtitleStylePresetApi from "./subtitleStyle";
 import autoClipPresetApi from "./autoClip";
 
-export { danmuPresetApi, ffmpegPresetApi, videoPresetApi, subtitleStylePresetApi, autoClipPresetApi };
+export {
+  danmuPresetApi,
+  ffmpegPresetApi,
+  videoPresetApi,
+  subtitleStylePresetApi,
+  autoClipPresetApi,
+};

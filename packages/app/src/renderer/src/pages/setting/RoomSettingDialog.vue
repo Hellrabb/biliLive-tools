@@ -34,7 +34,7 @@
         >
         </CommonSetting>
         <n-divider />
-        <h3 style="margin-bottom:8px">自动切片</h3>
+        <h3 style="margin-bottom: 8px">自动切片</h3>
         <n-form-item>
           <template #label>
             <span class="inline-flex">
@@ -56,7 +56,7 @@
             :options="autoClipPresetOptions"
             placeholder="使用全局预设"
             clearable
-            style="width:200px"
+            style="width: 200px"
             :disabled="globalFieldsObj.autoClipPresetId"
           />
           <n-checkbox v-model:checked="globalFieldsObj.autoClipPresetId" class="global-checkbox">
@@ -222,7 +222,9 @@ onMounted(async () => {
   try {
     const presets = await autoClipPresetApi.list();
     autoClipPresetOptions.value = presets.map((p: any) => ({ label: p.name, value: p.id }));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 });
 </script>
 
