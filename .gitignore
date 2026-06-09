@@ -18,3 +18,7 @@ docs/.vitepress/cache
 .worktrees/
 
 .DS_Store.flow-active
+test-results/
+
+# Docker 本地配置（含敏感凭证，使用模板 docker/data/appConfig.template.json）
+docker/data/appConfig.json

@@ -1,0 +1,252 @@
+{
+  "ffmpegPath": "/app/bin/ffmpeg",
+  "ffprobePath": "/app/bin/ffprobe",
+  "danmuFactoryPath": "/app/bin/DanmakuFactory",
+  "mesioPath": "/app/bin/mesio",
+  "bililiveRecorderPath": "/app/bin/BililiveRecorder.Cli",
+  "audiowaveformPath": "audiowaveform",
+  "logLevel": "debug",
+  "autoUpdate": true,
+  "autoLaunch": false,
+  "trash": false,
+  "saveConfig": false,
+  "minimizeToTray": false,
+  "closeToTray": true,
+  "theme": "system",
+  "menuBarVisible": true,
+  "port": 18010,
+  "host": "127.0.0.1",
+  "passKey": "",
+  "https": false,
+  "webhook": {
+    "open": false,
+    "recoderFolder": "",
+    "minSize": 20,
+    "title": "【{{user}}】{{title}}-{{now}}",
+    "blacklist": "",
+    "danmu": false,
+    "rooms": {},
+    "afterConvertAction": [],
+    "autoPartMerge": false,
+    "partMergeMinute": 10,
+    "hotProgress": false,
+    "useLiveCover": false,
+    "partTitleTemplate": "{{filename}}",
+    "hotProgressSample": 30,
+    "hotProgressHeight": 60,
+    "hotProgressColor": "#f9f5f3",
+    "hotProgressFillColor": "#333333",
+    "convert2Mp4": false,
+    "flvRepair": false,
+    "uploadHandleTime": ["00:00:00", "23:59:59"],
+    "limitUploadTime": false,
+    "uploadNoDanmu": false,
+    "uploadToSameMedia": false,
+    "limitVideoConvertTime": false,
+    "videoHandleTime": ["00:00:00", "23:59:59"],
+    "afterUploadDeletAction": "none"
+  },
+  "losslessCutPath": "",
+  "cacheFolder": "",
+  "customExecPath": false,
+  "requestInfoForRecord": true,
+  "biliUploadFileNameType": "ask",
+  "cutPageInNewWindow": false,
+  "bilibiliUser": {},
+  "tool": {
+    "home": {
+      "uploadPresetId": "default",
+      "danmuPresetId": "default",
+      "ffmpegPresetId": "b_libx264",
+      "removeOrigin": false,
+      "autoUpload": false,
+      "removeOriginAfterUploadCheck": false,
+      "hotProgress": false,
+      "hotProgressSample": 30,
+      "hotProgressHeight": 60,
+      "hotProgressColor": "#f9f5f3",
+      "hotProgressFillColor": "#333333"
+    },
+    "upload": { "uploadPresetId": "default", "removeOriginAfterUploadCheck": false },
+    "fileSync": { "removeOrigin": false, "aliyunpanDriveType": "backup", "targetPath": "/" },
+    "danmu": {
+      "danmuPresetId": "default",
+      "saveRadio": 1,
+      "savePath": "",
+      "removeOrigin": false,
+      "override": true
+    },
+    "video2mp4": {
+      "saveRadio": 1,
+      "savePath": "",
+      "saveOriginPath": false,
+      "override": false,
+      "removeOrigin": false,
+      "ffmpegPresetId": "b_copy",
+      "danmuPresetId": "default",
+      "hotProgress": false
+    },
+    "videoMerge": {
+      "saveOriginPath": false,
+      "removeOrigin": false,
+      "keepFirstVideoMeta": false,
+      "mergeXml": false
+    },
+    "flvRepair": { "type": "bililive", "saveRadio": 1, "savePath": "" },
+    "download": {
+      "savePath": "/app/video",
+      "danmu": "none",
+      "douyuResolution": "highest",
+      "override": false,
+      "onlyAudio": false,
+      "onlyDanmu": false
+    },
+    "translate": {},
+    "videoCut": {
+      "saveRadio": 1,
+      "savePath": ".\\导出文件夹",
+      "override": false,
+      "ffmpegPresetId": "b_libx264",
+      "title": "{{filename}}-{{label}}-{{num}}",
+      "danmuPresetId": "default",
+      "ignoreDanmu": false,
+      "exportSubtitle": true,
+      "ignoreSubtitle": false
+    }
+  },
+  "task": {
+    "ffmpegMaxNum": 3,
+    "douyuDownloadMaxNum": 2,
+    "biliUploadMaxNum": 2,
+    "biliDownloadMaxNum": 2,
+    "syncMaxNum": 3
+  },
+  "videoCut": { "autoSave": true, "cacheWaveform": true },
+  "notification": {
+    "task": {
+      "ffmpeg": [],
+      "danmu": [],
+      "upload": [],
+      "download": [],
+      "douyuDownload": [],
+      "mediaStatusCheck": [],
+      "diskSpaceCheck": { "values": [], "threshold": 10 },
+      "sync": []
+    },
+    "setting": {
+      "server": { "key": "" },
+      "mail": { "host": "", "port": "465", "user": "", "pass": "", "to": "", "secure": true },
+      "tg": { "key": "", "chat_id": "", "proxyUrl": "" },
+      "ntfy": { "url": "", "topic": "" },
+      "allInOne": { "server": "", "key": "" },
+      "customHttp": { "url": "", "method": "GET", "body": "", "headers": "" }
+    },
+    "taskNotificationType": { "liveStart": "system" }
+  },
+  "sync": {
+    "baiduPCS": { "execPath": "/app/bin/BaiduPCS-Go" },
+    "aliyunpan": { "execPath": "/app/bin/aliyunpan" },
+    "alist": { "apiUrl": "", "username": "", "hashPassword": "", "limitRate": 0, "retry": 0 },
+    "pan123": { "clientId": "", "clientSecret": "", "limitRate": 0 },
+    "syncConfigs": []
+  },
+  "llmPresets": [],
+  "ai": {
+    "vendors": [
+      {
+        "id": "3d09badd-5402-4b80-9113-48c0739d51b9",
+        "name": "阿里云",
+        "provider": "aliyun",
+        "apiKey": ""
+      }
+    ],
+    "models": [
+      {
+        "vendorId": "3d09badd-5402-4b80-9113-48c0739d51b9",
+        "modelId": "116497be-e650-4b21-8769-536859cb16dc",
+        "modelName": "fun-asr",
+        "remark": "语音识别",
+        "tags": ["asr"],
+        "config": {}
+      },
+      {
+        "vendorId": "3d09badd-5402-4b80-9113-48c0739d51b9",
+        "modelId": "ca277547-fabd-462b-99d2-cf76f56002e6",
+        "modelName": "qwen-plus",
+        "remark": "通用大模型",
+        "tags": ["llm"],
+        "config": {}
+      }
+    ],
+    "songRecognizeAsr": { "modelId": "" },
+    "songRecognizeLlm": {
+      "modelId": "",
+      "prompt": "\n你是一个极度专业的音乐识别专家，擅长从存在误差的 ASR（语音识别）文本中提取核心语义，并精准锁定歌曲信息。\n从搜索结果中精确获取歌名以及需确保返回的【歌词】版本为官方标准发行版，不要遗漏，请提供【歌词】\n# Output Format\n输出JSON，格式如下\n{\n  \"lyrics\": \"[查询到的完整标准歌词]\",\n  \"name\": \"[准确的歌曲名称]\"\n}",
+      "enableSearch": true,
+      "maxInputLength": 300,
+      "enableStructuredOutput": true,
+      "lyricOptimize": true
+    },
+    "songLyricOptimize": {
+      "modelId": "",
+      "prompt": "\n# Role\n你是一个极度严谨的音频字幕对齐专家，擅长将破碎的 ASR 识别结果（ASR_Data）完美映射到标准文本（Standard_Lyrics）上。\n\n# Core Algorithm: Anchor-Based Alignment\n1. 语义锚点定位：首先在 Standard_Lyrics 中识别出每一行（Line），如回车。。\n2. 碎片重组（Merging）：\n  扫描 ASR_Data，将物理时间连续且语义指向 Standard_Lyrics 同一行的多个片段进行合并。\n  新 st (begin_time) = 合并序列中第一个片段的 st。\n  新 et (end_time) = 合并序列中最后一个片段的 et。\n3. 文本重写（Rewriting）：\n  严禁使用 ASR 的原始文本作为输出。一旦确定了 ASR 片段对应的标准歌词行，直接将该行的 Standard_Lyrics 赋值给 t 字段。\n  即使 ASR 识别漏字、错字，也要以 Standard_Lyrics 的完整内容填充。\n\n# Constraints\n  换行一致性 (Strict)：原则上 Standard_Lyrics 的每一个换行对应一个 JSON 对象。\n  长句处理 (Long Sentence)：若原歌词单行过长导致 ASR 时间跨度巨大，请观察 ASR 内部的停顿（Gap > 500ms），并在标准文本的自然断句点进行切分，生成两个连续的 JSON 对象。\n  禁止时间戳漂移：所有时间戳必须直接取自原始 ASR_Data 的边缘值，不得进行加减运算或平均化处理。\n  数据完整性：输出必须包含 Standard_Lyrics 中的所有行。如果某行歌词在 ASR 中找不到对应（如长空白），请根据前后时间戳推算一个合理的静默区间或沿用上一个片段的结束时间，但优先确保文本完整。\n\n# Workflow\n  读取 Standard_Lyrics。\n  遍历 Standard_Lyrics 的每一行，在 ASR_Data 中寻找最匹配的起始与结束索引。\n  执行合并并生成 JSON。\n\n## Output Format\n仅输出 JSON 对象，格式如下： {\"data\": [{\"st\": 123, \"et\": 456, \"t\": \"标准歌词内容\"}]}\n",
+      "enableStructuredOutput": true
+    },
+    "subtitleRecognize": { "modelId": "bcut" }
+  },
+  "biliUpload": {
+    "line": "auto",
+    "concurrency": 3,
+    "limitRate": 0,
+    "retryTimes": 10,
+    "retryDelay": 7000,
+    "checkInterval": 600,
+    "minUploadInterval": 0,
+    "accountAutoCheck": true,
+    "useBCutAPI": false,
+    "useUploadPartPersistence": true
+  },
+  "recorder": {
+    "savePath": "/app/video",
+    "nameRule": "{platform}/{owner}/{year}-{month}-{date} {hour}-{min}-{sec}-{ms} {title}",
+    "autoRecord": true,
+    "quality": "highest",
+    "checkInterval": 60,
+    "maxThreadCount": 3,
+    "waitTime": 500,
+    "disableProvideCommentsWhenRecording": false,
+    "segment": "90",
+    "saveGiftDanma": false,
+    "saveSCDanma": true,
+    "saveCover": false,
+    "debugMode": false,
+    "debugLevel": "none",
+    "qualityRetry": 0,
+    "videoFormat": "auto",
+    "recorderType": "bililive",
+    "useServerTimestamp": false,
+    "recordRetryImmediately": true,
+    "bilibili": {
+      "quality": 10000,
+      "useBatchQuery": false,
+      "useM3U8Proxy": true,
+      "formatName": "auto",
+      "codecName": "auto"
+    },
+    "douyu": { "quality": 0, "source": "auto" },
+    "huya": { "quality": 0, "formatName": "auto", "source": "auto", "api": "auto" },
+    "douyin": {
+      "quality": "origin",
+      "formatName": "auto",
+      "cookie": "",
+      "doubleScreen": true,
+      "api": "web"
+    },
+    "xhs": { "cookie": "" },
+    "saveDanma2DB": false
+  },
+  "video": { "subCheckInterval": 60, "subSavePath": "/app/video" },
+  "recorders": [],
+  "virtualRecord": { "config": [], "startTime": 1778259914118 },
+  "uid": 0
+}
