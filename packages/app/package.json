@@ -21,7 +21,9 @@
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts,.vue --fix",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web"
+    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
+    "test:e2e": "xvfb-run --auto-servernum -- playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -52,6 +54,7 @@
     "@electron-toolkit/eslint-config-ts": "^2.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron/rebuild": "^4.0.1",
+    "@playwright/test": "^1.52.0",
     "@rushstack/eslint-patch": "^1.10.4",
     "@types/better-sqlite3": "^7.6.13",
     "@vicons/fluent": "^0.13.0",

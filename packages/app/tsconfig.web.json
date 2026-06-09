@@ -13,12 +13,8 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@renderer/*": [
-        "src/renderer/src/*"
-      ],
-      "@types/*": [
-        "src/types/*"
-      ],
+      "@renderer/*": ["src/renderer/src/*"],
+      "@types/*": ["src/types/*"]
     }
   }
 }

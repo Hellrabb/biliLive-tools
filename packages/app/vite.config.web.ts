@@ -43,9 +43,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 28080,
-    proxy: Object.fromEntries(
-      backendRoutes.map((route) => [route, backendProxy]),
-    ),
+    proxy: Object.fromEntries(backendRoutes.map((route) => [route, backendProxy])),
   },
   resolve: {
     alias: {
