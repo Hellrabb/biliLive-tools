@@ -4,6 +4,7 @@
 
 | 日期       | Change ID                       | 摘要                                                                                               | LESSONS           |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-10 | autoclip-bili-upload-params    | AutoClip B站上传模板字段补齐：BiliUpTemplateConfig 从 8 字段扩展到 30+ 字段，对齐 BiliupConfig，前端新增高级设置面板 | —                 |
 | 2026-06-10 | fix-autoclip-ffmpeg-edit-preset | 修复 AutoClip 导出设置中 FFmpeg「编辑此预设 →」按钮点击无反应（弹窗遮挡路由跳转）                  | —                 |
 | 2026-06-09 | autoclip-ffmpeg-custom          | AutoClip FFmpeg 预设：下拉分组显示内置+自定义、选中后参数预览、encoder 自动同步、跳转链接          | —                 |
 | 2026-06-05 | autoclip-context-slicing        | AutoClip 边界精修独立模型配置：新增 boundaryRefineModelId 字段，支持为 Phase 1.6 指定专用 LLM 模型 | —                 |
