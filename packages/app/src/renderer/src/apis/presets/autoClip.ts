@@ -87,6 +87,11 @@ export async function approveAndExport(clipId: string) {
   return res.data;
 }
 
+export async function reExportClip(clipId: string) {
+  const res = await request.post(`/auto-clip/clips/${clipId}/re-export`);
+  return res.data;
+}
+
 export async function deleteClip(clipId: string) {
   const res = await request.post(`/auto-clip/clips/${clipId}/delete`);
   return res.data;

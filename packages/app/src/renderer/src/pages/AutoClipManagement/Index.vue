@@ -65,6 +65,7 @@
     <n-radio-group v-model:value="filterStatus" name="status-filter" style="margin-bottom: 16px">
       <n-radio-button value="">全部 ({{ counts.all }})</n-radio-button>
       <n-radio-button value="pending">待审核 ({{ counts.pending }})</n-radio-button>
+      <n-radio-button value="approved">已批准 ({{ counts.approved }})</n-radio-button>
       <n-radio-button value="exporting">导出中 ({{ counts.exporting }})</n-radio-button>
       <n-radio-button value="exported">已完成 ({{ counts.exported }})</n-radio-button>
       <n-radio-button value="uploaded">已上传 ({{ counts.uploaded }})</n-radio-button>
@@ -201,6 +202,7 @@ import {
   runAnalysis,
   cancelAnalysis as cancelAnalysisApi,
   approveAndExport,
+  reExportClip,
   deleteClip as deleteClipApi,
   getCounts,
 } from "@renderer/apis/presets/autoClip";
@@ -321,7 +323,7 @@ const columns = [
           },
           () => "打开视频",
         ),
-        row.status === "pending"
+        row.status === "pending" || row.status === "approved"
           ? h(
               NButton,
               {
@@ -329,9 +331,9 @@ const columns = [
                 type: "primary",
                 disabled: exportingId.value !== null,
                 loading: exportingId.value === row.id,
-                onClick: () => approveClip(row),
+                onClick: () => exportClip(row),
               },
-              () => "确认导出",
+              () => (row.status === "approved" ? "重新导出" : "确认导出"),
             )
           : null,
         h(
@@ -398,12 +400,13 @@ function previewClip(item: ClipRow) {
   previewVisible.value = true;
 }
 
-async function approveClip(row: ClipRow) {
+async function exportClip(row: ClipRow) {
   if (exportingId.value) return;
   exportingId.value = row.id;
   try {
     notice.info(`正在导出 ${row.highlightCount} 个切片...`);
-    const res = await approveAndExport(row.id);
+    const api = row.status === "approved" ? reExportClip : approveAndExport;
+    const res = await api(row.id);
     const exportedPaths = res?.exportedPaths ?? [];
     if (exportedPaths.length > 0) {
       notice.success(`导出完成，共 ${exportedPaths.length} 个文件`);
@@ -655,6 +658,10 @@ async function batchApproveAndExport() {
 }
 
 onMounted(() => {
+  refreshList();
+});
+
+onActivated(() => {
   refreshList();
 });
 
