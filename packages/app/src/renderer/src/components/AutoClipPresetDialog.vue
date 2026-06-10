@@ -659,7 +659,8 @@
                   >
                     <n-input-number
                       :value="
-                        editingPreset.config.enhancement.boundaryRefine?.overlapMergeThreshold ?? 60
+                        editingPreset?.config?.enhancement?.boundaryRefine?.overlapMergeThreshold ??
+                        60
                       "
                       :min="0"
                       :step="5"
@@ -667,11 +668,12 @@
                       style="width: 120px"
                       @update:value="
                         (v) => {
-                          if (!editingPreset.config.enhancement.boundaryRefine) {
-                            editingPreset.config.enhancement.boundaryRefine = {};
+                          const enhance = editingPreset?.config?.enhancement;
+                          if (!enhance) return;
+                          if (!enhance.boundaryRefine) {
+                            enhance.boundaryRefine = {};
                           }
-                          editingPreset.config.enhancement.boundaryRefine.overlapMergeThreshold =
-                            v ?? undefined;
+                          enhance.boundaryRefine.overlapMergeThreshold = v ?? undefined;
                         }
                       "
                     />
