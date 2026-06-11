@@ -14,6 +14,10 @@ export interface TemplateContext {
   date: string;
   /** 上传日期 YYYY-MM-DD */
   uploadDate: string;
+  /** 主播名称（来自录制元数据） */
+  user: string;
+  /** 直播间房间号（来自录制元数据） */
+  roomId: string;
 }
 
 /**
@@ -45,6 +49,8 @@ export function renderTitleTemplate(template: string, ctx: TemplateContext): str
     roomName: ctx.roomName,
     date: ctx.date,
     uploadDate: ctx.uploadDate,
+    user: ctx.user,
+    roomId: ctx.roomId,
   })
     .trim()
     .slice(0, 80);
@@ -59,5 +65,7 @@ export function renderDescTemplate(template: string, ctx: TemplateContext): stri
     roomName: ctx.roomName,
     date: ctx.date,
     uploadDate: ctx.uploadDate,
+    user: ctx.user,
+    roomId: ctx.roomId,
   }).trim();
 }

@@ -4,6 +4,7 @@
 
 | 日期       | Change ID                       | 摘要                                                                                                                 | LESSONS           |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-11 | autoclip-bili-part-upload       | AutoClip B站上传改为单稿件分P：N切片→1视频N分P + 封面首个切片截帧 + 模板变量扩展 user/roomId                         | —                 |
 | 2026-06-11 | fix-autoclip-nonapproval-list   | 修复非审批模式自动切片结果在管理列表不可见（+已批准筛选tab +keep-alive刷新 +reExport API）                           | —                 |
 | 2026-06-10 | fix-docker-build-typecheck      | 修复 Docker build:webui 失败：补 BoundaryRefineConfig.overlapMergeThreshold + editingPreset null guard               | —                 |
 | 2026-06-10 | autoclip-bili-upload-params     | AutoClip B站上传模板字段补齐：BiliUpTemplateConfig 从 8 字段扩展到 30+ 字段，对齐 BiliupConfig，前端新增高级设置面板 | —                 |

@@ -259,3 +259,16 @@ types → shared → (http, liveManager, 各 recorder) → (app / CLI)
 - **预设下拉数据源**：从 `/ffmpeg`（`list()`）切换到 `/ffmpeg/options`（`getFfmpegPresetOptions()`），以同时获取内置 + 自定义预设
 - **encoder 与预设的关系**：双字段共存，预设→encoder 单向同步。用户手动改 encoder 后不清空预设选择（两者可偏离）
 - **内联编辑范围**：本次不做可编辑表单，仅做只读预览 + 跳转链接
+
+## 域语言增量（2026-06-11，autoclip-bili-part-upload）
+
+| 术语                   | 定义                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| **分P上传**            | 一次 `biliApi.addMedia` 调用传入多个视频文件，创建多P B站稿件（而非每个切片独立稿件）  |
+| **partTitle**          | 分P标题，默认取 `highlight.title`，若配置 `partTitleTemplate` 则按模板渲染             |
+| **主封面（autoclip）** | 视频主封面取第一个切片的自动截帧（与录制上传 `useLiveCover` → 第一个 part.cover 一致） |
+
+### 已锁决策
+
+- **autoclip B站上传行为**：从逐切片独立稿件改为单稿件分P（2026-06-11 锁定，不再保留「独立稿件」选项）
+- **分P标题优先级**：`highlight.title`（默认）← `partTitleTemplate` 模板覆盖（可选）

@@ -7,8 +7,13 @@ import { AUTO_CLIP_DEFAULT_CONFIG } from "../presets/autoClipPreset.js";
 import { autoClipModel } from "../db/index.js";
 import { cloneDeep } from "lodash-es";
 
-import { renderTitleTemplate, renderDescTemplate } from "./templateRenderer.js";
+import { renderTitleTemplate, renderDescTemplate, TemplateContext } from "./templateRenderer.js";
 import { sampleFrames } from "./frameSampler.js";
+
+/** Strip `data:image/...;base64,` prefix from frame sampler output for raw base64 decode. */
+function stripDataUriPrefix(dataUri: string): string {
+  return dataUri.startsWith("data:") ? dataUri.slice(dataUri.indexOf(",") + 1) : dataUri;
+}
 
 import type { AutoClipConfig, AutoClipPreset as AutoClipPresetType } from "@biliLive-tools/types";
 import type { AutoClipResult, HighlightSegment } from "./types.js";
@@ -411,12 +416,24 @@ export class AutoClipService {
       // Build template context
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
-      const ctx = {
-        highlightTitle: "", // filled per-highlight below
+      const ctx: TemplateContext = {
+        highlightTitle: "", // filled from first highlight below
         roomName: path.basename(path.dirname(videoPath)) || "",
         date: todayStr,
         uploadDate: todayStr,
+        user: "",
+        roomId: "",
       };
+
+      // Populate user/roomId from video metadata (same source as recording upload)
+      try {
+        const { pasrseMetadata } = await import("../task/video.js");
+        const meta = await pasrseMetadata({ videoFilePath: videoPath });
+        if (meta.username) ctx.user = meta.username;
+        if (meta.roomId) ctx.roomId = meta.roomId;
+      } catch {
+        // metadata extraction is best-effort; leave user/roomId as empty strings
+      }
 
       // Read biliUpTemplate from autoclip preset, with field-level defaults
       const tpl = presetConfig.export.biliUpTemplate;
@@ -432,7 +449,6 @@ export class AutoClipService {
       // Collect optional overrides — only include fields explicitly set in tpl
       const optionalOverrides: Record<string, unknown> = {};
       const optionalFields = [
-        "partTitleTemplate",
         "dolby",
         "hires",
         "dynamic",
@@ -464,53 +480,74 @@ export class AutoClipService {
         }
       }
 
-      for (const { path: expPath, highlight } of exportedResults) {
-        ctx.highlightTitle = highlight?.title || path.parse(expPath).name;
+      // Use first highlight for main title rendering (D4 in DESIGN.md)
+      const firstResult = exportedResults[0]!;
+      const firstHighlightTitle = firstResult.highlight?.title || path.parse(firstResult.path).name;
+      ctx.highlightTitle = firstHighlightTitle;
 
-        const title = renderTitleTemplate(titleTemplate, ctx);
-        const desc = descTemplate
-          ? renderDescTemplate(descTemplate, ctx)
-          : DEFAULT_BILIUP_CONFIG.desc;
+      const title = renderTitleTemplate(titleTemplate, ctx);
+      const desc = descTemplate
+        ? renderDescTemplate(descTemplate, ctx)
+        : DEFAULT_BILIUP_CONFIG.desc;
 
-        // Auto cover extraction: use bestRange midpoint if no manual cover
-        let resolvedCover = coverPath;
-        if (!resolvedCover) {
+      // Auto cover extraction: only first clip's bestRange midpoint (D2 in DESIGN.md)
+      let resolvedCover = coverPath;
+      if (!resolvedCover) {
+        try {
+          // Resolve ffmpeg path (same pattern as analyzeAndSave)
+          let ffmpegPath = "ffmpeg";
           try {
-            const bestRange = highlight.bestRange ?? highlight.timeRange;
-            const midSec = bestRange[0] + (bestRange[1] - bestRange[0]) / 2;
-            const frames = await sampleFrames(videoPath, [midSec]);
-            if (frames.length > 0 && frames[0]) {
-              const fs = await import("node:fs/promises");
-              const coverFile = path.join(
-                path.dirname(expPath),
-                `${path.parse(expPath).name}_cover.jpg`,
-              );
-              await fs.writeFile(coverFile, Buffer.from(frames[0], "base64"));
-              resolvedCover = coverFile;
-            }
-          } catch (coverErr) {
-            logger.warn("AutoClip: 封面自动提取失败，将不上传封面", coverErr);
+            const { getBinPath } = await import("../task/video.js");
+            ffmpegPath = getBinPath().ffmpegPath || "ffmpeg";
+          } catch {
+            // Fallback to "ffmpeg"
           }
+          const firstHL = firstResult.highlight;
+          const bestRange = firstHL.bestRange ?? firstHL.timeRange;
+          const midSec = bestRange[0] + (bestRange[1] - bestRange[0]) / 2;
+          const frames = await sampleFrames(videoPath, [midSec], ffmpegPath);
+          if (frames.length > 0 && frames[0]) {
+            const fs = await import("node:fs/promises");
+            const coverFile = path.join(
+              path.dirname(firstResult.path),
+              `${path.parse(firstResult.path).name}_autoclip_cover.jpg`,
+            );
+            await fs.writeFile(coverFile, Buffer.from(stripDataUriPrefix(frames[0]), "base64"));
+            resolvedCover = coverFile;
+          }
+        } catch (coverErr) {
+          logger.warn("AutoClip: 封面自动提取失败，将不上传封面", coverErr);
         }
-
-        await biliApi.addMedia(
-          [{ path: expPath, title }],
-          {
-            ...DEFAULT_BILIUP_CONFIG,
-            title,
-            desc,
-            tag,
-            tid,
-            copyright,
-            source,
-            ...(noReprint !== undefined ? { noReprint } : {}),
-            ...(resolvedCover ? { cover: resolvedCover } : {}),
-            ...optionalOverrides,
-          },
-          uid,
-        );
       }
-      logger.info(`AutoClip: 已添加 ${exportedResults.length} 个B站上传任务到队列`);
+
+      // Build part videos array — one element per highlight (D1 in DESIGN.md)
+      const partTitleTemplate = tpl?.partTitleTemplate;
+      const videos = exportedResults.map(({ path: expPath, highlight }) => {
+        const hlTitle = highlight?.title || path.parse(expPath).name;
+        const partTitle = partTitleTemplate
+          ? renderTitleTemplate(partTitleTemplate, { ...ctx, highlightTitle: hlTitle })
+          : hlTitle;
+        return { path: expPath, title: partTitle };
+      });
+
+      // Single addMedia call — batch all parts into one 稿件 (D1 in DESIGN.md)
+      await biliApi.addMedia(
+        videos,
+        {
+          ...DEFAULT_BILIUP_CONFIG,
+          title,
+          desc,
+          tag,
+          tid,
+          copyright,
+          source,
+          ...(noReprint !== undefined ? { noReprint } : {}),
+          ...(resolvedCover ? { cover: resolvedCover } : {}),
+          ...optionalOverrides,
+        },
+        uid,
+      );
+      logger.info(`AutoClip: 已添加 1 个B站上传任务到队列（含 ${exportedResults.length} 个分P）`);
     } catch (uploadError) {
       logger.error("AutoClip: 自动上传B站失败", uploadError);
     }
