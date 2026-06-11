@@ -4,6 +4,8 @@
 
 | 日期       | Change ID                       | 摘要                                                                                                                 | LESSONS           |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-12 | fix-autoclip-output-dir         | 修复 autoclip 手动导出 ffmpeg 报 Invalid argument：cut/mergeAssMp4 添加输出目录创建                                  | —                 |
+| 2026-06-11 | fix-autoclip-three-bugs         | 修复 autoclip 3 bugs: 同天切片聚合上传 + accurateSeek 防灰帧 + {{title}} 模板变量                                    | L-R3, L-R6        |
 | 2026-06-11 | fix-autoclip-three-bugs         | 修复 autoclip 3 bugs: 同天切片聚合上传 + accurateSeek 防灰帧 + {{title}} 模板变量                                    | L-R3, L-R6        |
 | 2026-06-11 | autoclip-bili-part-upload       | AutoClip B站上传改为单稿件分P：N切片→1视频N分P + 封面首个切片截帧 + 模板变量扩展 user/roomId                         | —                 |
 | 2026-06-11 | fix-autoclip-nonapproval-list   | 修复非审批模式自动切片结果在管理列表不可见（+已批准筛选tab +keep-alive刷新 +reExport API）                           | —                 |
