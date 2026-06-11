@@ -1048,6 +1048,8 @@ export const mergeAssMp4 = async (
     log.error("mergrAssMp4, file not exist", videoInput);
     throw new Error("输入文件不存在");
   }
+  // Ensure output directory exists before ffmpeg tries to write
+  await fs.ensureDir(path.dirname(output));
   if (!options.override && (await pathExists(output))) {
     log.error("mergrAssMp4, 文件已存在，跳过", output);
     throw new Error(`${output}文件已存在`);
@@ -1148,6 +1150,8 @@ export const cut = async (
     });
     outputFile = path.join(savePath, output);
   }
+  // Ensure output directory exists (absolute paths skip parseSavePath above)
+  await fs.ensureDir(path.dirname(outputFile));
   log.debug("Cut function call", outputFile);
 
   return mergeAssMp4(
