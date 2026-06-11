@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { matchDanmaTimestamp, matchRoomId, matchTitle, matchUser } from "../../src/task/video.js";
 
 describe("matchDanmaTimestamp", () => {
@@ -119,5 +119,189 @@ describe("matchUser", () => {
     const str = "no user here";
     const result = matchUser(str);
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// genMergeAssMp4Command — accurateSeek tests
+// ---------------------------------------------------------------------------
+
+// Hoisted mocks (vitest)
+const mockCmdInputOptions = vi.fn().mockReturnThis();
+const mockCmdOutputOptions = vi.fn().mockReturnThis();
+const mockCommand = {
+  inputOptions: mockCmdInputOptions,
+  outputOptions: mockCmdOutputOptions,
+  output: vi.fn().mockReturnThis(),
+  input: vi.fn().mockReturnThis(),
+  complexFilter: vi.fn().mockReturnThis(),
+  videoCodec: vi.fn().mockReturnThis(),
+  audioCodec: vi.fn().mockReturnThis(),
+  videoBitrate: vi.fn().mockReturnThis(),
+  audioBitrate: vi.fn().mockReturnThis(),
+  size: vi.fn().mockReturnThis(),
+  fps: vi.fn().mockReturnThis(),
+  format: vi.fn().mockReturnThis(),
+  addOption: vi.fn().mockReturnThis(),
+};
+
+vi.mock("@renmu/fluent-ffmpeg", () => ({
+  default: vi.fn(() => {
+    mockCommand.output.mockReturnValue(mockCommand);
+    return mockCommand;
+  }),
+}));
+
+vi.mock("../../src/utils/complexFilter.js", () => ({
+  ComplexFilter: vi.fn(() => ({
+    addScaleFilter: vi.fn(),
+    addSubtitleFilter: vi.fn(),
+    addColorkeyFilter: vi.fn(),
+    addOverlayFilter: vi.fn(),
+    addDrawtextFilter: vi.fn(),
+    addFilter: vi.fn(),
+    getFilters: vi.fn().mockReturnValue([]),
+  })),
+}));
+
+vi.mock("../../src/utils/index.js", () => ({
+  setFfmpegPath: vi.fn(),
+  genFfmpegParams: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock("../../src/task/hardware.js", () => ({
+  getHardwareAcceleration: vi.fn().mockReturnValue(""),
+  selectScaleMethod: vi.fn().mockReturnValue("auto"),
+}));
+
+async function getGenMergeAssMp4Command() {
+  const mod = await import("../../src/task/video.js");
+  return mod.genMergeAssMp4Command;
+}
+
+const dummyFiles = {
+  videoFilePath: "/fake/video.mp4",
+  assFilePath: undefined,
+  outputPath: "/fake/output.mp4",
+  hotProgressFilePath: undefined,
+  subtitlePath: undefined,
+};
+
+describe("genMergeAssMp4Command — accurateSeek", () => {
+  beforeEach(() => {
+    mockCmdInputOptions.mockClear();
+    mockCmdOutputOptions.mockClear();
+  });
+
+  it("accurateSeek: uses inputOptions -ss and outputOptions -to (no -copyts)", async () => {
+    const genMerge = await getGenMergeAssMp4Command();
+
+    await genMerge(
+      dummyFiles,
+      {
+        encoder: "libx264",
+        audioCodec: "copy",
+        ss: 100,
+        to: 150,
+        accurateSeek: true,
+      },
+      { startTimestamp: 0 },
+    );
+
+    // Should have used -ss as input option
+    const inputCalls = mockCmdInputOptions.mock.calls.flat();
+    expect(inputCalls).toContain("-ss 100");
+
+    // Should NOT have -copyts
+    expect(inputCalls).not.toContain("-copyts");
+
+    // -to should be an output option (150 - 100 = 50)
+    const outputCalls = mockCmdOutputOptions.mock.calls.flat();
+    expect(outputCalls).toContain("-to 50");
+  });
+
+  it("accurateSeek with encoder=copy: falls back to old path (no -copyts needed)", async () => {
+    const genMerge = await getGenMergeAssMp4Command();
+
+    await genMerge(
+      dummyFiles,
+      {
+        encoder: "copy" as any,
+        audioCodec: "copy",
+        ss: 50,
+        to: 80,
+        accurateSeek: true,
+      },
+      { startTimestamp: 0 },
+    );
+
+    const inputCalls = mockCmdInputOptions.mock.calls.flat();
+    expect(inputCalls).toContain("-ss 50");
+    // encoder=copy falls into else branch → no -copyts (copy doesn't add it)
+    expect(inputCalls).toContain("-to 80");
+  });
+
+  it("without accurateSeek: uses legacy -copyts path", async () => {
+    const genMerge = await getGenMergeAssMp4Command();
+
+    await genMerge(
+      dummyFiles,
+      {
+        encoder: "libx264",
+        audioCodec: "copy",
+        ss: 30,
+        to: 60,
+        // accurateSeek NOT set
+      },
+      { startTimestamp: 0 },
+    );
+
+    const inputCalls = mockCmdInputOptions.mock.calls.flat();
+    expect(inputCalls).toContain("-ss 30");
+    expect(inputCalls).toContain("-copyts");
+    expect(inputCalls).toContain("-to 60");
+  });
+
+  it("accurateSeek with ss but no 'to': does not set output -to", async () => {
+    const genMerge = await getGenMergeAssMp4Command();
+
+    await genMerge(
+      dummyFiles,
+      {
+        encoder: "libx264",
+        audioCodec: "copy",
+        ss: 10,
+        accurateSeek: true,
+      },
+      { startTimestamp: 0 },
+    );
+
+    const inputCalls = mockCmdInputOptions.mock.calls.flat();
+    expect(inputCalls).toContain("-ss 10");
+
+    // No -to in output options (to wasn't set)
+    const outputCalls = mockCmdOutputOptions.mock.calls.flat();
+    const hasTo = outputCalls.some((c: string) => c.includes("-to"));
+    expect(hasTo).toBe(false);
+  });
+
+  it("no ss: does not add any seek options", async () => {
+    const genMerge = await getGenMergeAssMp4Command();
+
+    await genMerge(
+      dummyFiles,
+      {
+        encoder: "libx264",
+        audioCodec: "copy",
+        // no ss
+        to: 60,
+        accurateSeek: true,
+      },
+      { startTimestamp: 0 },
+    );
+
+    const inputCalls = mockCmdInputOptions.mock.calls.flat();
+    const hasSs = inputCalls.some((c: string) => c.startsWith("-ss"));
+    expect(hasSs).toBe(false);
   });
 });

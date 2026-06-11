@@ -6,6 +6,8 @@
 
 /** 模板变量上下文 */
 export interface TemplateContext {
+  /** 直播标题（来自录制元数据，对应录制系统的 {{title}}） */
+  title: string;
   /** LLM 生成的高光标题 */
   highlightTitle: string;
   /** 录制直播间名称 */
@@ -45,6 +47,7 @@ export function applyTemplateVariables(
  */
 export function renderTitleTemplate(template: string, ctx: TemplateContext): string {
   return applyTemplateVariables(template, {
+    title: ctx.title,
     highlightTitle: ctx.highlightTitle,
     roomName: ctx.roomName,
     date: ctx.date,
@@ -61,6 +64,7 @@ export function renderTitleTemplate(template: string, ctx: TemplateContext): str
  */
 export function renderDescTemplate(template: string, ctx: TemplateContext): string {
   return applyTemplateVariables(template, {
+    title: ctx.title,
     highlightTitle: ctx.highlightTitle,
     roomName: ctx.roomName,
     date: ctx.date,

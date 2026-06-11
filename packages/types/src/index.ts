@@ -1028,6 +1028,12 @@ export interface FfmpegOptions {
   /** pk优化 */
   pkOptimize?: boolean;
   subtitleOptions?: SubtitleOptions;
+  /**
+   * 精确 seek 模式（默认 false）。
+   * 开启后 re-encode 模式下不再使用 -copyts，避免因 open-GOP 关键帧
+   * 导致切片首帧出现灰帧/坏帧。注意：与 addTimestamp 不兼容（时间戳会重置）。
+   */
+  accurateSeek?: boolean;
 }
 
 export interface BiliupConfig {

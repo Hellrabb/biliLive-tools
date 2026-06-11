@@ -268,6 +268,8 @@ export async function exportClips(
           audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],
           to: h.bestRange[1],
+          // 精确 seek 避免 open-GOP 关键帧导致的切片首帧灰帧/坏帧
+          accurateSeek: true,
         },
         { saveType: 2, savePath, override: true },
       );

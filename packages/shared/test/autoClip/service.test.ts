@@ -330,6 +330,67 @@ describe("AutoClipService.analyzeAndSave — preset fallback", () => {
 });
 
 // ---------------------------------------------------------------------------
+// dailyUploadAids — daily batching integration
+// ---------------------------------------------------------------------------
+
+describe("AutoClipService — dailyUploadAids", () => {
+  let AutoClipService: any;
+  let service: any;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockGetPreset.mockReset();
+    mockGetAppConfig.mockReset();
+
+    const { AutoClipService: ACS } = await import("../../src/autoClip/service.js");
+    AutoClipService = ACS;
+
+    service = new AutoClipService({
+      getAppConfig: mockGetAppConfig,
+      getPreset: mockGetPreset,
+    });
+  });
+
+  it("initializes dailyUploadAids as an empty Map", () => {
+    expect(service.dailyUploadAids).toBeDefined();
+    expect(service.dailyUploadAids instanceof Map).toBe(true);
+    expect(service.dailyUploadAids.size).toBe(0);
+  });
+
+  it("dailyUploadAids: set and get works (simulates daily batching flow)", () => {
+    const dateKey = "recorder_1_2026-06-11";
+    const aid = 12345;
+
+    // Simulate first upload creating a daily upload
+    service.dailyUploadAids.set(dateKey, aid);
+    expect(service.dailyUploadAids.get(dateKey)).toBe(aid);
+    expect(service.dailyUploadAids.size).toBe(1);
+
+    // Second lookup (simulating subsequent upload) should find the AID
+    const found = service.dailyUploadAids.get(dateKey);
+    expect(found).toBe(aid);
+  });
+
+  it("dailyUploadAids: different recorders get separate entries", () => {
+    service.dailyUploadAids.set("recorder_A_2026-06-11", 100);
+    service.dailyUploadAids.set("recorder_B_2026-06-11", 200);
+
+    expect(service.dailyUploadAids.get("recorder_A_2026-06-11")).toBe(100);
+    expect(service.dailyUploadAids.get("recorder_B_2026-06-11")).toBe(200);
+    expect(service.dailyUploadAids.size).toBe(2);
+  });
+
+  it("dailyUploadAids: same recorder different dates get separate entries", () => {
+    service.dailyUploadAids.set("recorder_1_2026-06-10", 100);
+    service.dailyUploadAids.set("recorder_1_2026-06-11", 200);
+
+    expect(service.dailyUploadAids.get("recorder_1_2026-06-10")).toBe(100);
+    expect(service.dailyUploadAids.get("recorder_1_2026-06-11")).toBe(200);
+    expect(service.dailyUploadAids.size).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // H2 + M6 tests
 // ---------------------------------------------------------------------------
 

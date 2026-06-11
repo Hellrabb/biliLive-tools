@@ -7,10 +7,13 @@ import {
 } from "../../src/autoClip/templateRenderer.js";
 
 const ctx: TemplateContext = {
+  title: "精彩直播回放",
   highlightTitle: "五杀瞬间",
   roomName: "某某直播间",
   date: "2026-06-08",
   uploadDate: "2026-06-08",
+  user: "主播小明",
+  roomId: "12345",
 };
 
 describe("applyTemplateVariables", () => {
@@ -55,6 +58,30 @@ describe("renderTitleTemplate", () => {
     expect(result).toBe("五杀瞬间 - 某某直播间");
   });
 
+  it("renders {{title}} (stream title) separately from {{highlightTitle}}", () => {
+    const result = renderTitleTemplate("【{{title}}】{{highlightTitle}}", ctx);
+    expect(result).toBe("【精彩直播回放】五杀瞬间");
+  });
+
+  it("renders {{user}} and {{roomId}} from metadata", () => {
+    const result = renderTitleTemplate("{{user}}@{{roomId}} - {{highlightTitle}}", ctx);
+    expect(result).toBe("主播小明@12345 - 五杀瞬间");
+  });
+
+  it("replaces {{title}} with empty string when title is empty", () => {
+    const noTitleCtx: TemplateContext = {
+      title: "",
+      highlightTitle: "test",
+      roomName: "",
+      date: "",
+      uploadDate: "",
+      user: "",
+      roomId: "",
+    };
+    const result = renderTitleTemplate("{{title}}{{highlightTitle}}", noTitleCtx);
+    expect(result).toBe("test");
+  });
+
   it("truncates to 80 characters", () => {
     const long = "a".repeat(100);
     const result = renderTitleTemplate(long, ctx);
@@ -66,12 +93,12 @@ describe("renderTitleTemplate", () => {
     expect(result).toBe("五杀瞬间");
   });
 
-  it("uses all four variables", () => {
+  it("uses all variables", () => {
     const result = renderTitleTemplate(
-      "{{highlightTitle}} {{roomName}} {{date}} {{uploadDate}}",
+      "{{title}} {{highlightTitle}} {{roomName}} {{date}} {{uploadDate}} {{user}} {{roomId}}",
       ctx,
     );
-    expect(result).toBe("五杀瞬间 某某直播间 2026-06-08 2026-06-08");
+    expect(result).toBe("精彩直播回放 五杀瞬间 某某直播间 2026-06-08 2026-06-08 主播小明 12345");
   });
 });
 
@@ -102,10 +129,13 @@ describe("boundary cases", () => {
 
   it("handles empty context gracefully", () => {
     const emptyCtx: TemplateContext = {
+      title: "",
       highlightTitle: "",
       roomName: "",
       date: "",
       uploadDate: "",
+      user: "",
+      roomId: "",
     };
     const result = renderTitleTemplate("{{highlightTitle}} - {{roomName}}", emptyCtx);
     // trimmed: "" - "" → trim() → "-"

@@ -916,12 +916,24 @@ export const genMergeAssMp4Command = async (
   }
   // 切片
   if (ffmpegOptions.ss) {
-    command.inputOptions(`-ss ${ffmpegOptions.ss}`);
-    if (ffmpegOptions.encoder !== "copy") {
-      command.inputOptions("-copyts");
+    if (ffmpegOptions.accurateSeek && ffmpegOptions.encoder !== "copy") {
+      // 精确 seek：去掉 -copyts，ffmpeg 在 seek 后自动丢弃关键帧之前的坏帧，
+      // 避免 open-GOP 导致的切片首帧灰帧/坏帧。时间戳从 0 开始。
+      command.inputOptions(`-ss ${ffmpegOptions.ss}`);
+      if (ffmpegOptions.to) {
+        // -to 作为输出选项，从输出时间戳 0 开始计算时长
+        command.outputOptions(`-to ${Number(ffmpegOptions.to) - Number(ffmpegOptions.ss)}`);
+      }
+    } else {
+      command.inputOptions(`-ss ${ffmpegOptions.ss}`);
+      if (ffmpegOptions.encoder !== "copy") {
+        command.inputOptions("-copyts");
+      }
+      if (ffmpegOptions.to) {
+        command.inputOptions(`-to ${ffmpegOptions.to}`);
+      }
     }
-  }
-  if (ffmpegOptions.to) {
+  } else if (ffmpegOptions.to) {
     command.inputOptions(`-to ${ffmpegOptions.to}`);
   }
 

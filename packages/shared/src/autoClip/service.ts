@@ -39,6 +39,9 @@ export interface AutoClipServiceDeps {
 export class AutoClipService {
   constructor(private deps: AutoClipServiceDeps) {}
 
+  /** 每日投稿 AID 追踪（key: `${recorderId}_${date}`） */
+  private dailyUploadAids = new Map<string, number>();
+
   async analyzeAndSave(params: {
     videoPath: string;
     danmuPath: string;
@@ -310,6 +313,7 @@ export class AutoClipService {
           presetConfig,
           appConfig,
           autoUploadEnabled,
+          recorderId || undefined,
         ).catch((err) => {
           logger.error("AutoClip: autoExportAndUpload failed", err);
         });
@@ -329,6 +333,7 @@ export class AutoClipService {
     presetConfig: AutoClipConfig,
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
     autoUploadEnabled: boolean,
+    recorderId?: string,
   ) {
     try {
       const exportCfg = presetConfig.export;
@@ -368,7 +373,13 @@ export class AutoClipService {
         // L5: autoUploadEnabled is snapshot from pipeline start
         // Global autoClipUpload is the master switch; preset export.uploadToBili is per-preset gate
         if (autoUploadEnabled && (presetConfig.export.uploadToBili ?? false)) {
-          await this.uploadToBili(exportResult.success, appConfig, presetConfig, videoPath);
+          await this.uploadToBili(
+            exportResult.success,
+            appConfig,
+            presetConfig,
+            videoPath,
+            recorderId,
+          );
         }
 
         try {
@@ -402,6 +413,7 @@ export class AutoClipService {
     appConfig: ReturnType<AutoClipServiceDeps["getAppConfig"]>,
     presetConfig: AutoClipConfig,
     videoPath: string,
+    recorderId?: string,
   ) {
     try {
       const biliApi = (await import("../task/bili.js")).default;
@@ -420,6 +432,7 @@ export class AutoClipService {
         .toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })
         .replace(/\//g, "-");
       const ctx: TemplateContext = {
+        title: "", // populated from video metadata below
         highlightTitle: "", // filled from first highlight below
         roomName: path.basename(path.dirname(videoPath)) || "",
         date: todayStr,
@@ -428,14 +441,15 @@ export class AutoClipService {
         roomId: "",
       };
 
-      // Populate user/roomId from video metadata (same source as recording upload)
+      // Populate title/user/roomId from video metadata (same source as recording upload)
       try {
         const { pasrseMetadata } = await import("../task/video.js");
         const meta = await pasrseMetadata({ videoFilePath: videoPath });
+        if (meta.title) ctx.title = meta.title;
         if (meta.username) ctx.user = meta.username;
         if (meta.roomId) ctx.roomId = meta.roomId;
       } catch {
-        // metadata extraction is best-effort; leave user/roomId as empty strings
+        // metadata extraction is best-effort; leave ctx fields as empty strings
       }
 
       // Read biliUpTemplate from autoclip preset, with field-level defaults
@@ -533,24 +547,44 @@ export class AutoClipService {
         return { path: expPath, title: partTitle };
       });
 
-      // Single addMedia call — batch all parts into one 稿件 (D1 in DESIGN.md)
-      await biliApi.addMedia(
-        videos,
-        {
-          ...DEFAULT_BILIUP_CONFIG,
-          title,
-          desc,
-          tag,
-          tid,
-          copyright,
-          source,
-          ...(noReprint !== undefined ? { noReprint } : {}),
-          ...(resolvedCover ? { cover: resolvedCover } : {}),
-          ...optionalOverrides,
-        },
-        uid,
-      );
-      logger.info(`AutoClip: 已添加 1 个B站上传任务到队列（含 ${exportedResults.length} 个分P）`);
+      const uploadOptions = {
+        ...DEFAULT_BILIUP_CONFIG,
+        title,
+        desc,
+        tag,
+        tid,
+        copyright,
+        source,
+        ...(noReprint !== undefined ? { noReprint } : {}),
+        ...(resolvedCover ? { cover: resolvedCover } : {}),
+        ...optionalOverrides,
+      };
+
+      // Daily batching: same-day clips from the same recorder go into one 投稿
+      const dateKey = recorderId ? `${recorderId}_${todayStr}` : null;
+      const existingAid = dateKey ? this.dailyUploadAids.get(dateKey) : undefined;
+
+      if (existingAid) {
+        // Append clips to existing daily upload via editMedia
+        await biliApi.editMedia(existingAid, videos, uploadOptions, uid);
+        logger.info(
+          `AutoClip: 已追加 ${exportedResults.length} 个分P到每日投稿 (aid=${existingAid})`,
+        );
+      } else {
+        // Create new daily upload via addMedia
+        // Listen for task completion to capture the AID for future appends
+        const task = await biliApi.addMedia(videos, uploadOptions, uid);
+        if (dateKey) {
+          task.on("task-end", () => {
+            const aid = Number(task.output);
+            if (aid) {
+              this.dailyUploadAids.set(dateKey, aid);
+              logger.info(`AutoClip: 每日投稿 AID 已记录 (aid=${aid}, key=${dateKey})`);
+            }
+          });
+        }
+        logger.info(`AutoClip: 已添加 1 个B站上传任务到队列（含 ${exportedResults.length} 个分P）`);
+      }
     } catch (uploadError) {
       logger.error("AutoClip: 自动上传B站失败", uploadError);
     }
