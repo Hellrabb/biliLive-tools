@@ -991,6 +991,13 @@ export const genMergeAssMp4Command = async (
     );
   }
 
+  // Debug: log the full ffmpeg command for diagnostics
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cmdArgs = (command as any)._getArguments?.();
+  if (cmdArgs) {
+    log.info(`AutoClip: ffmpeg command — ${cmdArgs.join(" ")}`);
+  }
+
   return command;
 };
 
