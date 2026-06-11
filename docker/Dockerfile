@@ -50,13 +50,15 @@ RUN curl -L -o /usr/local/share/fonts/NotoSansSC-Regular.ttf https://github.com/
 RUN mkdir -p /app/baidu-temp && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        curl -L -o /app/baidu-temp/BaiduPCS-Go.zip https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v4.0.1/BaiduPCS-Go-v4.0.1-linux-amd64.zip; \
+        curl -fsSL -o /app/baidu-temp/BaiduPCS-Go.zip https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v4.0.1/BaiduPCS-Go-v4.0.1-linux-amd64.zip; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        curl -L -o /app/baidu-temp/BaiduPCS-Go.zip https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v4.0.1/BaiduPCS-Go-v4.0.1-linux-arm64.zip; \
+        curl -fsSL -o /app/baidu-temp/BaiduPCS-Go.zip https://github.com/qjfoidnh/BaiduPCS-Go/releases/download/v4.0.1/BaiduPCS-Go-v4.0.1-linux-arm64.zip; \
+    else \
+        echo "Unsupported architecture for BaiduPCS-Go: $ARCH"; exit 1; \
     fi && \
     apt-get update && apt-get install -y unzip && \
-    unzip /app/baidu-temp/BaiduPCS-Go.zip -d /app/baidu-temp && \
-    mv /app/baidu-temp/BaiduPCS-Go-*/BaiduPCS-Go /app/packages/app/resources/bin/BaiduPCS-Go && \
+    unzip -o /app/baidu-temp/BaiduPCS-Go.zip -d /app/baidu-temp && \
+    find /app/baidu-temp -name "BaiduPCS-Go" -type f -exec mv {} /app/packages/app/resources/bin/BaiduPCS-Go \; && \
     chmod +x /app/packages/app/resources/bin/BaiduPCS-Go && \
     rm -rf /app/baidu-temp
 
@@ -64,12 +66,14 @@ RUN mkdir -p /app/baidu-temp && \
 RUN mkdir -p /app/aliyun-temp && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        curl -L -o /app/aliyun-temp/aliyunpan.zip https://github.com/tickstep/aliyunpan/releases/download/v0.3.7/aliyunpan-v0.3.7-linux-amd64.zip; \
+        curl -fsSL -o /app/aliyun-temp/aliyunpan.zip https://github.com/tickstep/aliyunpan/releases/download/v0.3.7/aliyunpan-v0.3.7-linux-amd64.zip; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        curl -L -o /app/aliyun-temp/aliyunpan.zip https://github.com/tickstep/aliyunpan/releases/download/v0.3.7/aliyunpan-v0.3.7-linux-arm64.zip; \
+        curl -fsSL -o /app/aliyun-temp/aliyunpan.zip https://github.com/tickstep/aliyunpan/releases/download/v0.3.7/aliyunpan-v0.3.7-linux-arm64.zip; \
+    else \
+        echo "Unsupported architecture for aliyunpan: $ARCH"; exit 1; \
     fi && \
-    unzip /app/aliyun-temp/aliyunpan.zip -d /app/aliyun-temp && \
-    mv /app/aliyun-temp/aliyunpan-*/aliyunpan /app/packages/app/resources/bin/aliyunpan && \
+    unzip -o /app/aliyun-temp/aliyunpan.zip -d /app/aliyun-temp && \
+    find /app/aliyun-temp -name "aliyunpan" -type f -exec mv {} /app/packages/app/resources/bin/aliyunpan \; && \
     chmod +x /app/packages/app/resources/bin/aliyunpan && \
     rm -rf /app/aliyun-temp
 
