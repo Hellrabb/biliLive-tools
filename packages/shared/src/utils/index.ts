@@ -152,7 +152,7 @@ export const genFfmpegParams = (options: FfmpegOptions) => {
         result.push("-pix_fmt yuv420p10le");
       }
     }
-    if (options.ss) {
+    if (options.ss && !options.accurateSeek) {
       result.push(`-ss ${options.ss}`);
     }
   }
