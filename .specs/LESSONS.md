@@ -8,7 +8,8 @@
 
 - **2026-06-09** | `autoclip-ffmpeg-custom` — `getPresetLabel()` if-else 链待改为 keyed lookup（6 分支，在阈值边缘）。触发条件：下次新增编码器类型时一并重构为 `Map<string, preset[]>`。
 - **2026-06-09** | `autoclip-ffmpeg-custom` — `try/catch { /* comment */ }` 静默吞错反模式：`loadDanmuPresets()` 和旧的 `loadFfmpegPresets()` 均存在。本次只修复了 `loadFfmpegPresets()`，`loadDanmuPresets()`（line 672-673）仍为静默。触发条件：下次修改 AutoClipPresetDialog 时一并改。
-- **2026-06-11** | `fix-autoclip-three-bugs` — R3: autoclip 的 TemplateContext 与录制系统的 webhook formatTitle 各自维护模板变量定义（`{{title}}`/`{{user}}`/`{{roomId}}`）。触发条件：下次新增公共模板变量时统一提取 `TemplateVariableProvider` 接口。
+- **2026-06-12** | `fix-autoclip-output-dir` — `cut()` 对绝对路径跳过 `parseSavePath`（其中含 `fs.ensureDir`），ffmpeg 在不存在目录中 `open()` 返回 EINVAL 而非 ENOENT（Docker overlay 文件系统行为）。教训：任何生成输出文件路径的函数必须在调用 ffmpeg 前显式确保目录存在。修复：`cut()` + `mergeAssMp4()` 中均添加 `fs.ensureDir(dirname(outputPath))`。
+- **2026-06-12** | `fix-autoclip-gpu-fallback` — `genMergeAssMp4Command` 和 `genFfmpegParams` 各自独立添加输出 `-ss` 选项，accurateSeek 引入 `-to` 输出选项后，三个时间选项互相冲突导致 ffmpeg 硬件编码器静默回退 CPU。教训：**跨模块 ffmpeg 选项冲突**——修改 `genMergeAssMp4Command` 的选项生成时必须同时检查 `genFfmpegParams` 是否有重复/冲突选项。触发条件：任何对这两个函数中 ffmpeg 选项的修改，review 时必须 cross-check 另一个函数。（`{{title}}`/`{{user}}`/`{{roomId}}`）。触发条件：下次新增公共模板变量时统一提取 `TemplateVariableProvider` 接口。
 - **2026-06-11** | `fix-autoclip-three-bugs` — R6: `dailyUploadAids` Map 是进程内状态，应用重启后丢失，同天后续切片可能创建新投稿而非追加。建议：启动时从 DB 查询当日已上传记录恢复 AID。
 - **2026-06-05** | `files.ts` 路径校验逻辑去重 — `packages/http/src/routes/files.ts:171-217` 存在 10 行 × 2 处内部重复块，建议提取 `validateFilePath()`。触发条件：下次修改 files.ts 时一并重构。
 - **2026-06-05** | `signalDetector.ts` (591行) 复杂度持续监控 — 当前为 autoClip 最大单文件，若继续增长至 700+ 行则强制拆分。触发条件：每次修改 signalDetector.ts 时检查行数。
