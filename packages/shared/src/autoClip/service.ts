@@ -415,7 +415,10 @@ export class AutoClipService {
 
       // Build template context
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
+      // Use China timezone (Asia/Shanghai) for date display, not UTC
+      const todayStr = now
+        .toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })
+        .replace(/\//g, "-");
       const ctx: TemplateContext = {
         highlightTitle: "", // filled from first highlight below
         roomName: path.basename(path.dirname(videoPath)) || "",
