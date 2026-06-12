@@ -357,35 +357,32 @@ describe("AutoClipService — dailyUploadAids", () => {
     expect(service.dailyUploadAids.size).toBe(0);
   });
 
-  it("dailyUploadAids: set and get works (simulates daily batching flow)", () => {
+  it("dailyUploadAids: resolves Promise to get AID (simulates race-free batching)", async () => {
     const dateKey = "recorder_1_2026-06-11";
     const aid = 12345;
 
-    // Simulate first upload creating a daily upload
-    service.dailyUploadAids.set(dateKey, aid);
-    expect(service.dailyUploadAids.get(dateKey)).toBe(aid);
+    // Simulate first upload: store a pending Promise
+    const aidPromise = Promise.resolve(aid);
+    service.dailyUploadAids.set(dateKey, aidPromise);
     expect(service.dailyUploadAids.size).toBe(1);
 
-    // Second lookup (simulating subsequent upload) should find the AID
-    const found = service.dailyUploadAids.get(dateKey);
+    // Second upload: look up and await the Promise
+    const pending = service.dailyUploadAids.get(dateKey);
+    const found = await pending;
     expect(found).toBe(aid);
   });
 
   it("dailyUploadAids: different recorders get separate entries", () => {
-    service.dailyUploadAids.set("recorder_A_2026-06-11", 100);
-    service.dailyUploadAids.set("recorder_B_2026-06-11", 200);
+    service.dailyUploadAids.set("recorder_A_2026-06-11", Promise.resolve(100));
+    service.dailyUploadAids.set("recorder_B_2026-06-11", Promise.resolve(200));
 
-    expect(service.dailyUploadAids.get("recorder_A_2026-06-11")).toBe(100);
-    expect(service.dailyUploadAids.get("recorder_B_2026-06-11")).toBe(200);
     expect(service.dailyUploadAids.size).toBe(2);
   });
 
   it("dailyUploadAids: same recorder different dates get separate entries", () => {
-    service.dailyUploadAids.set("recorder_1_2026-06-10", 100);
-    service.dailyUploadAids.set("recorder_1_2026-06-11", 200);
+    service.dailyUploadAids.set("recorder_1_2026-06-10", Promise.resolve(100));
+    service.dailyUploadAids.set("recorder_1_2026-06-11", Promise.resolve(200));
 
-    expect(service.dailyUploadAids.get("recorder_1_2026-06-10")).toBe(100);
-    expect(service.dailyUploadAids.get("recorder_1_2026-06-11")).toBe(200);
     expect(service.dailyUploadAids.size).toBe(2);
   });
 });

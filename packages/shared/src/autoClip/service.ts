@@ -39,8 +39,10 @@ export interface AutoClipServiceDeps {
 export class AutoClipService {
   constructor(private deps: AutoClipServiceDeps) {}
 
-  /** 每日投稿 AID 追踪（key: `${recorderId}_${date}`） */
-  private dailyUploadAids = new Map<string, number>();
+  /** 每日投稿 AID 追踪（key: `${recorderId}_${date}`, value: Promise<AID>）。
+   *  用 Promise 而非裸 number 防止竞态：两次导出几乎同时完成时，
+   *  第一次的 addMedia 尚未返回 AID，第二次检查 Map 看到 Promise 会等待。 */
+  private dailyUploadAids = new Map<string, Promise<number>>();
 
   async analyzeAndSave(params: {
     videoPath: string;
@@ -560,29 +562,53 @@ export class AutoClipService {
         ...optionalOverrides,
       };
 
-      // Daily batching: same-day clips from the same recorder go into one 投稿
+      // Daily batching: same-day clips from the same recorder go into one 投稿.
+      // Uses Promise-based lock to prevent race condition when two exports
+      // complete almost simultaneously — the second one waits for the first's AID.
       const dateKey = recorderId ? `${recorderId}_${todayStr}` : null;
-      const existingAid = dateKey ? this.dailyUploadAids.get(dateKey) : undefined;
 
-      if (existingAid) {
-        // Append clips to existing daily upload via editMedia
-        await biliApi.editMedia(existingAid, videos, uploadOptions, uid);
-        logger.info(
-          `AutoClip: 已追加 ${exportedResults.length} 个分P到每日投稿 (aid=${existingAid})`,
-        );
-      } else {
-        // Create new daily upload via addMedia
-        // Listen for task completion to capture the AID for future appends
-        const task = await biliApi.addMedia(videos, uploadOptions, uid);
-        if (dateKey) {
+      if (dateKey) {
+        const pendingOrAid = this.dailyUploadAids.get(dateKey);
+        if (pendingOrAid) {
+          // Another upload is pending or completed for today — wait for its AID
+          const aid = await pendingOrAid;
+          if (aid > 0) {
+            await biliApi.editMedia(aid, videos, uploadOptions, uid);
+            logger.info(`AutoClip: 已追加 ${exportedResults.length} 个分P到每日投稿 (aid=${aid})`);
+            return;
+          }
+          // aid <= 0 means the previous upload failed — fall through to create new
+          logger.warn(`AutoClip: 每日投稿创建失败 (aid=${aid})，重新创建`);
+          this.dailyUploadAids.delete(dateKey);
+        }
+
+        // Create a pending Promise BEFORE calling addMedia (prevents race)
+        let resolveAid!: (aid: number) => void;
+        const aidPromise = new Promise<number>((resolve) => {
+          resolveAid = resolve;
+        });
+        this.dailyUploadAids.set(dateKey, aidPromise);
+
+        try {
+          const task = await biliApi.addMedia(videos, uploadOptions, uid);
           task.on("task-end", () => {
             const aid = Number(task.output);
+            resolveAid(aid || 0);
             if (aid) {
-              this.dailyUploadAids.set(dateKey, aid);
               logger.info(`AutoClip: 每日投稿 AID 已记录 (aid=${aid}, key=${dateKey})`);
             }
           });
+          logger.info(
+            `AutoClip: 已添加 1 个B站上传任务到队列（含 ${exportedResults.length} 个分P）`,
+          );
+        } catch (err) {
+          // If addMedia fails, remove the pending promise so next attempt retries
+          this.dailyUploadAids.delete(dateKey);
+          throw err;
         }
+      } else {
+        // No recorderId — skip daily batching, create standalone upload
+        await biliApi.addMedia(videos, uploadOptions, uid);
         logger.info(`AutoClip: 已添加 1 个B站上传任务到队列（含 ${exportedResults.length} 个分P）`);
       }
     } catch (uploadError) {
