@@ -37,7 +37,7 @@ export const AUTO_CLIP_DEFAULT_CONFIG: AutoClipConfig = {
   },
   export: {
     cutFormat: "mp4",
-    encoder: "libx264",
+    encoder: "",
     audioCodec: "copy",
     ffmpegPresetId: "default",
     burnDanmaku: true,

@@ -254,13 +254,15 @@ export async function exportClips(
     );
 
     try {
-      // Resolve encoder with priority: autoclip preset > ffmpeg preset > default libx264
-      const resolvedEncoder = (exportConfig.encoder ??
-        (Object.keys(ffmpegPresetOpts).length > 0 ? ffmpegPresetOpts.encoder : undefined) ??
+      // Resolve encoder with priority: ffmpeg preset > autoclip export config > default libx264.
+      // The ffmpeg preset is the designated place for encoder/codec configuration;
+      // autoclip export config encoder is a per-preset override (only when explicitly set).
+      const resolvedEncoder = (ffmpegPresetOpts.encoder ||
+        exportConfig.encoder ||
         "libx264") as VideoCodec;
       logger.debug(
-        `AutoClip: encoder resolved — autoclipExportConfig=${exportConfig.encoder || "<unset>"}, ` +
-          `ffmpegPreset=${ffmpegPresetOpts.encoder || "<unset>"}, ` +
+        `AutoClip: encoder resolved — ffmpegPreset=${ffmpegPresetOpts.encoder || "<unset>"}, ` +
+          `autoclipExportConfig=${exportConfig.encoder || "<unset>"}, ` +
           `final=${resolvedEncoder}`,
       );
 
@@ -269,9 +271,6 @@ export async function exportClips(
         outputPath,
         {
           ...ffmpegPresetOpts,
-          // AutoClip export.encoder takes priority over ffmpeg preset's encoder,
-          // so the user's explicit encoder choice in the UI always wins.
-          // FFmpeg preset's other settings (bitrate, CRF, preset, etc.) still apply.
           encoder: resolvedEncoder,
           audioCodec: (exportConfig.audioCodec ?? "copy") as audioCodec,
           ss: h.bestRange[0],
