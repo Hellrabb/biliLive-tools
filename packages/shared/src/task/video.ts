@@ -995,7 +995,7 @@ export const genMergeAssMp4Command = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cmdArgs = (command as any)._getArguments?.();
   if (cmdArgs) {
-    log.info(`AutoClip: ffmpeg command — ${cmdArgs.join(" ")}`);
+    log.debug(`AutoClip: ffmpeg command — ${cmdArgs.join(" ")}`);
   }
 
   return command;

@@ -258,7 +258,7 @@ export async function exportClips(
       const resolvedEncoder = (exportConfig.encoder ??
         (Object.keys(ffmpegPresetOpts).length > 0 ? ffmpegPresetOpts.encoder : undefined) ??
         "libx264") as VideoCodec;
-      logger.info(
+      logger.debug(
         `AutoClip: encoder resolved — autoclipExportConfig=${exportConfig.encoder || "<unset>"}, ` +
           `ffmpegPreset=${ffmpegPresetOpts.encoder || "<unset>"}, ` +
           `final=${resolvedEncoder}`,
