@@ -52,12 +52,19 @@ export async function resolveExportPresets(exportCfg: {
         get: (id: string) => Promise<{ config?: unknown }>;
       };
       const preset = await ffmpegPreset.get(exportCfg.ffmpegPresetId);
+      const presetEncoder = (preset?.config as Record<string, unknown>)?.encoder;
+      logger.debug(
+        `AutoClip: ffmpeg preset resolved — presetId=${exportCfg.ffmpegPresetId}, ` +
+          `encoder=${presetEncoder || "<unset>"}`,
+      );
       if (preset?.config) {
         result.ffmpegConfig = preset.config as Record<string, unknown>;
       }
     } catch (err) {
       logger.warn("AutoClip: failed to resolve ffmpeg preset for export", err);
     }
+  } else {
+    logger.debug("AutoClip: no ffmpegPresetId configured — ffmpeg preset options will be empty");
   }
 
   if (exportCfg.burnDanmaku) {
