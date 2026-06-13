@@ -491,6 +491,15 @@ export async function doExportClips(
     savePath: resolveSavePath(exportConfig, videoPath),
   };
 
+  // Debug: log the full autoclip export config to trace encoder source
+  logger.debug(
+    `AutoClip: exportConfig loaded — ` +
+      `presetId=${presetId || "<none>"}, ` +
+      `ffmpegPresetId=${exportConfig.ffmpegPresetId || "<unset>"}, ` +
+      `encoder=${exportConfig.encoder || "<unset>"}, ` +
+      `globalPresetId=${deps.getAppConfig()?.videoCut?.autoClipPresetId || "<none>"}`,
+  );
+
   const presetCtx = await resolveExportPresets(exportConfig);
 
   deps.updateStatus(resultId, "exporting");
