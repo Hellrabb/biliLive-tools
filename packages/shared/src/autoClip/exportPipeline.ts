@@ -476,17 +476,21 @@ export async function doExportClips(
     return false;
   }
 
-  const loaded = await tryLoadExportConfig(presetId, signal);
+  let loaded = await tryLoadExportConfig(presetId, signal);
 
   if (!loaded) {
     const config = deps.getAppConfig();
     const globalPresetId = config?.videoCut?.autoClipPresetId;
     if (globalPresetId && globalPresetId !== presetId) {
-      const globalLoaded = await tryLoadExportConfig(globalPresetId, signal);
+      loaded = await tryLoadExportConfig(globalPresetId, signal);
       logger.debug(
-        `AutoClip: preset fallback — presetId=${presetId || "<null>"}, ` +
-          `globalPresetId=${globalPresetId}, loaded=${globalLoaded}`,
+        `AutoClip: preset fallback — globalPresetId=${globalPresetId}, loaded=${loaded}`,
       );
+    }
+    // Last resort: use "default" preset when config hasn't been persisted
+    if (!loaded && presetId !== "default") {
+      loaded = await tryLoadExportConfig("default", signal);
+      logger.debug(`AutoClip: preset fallback to 'default' — loaded=${loaded}`);
     }
   }
 
