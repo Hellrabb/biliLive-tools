@@ -4,6 +4,7 @@
 
 | 日期       | Change ID                         | 摘要                                                                                                                 | LESSONS           |
 | ---------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-14 | revert-padded-seek-video          | 回退视频导出的 padded seek（ffmpeg -accurate_seek 已处理），仅保留 -copyts 移除                                      | L-overfix         |
 | 2026-06-14 | fix-accurate-seek-preset-fallback | accurateSeek 真精确 seek + re-export preset default 兜底                                                             | L-seek, L-config  |
 | 2026-06-14 | fix-cover-gray-frame              | 修复自动封面截帧灰帧：frameSampler 加入 padded output seek（同 accurateSeek 模式）                                   | L-cover           |
 | 2026-06-13 | fix-autoclip-encoder-batching     | 修复 encoder 优先级（硬编码 libx264 覆盖 GPU 编码器）+ daily batching 竞态条件（Promise 锁替代裸 number）            | L-encoder, L-race |
