@@ -4,6 +4,7 @@
 
 | 日期       | Change ID                       | 摘要                                                                                                                 | LESSONS           |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | --- |
+| 2026-06-14 | fix-cover-gray-frame            | 修复自动封面截帧灰帧：frameSampler 加入 padded output seek（同 accurateSeek 模式）                                   | L-cover           |
 | 2026-06-13 | fix-autoclip-encoder-batching   | 修复 encoder 优先级（硬编码 libx264 覆盖 GPU 编码器）+ daily batching 竞态条件（Promise 锁替代裸 number）            | L-encoder, L-race |
 | 2026-06-12 | fix-autoclip-output-dir         | 修复 autoclip 手动导出 ffmpeg 报 Invalid argument：cut/mergeAssMp4 添加输出目录创建                                  | —                 |
 | 2026-06-11 | fix-autoclip-three-bugs         | 修复 autoclip 3 bugs: 同天切片聚合上传 + accurateSeek 防灰帧 + {{title}} 模板变量                                    | L-R3, L-R6        |
