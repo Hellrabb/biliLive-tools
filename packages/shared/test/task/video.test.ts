@@ -193,7 +193,7 @@ describe("genMergeAssMp4Command — accurateSeek", () => {
     mockCmdOutputOptions.mockClear();
   });
 
-  it("accurateSeek: uses inputOptions -ss and outputOptions -to (no -copyts)", async () => {
+  it("accurateSeek: padded input seek + output seek + output -to", async () => {
     const genMerge = await getGenMergeAssMp4Command();
 
     await genMerge(
@@ -208,16 +208,16 @@ describe("genMergeAssMp4Command — accurateSeek", () => {
       { startTimestamp: 0 },
     );
 
-    // Should have used -ss as input option
     const inputCalls = mockCmdInputOptions.mock.calls.flat();
-    expect(inputCalls).toContain("-ss 100");
-
-    // Should NOT have -copyts
+    // Padded input seek: 100 - 1 = 99
+    expect(inputCalls).toContain("-ss 99");
     expect(inputCalls).not.toContain("-copyts");
 
-    // -to should be an output option (150 - 100 = 50)
     const outputCalls = mockCmdOutputOptions.mock.calls.flat();
-    expect(outputCalls).toContain("-to 50");
+    // Output seek: skip 1s of padding
+    expect(outputCalls).toContain("-ss 1");
+    // Output duration: 150 - 100 = 50, plus pad 1 for -to stop position = 51
+    expect(outputCalls).toContain("-to 51");
   });
 
   it("accurateSeek with encoder=copy: falls back to old path (no -copyts needed)", async () => {
@@ -277,10 +277,12 @@ describe("genMergeAssMp4Command — accurateSeek", () => {
     );
 
     const inputCalls = mockCmdInputOptions.mock.calls.flat();
-    expect(inputCalls).toContain("-ss 10");
+    // Padded: 10 - 1 = 9
+    expect(inputCalls).toContain("-ss 9");
 
     // No -to in output options (to wasn't set)
     const outputCalls = mockCmdOutputOptions.mock.calls.flat();
+    expect(outputCalls).toContain("-ss 1"); // output seek
     const hasTo = outputCalls.some((c: string) => c.includes("-to"));
     expect(hasTo).toBe(false);
   });

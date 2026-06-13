@@ -917,12 +917,17 @@ export const genMergeAssMp4Command = async (
   // 切片
   if (ffmpegOptions.ss) {
     if (ffmpegOptions.accurateSeek && ffmpegOptions.encoder !== "copy") {
-      // 精确 seek：去掉 -copyts，ffmpeg 在 seek 后自动丢弃关键帧之前的坏帧，
-      // 避免 open-GOP 导致的切片首帧灰帧/坏帧。时间戳从 0 开始。
-      command.inputOptions(`-ss ${ffmpegOptions.ss}`);
+      // 精确 seek：输入 -ss 跳到目标前 1s 的关键帧，输出 -ss 跳过
+      // 关键帧到目标点之间的坏帧（open-GOP 灰帧），输出 -to 控制时长。
+      // 与 frameSampler.extractOneFrame 的 padded seek 同模式。
+      const PAD_SEC = 1;
+      const ss = Number(ffmpegOptions.ss);
+      const to = ffmpegOptions.to ? Number(ffmpegOptions.to) : 0;
+      const usePad = ss >= PAD_SEC;
+      command.inputOptions(`-ss ${usePad ? ss - PAD_SEC : 0}`);
+      command.outputOptions(`-ss ${usePad ? PAD_SEC : ss}`);
       if (ffmpegOptions.to) {
-        // -to 作为输出选项，从输出时间戳 0 开始计算时长
-        command.outputOptions(`-to ${Number(ffmpegOptions.to) - Number(ffmpegOptions.ss)}`);
+        command.outputOptions(`-to ${to - ss + (usePad ? PAD_SEC : ss)}`);
       }
     } else {
       command.inputOptions(`-ss ${ffmpegOptions.ss}`);
