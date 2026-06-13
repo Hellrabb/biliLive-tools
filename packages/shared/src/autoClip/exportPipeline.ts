@@ -471,7 +471,7 @@ export async function doExportClips(
     } catch (err) {
       // Propagate AbortError to caller
       if (err instanceof DOMException && err.name === "AbortError") throw err;
-      /* fall through otherwise */
+      logger.warn(`AutoClip: failed to load autoclip preset "${pid}" — ${err}`);
     }
     return false;
   }
@@ -482,7 +482,11 @@ export async function doExportClips(
     const config = deps.getAppConfig();
     const globalPresetId = config?.videoCut?.autoClipPresetId;
     if (globalPresetId && globalPresetId !== presetId) {
-      await tryLoadExportConfig(globalPresetId, signal);
+      const globalLoaded = await tryLoadExportConfig(globalPresetId, signal);
+      logger.debug(
+        `AutoClip: preset fallback — presetId=${presetId || "<null>"}, ` +
+          `globalPresetId=${globalPresetId}, loaded=${globalLoaded}`,
+      );
     }
   }
 
