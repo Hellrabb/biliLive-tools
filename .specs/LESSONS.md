@@ -13,6 +13,8 @@
 - **2026-06-13** | `fix-autoclip-encoder-batching` — **硬编码默认值覆盖用户配置**：`AUTO_CLIP_DEFAULT_CONFIG.export.encoder = "libx264"` 被每个新建 autoclip 预设继承，原优先级 `exportConfig > ffmpegPreset` 导致默认值始终取胜。教训：默认值应使用 falsy 值（`""` / `undefined`），让优先级链正确回退。`??` vs `||` 的选择要匹配值的 falsy 语义——`??` 不处理空字符串。
 - **2026-06-13** | `fix-autoclip-encoder-batching` — **异步竞态**：`addMedia` 返回后才注册 `task-end` 监听获取 AID，两次导出几乎同时完成时第二次在第一次注册监听前检查 Map → 看不到 AID → 重复创建投稿。教训：在 `await` 之前写入 pending Promise 占位，用 Promise 而非裸值做并发安全的 Map 缓存。触发条件：任何"检查 Map → await → 写入 Map"的模式都是竞态。
 - **2026-06-14** | `fix-cover-gray-frame` — `frameSampler.extractOneFrame` 和 `genMergeAssMp4Command` 是两个独立的 ffmpeg 入口，accurateSeek 只修了后者。教训：**批量修复类 bug 必须全量排查所有同类入口**（grep 所有 `-ss.*-i` 的 ffmpeg 调用点），不能只修第一个找到的。
+- **2026-06-14** | `fix-accurate-seek-preset-fallback` — **对 ffmpeg 行为的错误假设**：原注释写"去掉 -copyts 后 ffmpeg 自动丢弃关键帧之前的坏帧"——实际上没有输出 `-ss` 时 ffmpeg 仍然输出关键帧之后 ALL decoded frames。教训：**涉及第三方工具的假设必须用命令行实测验证**，不能凭文档或推理下结论。
+- **2026-06-14** | `fix-accurate-seek-preset-fallback` — **容器中 appConfig 未持久化**：`container.resolve("appConfig")` 返回编译默认值而非 JSON 持久化值，`autoClipPresetId` 为空导致回退链断裂。教训：依赖 `container.resolve("appConfig")` 做关键决策时需验证运行时值，必要时加硬编码兜底。
 - **2026-06-11** | `fix-autoclip-three-bugs` — R6: `dailyUploadAids` Map 是进程内状态，应用重启后丢失，同天后续切片可能创建新投稿而非追加。建议：启动时从 DB 查询当日已上传记录恢复 AID。
 - **2026-06-05** | `files.ts` 路径校验逻辑去重 — `packages/http/src/routes/files.ts:171-217` 存在 10 行 × 2 处内部重复块，建议提取 `validateFilePath()`。触发条件：下次修改 files.ts 时一并重构。
 - **2026-06-05** | `signalDetector.ts` (591行) 复杂度持续监控 — 当前为 autoClip 最大单文件，若继续增长至 700+ 行则强制拆分。触发条件：每次修改 signalDetector.ts 时检查行数。
