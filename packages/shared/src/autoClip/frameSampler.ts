@@ -76,11 +76,18 @@ export function extractOneFrame(
       return reject(abortErr);
     }
 
+    // Use padded input seek + output seek to avoid gray frames from
+    // open-GOP keyframes, same approach as accurateSeek for video export.
+    // Seek to a keyframe slightly before the target, then skip exact.
+    const PAD_SEC = 1;
+    const usePad = timestampSec >= PAD_SEC;
     const args = [
       "-ss",
-      String(timestampSec),
+      String(usePad ? timestampSec - PAD_SEC : 0),
       "-i",
       videoPath,
+      "-ss",
+      String(usePad ? PAD_SEC : timestampSec),
       "-vframes",
       "1",
       "-q:v",

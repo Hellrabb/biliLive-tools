@@ -142,15 +142,20 @@ describe("sampleFrames", () => {
     expect(frames).toHaveLength(1);
   });
 
-  it("passes correct ffmpeg args for frame extraction", async () => {
+  it("passes correct ffmpeg args for frame extraction (with padded seek)", async () => {
     mockSpawn.mockReturnValue(createMockProc({ exitCode: 0, stdoutChunks: [FAKE_JPEG] }));
 
     await sampleFrames("/my/video.mp4", [42.5]);
 
     const [ffmpegPath, args, options] = mockSpawn.mock.calls[0];
     expect(ffmpegPath).toBe("ffmpeg");
-    expect(args).toContain("-ss");
-    expect(args).toContain("42.5");
+    // Padded input seek: 42.5 - 1 = 41.5, output seek: 1
+    const ssIndex1 = args.indexOf("-ss");
+    const ssIndex2 = args.indexOf("-ss", ssIndex1 + 1);
+    expect(ssIndex1).toBeGreaterThanOrEqual(0);
+    expect(ssIndex2).toBeGreaterThan(ssIndex1); // two -ss flags: input + output
+    expect(args[ssIndex1 + 1]).toBe("41.5"); // input -ss padded back 1s
+    expect(args[ssIndex2 + 1]).toBe("1"); // output -ss skip padding
     expect(args).toContain("-i");
     expect(args).toContain("/my/video.mp4");
     expect(args).toContain("-vframes");
@@ -160,6 +165,19 @@ describe("sampleFrames", () => {
     expect(args).toContain("-vcodec");
     expect(args).toContain("mjpeg");
     expect(options.stdio).toEqual(["ignore", "pipe", "pipe"]);
+  });
+
+  it("uses unpadded seek when timestamp < 1s", async () => {
+    mockSpawn.mockReturnValue(createMockProc({ exitCode: 0, stdoutChunks: [FAKE_JPEG] }));
+
+    await sampleFrames("/my/video.mp4", [0.5]);
+
+    const [, args] = mockSpawn.mock.calls[0];
+    // No padding: seek from 0, then skip to 0.5
+    const ssIndex1 = args.indexOf("-ss");
+    const ssIndex2 = args.indexOf("-ss", ssIndex1 + 1);
+    expect(args[ssIndex1 + 1]).toBe("0"); // input seek from start
+    expect(args[ssIndex2 + 1]).toBe("0.5"); // output seek to exact timestamp
   });
 
   it("uses custom ffmpeg path when provided", async () => {
