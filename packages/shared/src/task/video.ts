@@ -917,17 +917,14 @@ export const genMergeAssMp4Command = async (
   // 切片
   if (ffmpegOptions.ss) {
     if (ffmpegOptions.accurateSeek && ffmpegOptions.encoder !== "copy") {
-      // 精确 seek：输入 -ss 跳到目标前 1s 的关键帧，输出 -ss 跳过
-      // 关键帧到目标点之间的坏帧（open-GOP 灰帧），输出 -to 控制时长。
-      // 与 frameSampler.extractOneFrame 的 padded seek 同模式。
-      const PAD_SEC = 1;
-      const ss = Number(ffmpegOptions.ss);
-      const to = ffmpegOptions.to ? Number(ffmpegOptions.to) : 0;
-      const usePad = ss >= PAD_SEC;
-      command.inputOptions(`-ss ${usePad ? ss - PAD_SEC : 0}`);
-      command.outputOptions(`-ss ${usePad ? PAD_SEC : ss}`);
+      // Transcoding 时 ffmpeg 默认启用 -accurate_seek，会自动解码并丢弃
+      // 关键帧到目标点之间的帧。灰帧的根因是 -copyts（某些编码器在
+      // 非零时间戳初始化时产生坏帧），去掉即可。视频时长由输出 -to 控制。
+      // 注意: frameSampler.extractOneFrame 仍使用 padded output seek，
+      // 因为 -vframes 1 单帧提取不走 -accurate_seek 路径。
+      command.inputOptions(`-ss ${ffmpegOptions.ss}`);
       if (ffmpegOptions.to) {
-        command.outputOptions(`-to ${to - ss + (usePad ? PAD_SEC : ss)}`);
+        command.outputOptions(`-to ${Number(ffmpegOptions.to) - Number(ffmpegOptions.ss)}`);
       }
     } else {
       command.inputOptions(`-ss ${ffmpegOptions.ss}`);
