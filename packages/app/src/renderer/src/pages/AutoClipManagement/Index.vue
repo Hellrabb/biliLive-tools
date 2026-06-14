@@ -188,12 +188,34 @@
         </template>
       </n-card>
     </n-modal>
+
+    <!-- 播放列表弹窗 -->
+    <n-modal v-model:show="showPlaylistDialog" style="width: 460px" title="选择要播放的切片">
+      <n-card :bordered="false" size="small">
+        <n-list v-if="playlistPaths.length > 0" clickable>
+          <n-list-item
+            v-for="(filePath, idx) in playlistPaths"
+            :key="idx"
+            @click="handlePlaylistSelect(filePath)"
+          >
+            <template #prefix>
+              <n-tag size="small" :bordered="false">P{{ idx + 1 }}</n-tag>
+            </template>
+            {{ filePath.split("/").pop() || filePath.split("\\").pop() || filePath }}
+          </n-list-item>
+        </n-list>
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="showPlaylistDialog = false">取消</n-button>
+          </n-space>
+        </template>
+      </n-card>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 defineOptions({ name: "AutoClipManagement" });
-import { useRouter } from "vue-router";
 import { NButton, NSpace, NTag, NDivider, NDataTable } from "naive-ui";
 import {
   batchApproveAndExport as batchApproveAndExportApi,
@@ -208,6 +230,7 @@ import {
 } from "@renderer/apis/presets/autoClip";
 import showDirectoryDialog from "@renderer/components/showDirectoryDialog";
 import { useNotice } from "@renderer/hooks/useNotice";
+import { toVideoPlayerPage } from "@renderer/utils/pages";
 import EvidencePanel from "./components/EvidencePanel.vue";
 
 import type { AutoClipClipRow } from "@biliLive-tools/types";
@@ -220,7 +243,6 @@ interface ClipRow extends AutoClipClipRow {
   exportedPaths: string[];
 }
 
-const router = useRouter();
 const notice = useNotice();
 const dialog = useDialog();
 const loading = ref(false);
@@ -244,6 +266,30 @@ const selectedClip = computed(() => clips.value.find((c) => c.id === selectedCli
 
 const componentError = ref<string | null>(null);
 const pollingProgress = ref<string>("");
+
+// 播放列表弹窗
+const showPlaylistDialog = ref(false);
+const playlistPaths = ref<string[]>([]);
+
+function openVideo(row: ClipRow) {
+  const paths = row.exportedPaths;
+  if (row.status === "exported" && paths.length > 0) {
+    playlistPaths.value = paths;
+    showPlaylistDialog.value = true;
+    return;
+  }
+  // 回退：打开源视频
+  toVideoPlayerPage({ videoFilePath: row.video_path }).catch((e: any) => {
+    notice.error(e?.message || "打开视频失败");
+  });
+}
+
+function handlePlaylistSelect(filePath: string) {
+  showPlaylistDialog.value = false;
+  toVideoPlayerPage({ videoFilePath: filePath }).catch((e: any) => {
+    notice.error(e?.message || "打开视频失败");
+  });
+}
 
 onErrorCaptured((err: Error) => {
   console.error("AutoClipManagement error:", err);
@@ -309,18 +355,7 @@ const columns = [
           {
             size: "small",
             type: "info",
-            onClick: () => {
-              const first = row.highlights[0];
-              if (!first) return;
-              router.push({
-                path: "/videoPlayer",
-                query: {
-                  source: row.video_path,
-                  start: String(first.bestRange?.[0] ?? 0),
-                  end: String(first.bestRange?.[1] ?? 0),
-                },
-              });
-            },
+            onClick: () => openVideo(row),
           },
           () => "打开视频",
         ),
