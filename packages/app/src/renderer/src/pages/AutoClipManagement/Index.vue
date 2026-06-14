@@ -217,6 +217,7 @@ interface ClipRow extends AutoClipClipRow {
   previewScore: number | null;
   highlightCount: number;
   evidence?: Record<string, unknown> | null;
+  exportedPaths: string[];
 }
 
 const router = useRouter();
@@ -386,6 +387,13 @@ async function refreshList() {
         previewTitle: highlights.length ? first.title || "（无标题）" : "（无高光片段）",
         previewScore: highlights.length ? (first.score ?? 0) : null,
         highlightCount: highlights.length,
+        exportedPaths: (() => {
+          try {
+            return r.exported_paths ? JSON.parse(r.exported_paths) : [];
+          } catch {
+            return [];
+          }
+        })(),
       } as ClipRow;
     });
   } catch (e) {

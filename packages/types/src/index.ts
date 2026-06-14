@@ -1413,4 +1413,6 @@ export interface AutoClipClipRow {
   highlights: AutoClipHighlightItem[];
   /** 切片决策证据链 (pipeline 各阶段输出). null 表示无证据或解析失败 */
   evidence?: Record<string, unknown> | null;
+  /** 导出后的切片文件路径列表（JSON string 数组）. null 表示未导出 */
+  exported_paths?: string | null;
 }
