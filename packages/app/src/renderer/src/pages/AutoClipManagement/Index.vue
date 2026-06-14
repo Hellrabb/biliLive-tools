@@ -279,15 +279,20 @@ function openVideo(row: ClipRow) {
     return;
   }
   // 回退：打开源视频
+  console.log("[openVideo] opening source video:", row.video_path);
   toVideoPlayerPage({ videoFilePath: row.video_path }).catch((e: any) => {
-    notice.error(e?.message || "打开视频失败");
+    console.error("[openVideo] failed:", e);
+    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}`);
   });
 }
 
 function handlePlaylistSelect(filePath: string) {
   showPlaylistDialog.value = false;
+  console.log("[handlePlaylistSelect] opening exported clip:", filePath);
   toVideoPlayerPage({ videoFilePath: filePath }).catch((e: any) => {
-    notice.error(e?.message || "打开视频失败");
+    console.error("[handlePlaylistSelect] failed:", e);
+    const detail = e?.response?.status ? ` (HTTP ${e.response.status})` : "";
+    notice.error(`打开视频失败${detail}: ${e?.message || e || "未知错误"}`);
   });
 }
 
