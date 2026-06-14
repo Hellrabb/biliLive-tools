@@ -20,9 +20,9 @@ const isWeb = computed(() => window.isWeb);
 if (isWeb.value) {
   const apiStorage = window.localStorage.getItem("api");
   const keyStorage = window.localStorage.getItem("key");
-  if (apiStorage && keyStorage) {
-    // do nothing
-  } else {
+  // 全栈模式下 api 为空字符串（同源请求），只需检查 key
+  const hasAuth = window.isFullstack ? !!keyStorage : !!(apiStorage && keyStorage);
+  if (!hasAuth) {
     router.push({ name: "Login" });
   }
 }
