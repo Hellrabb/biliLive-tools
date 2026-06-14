@@ -278,15 +278,10 @@ function openVideo(row: ClipRow) {
     showPlaylistDialog.value = true;
     return;
   }
-  // 回退：打开源视频（走 HTTP 服务端，需正确配置反向代理）
+  // 回退：打开源视频
   toVideoPlayerPage({ videoFilePath: row.video_path }).catch((e: any) => {
     console.error("[openVideo] failed:", e);
-    const status = e?.response?.status;
-    const tip =
-      status === 405
-        ? "。请确认 Docker 已使用 fullstack 镜像（含 Caddy 反向代理），或 API 端口 18010 已正确映射"
-        : "";
-    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}${tip}`);
+    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}`);
   });
 }
 
@@ -297,15 +292,10 @@ function handlePlaylistSelect(filePath: string) {
     window.api.openPath(filePath);
     return;
   }
-  // Web / Docker: 走 HTTP 服务端（需正确配置反向代理）
+  // Web 回退：走 HTTP 服务端
   toVideoPlayerPage({ videoFilePath: filePath }).catch((e: any) => {
     console.error("[handlePlaylistSelect] failed:", e);
-    const status = e?.response?.status;
-    const tip =
-      status === 405
-        ? "请确认 Docker 已使用 fullstack 镜像（含 Caddy 反向代理），或 API 端口 18010 已正确映射"
-        : "";
-    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}${tip ? "。" + tip : ""}`);
+    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}`);
   });
 }
 

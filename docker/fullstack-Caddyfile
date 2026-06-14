@@ -1,7 +1,7 @@
 :3000 {
     # 定义后端 API 路由匹配器
     @backend {
-        path /common* /recorder* /config* /bili* /task* /video* /webhook* /llm* /user* /preset* /recordHistory* /files* /danma* /sync* /ai* /auto-clip* /sse*
+        path /common* /recorder* /config* /bili* /task* /video* /webhook* /llm* /user* /preset* /record-history* /files* /danma* /sync* /ai* /auto-clip* /sse*
     }
 
     # 代理 API 请求到后端

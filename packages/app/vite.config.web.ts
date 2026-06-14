@@ -25,7 +25,7 @@ const backendRoutes = [
   "/llm",
   "/user",
   "/preset",
-  "/recordHistory",
+  "/record-history",
   "/files",
   "/danma",
   "/sync",
