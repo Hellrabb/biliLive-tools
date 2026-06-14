@@ -288,11 +288,15 @@ function openVideo(row: ClipRow) {
 
 function handlePlaylistSelect(filePath: string) {
   showPlaylistDialog.value = false;
-  console.log("[handlePlaylistSelect] opening exported clip:", filePath);
+  // 导出切片是独立文件，用系统默认播放器直接打开（避免依赖 HTTP 服务端）
+  if (window.api?.openPath) {
+    window.api.openPath(filePath);
+    return;
+  }
+  // web 回退
   toVideoPlayerPage({ videoFilePath: filePath }).catch((e: any) => {
-    console.error("[handlePlaylistSelect] failed:", e);
-    const detail = e?.response?.status ? ` (HTTP ${e.response.status})` : "";
-    notice.error(`打开视频失败${detail}: ${e?.message || e || "未知错误"}`);
+    console.error("[handlePlaylistSelect] fallback failed:", e);
+    notice.error(`打开视频失败: ${e?.message || e || "未知错误"}`);
   });
 }
 
