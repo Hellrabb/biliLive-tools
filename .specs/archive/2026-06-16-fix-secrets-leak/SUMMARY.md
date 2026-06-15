@@ -27,13 +27,16 @@
 - 旧 Docker pass (短字符串) → `REDACTED_OLD_DOCKER_PASS`
 - Force push 覆盖 `origin/feature/auto-clip`
 
-### v2（待做）
+### v2（极低优先级 · 暂缓）
 
 | 编号 | 问题                                                  | 优先级 |
 | ---- | ----------------------------------------------------- | ------ |
-| H3   | 认证中间件无暴力破解防护（速率限制）                  | HIGH   |
-| M1   | `/api/user/get_cookie` 端点 10s 时间窗口 + 无速率限制 | MEDIUM |
-| M2   | `/api/user/export` 返回完整 BiliUser 凭证，无额外鉴权 | MEDIUM |
+| H3   | 认证中间件无暴力破解防护（速率限制）                  | 极低   |
+| M1   | `/api/user/get_cookie` 端点 10s 时间窗口 + 无速率限制 | 极低   |
+| M2   | `/api/user/export` 返回完整 BiliUser 凭证，无额外鉴权 | 极低   |
+
+> 以上三项均依赖 passKey 认证层，当前威胁模型下（localhost 部署 / 内网使用）风险可控。
+> 如将来暴露公网或面临更高威胁模型时再修。
 
 ## 涉及文件
 
