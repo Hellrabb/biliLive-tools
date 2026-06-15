@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -101,8 +102,9 @@ export class AppConfig extends Config {
       APP_DEFAULT_CONFIG.sync.baiduPCS.execPath = "/app/bin/BaiduPCS-Go";
       APP_DEFAULT_CONFIG.sync.aliyunpan.execPath = "/app/bin/aliyunpan";
     }
-    // 16位随机密码，包含大小写字母和数字
-    APP_DEFAULT_CONFIG.passKey = Math.random().toString(36).slice(-16);
+    // 安全密钥：首次启动自动生成，可通过环境变量覆盖
+    APP_DEFAULT_CONFIG.passKey = crypto.randomBytes(32).toString("base64url");
+    APP_DEFAULT_CONFIG.biliKey = crypto.randomBytes(32).toString("hex");
 
     const initData = defaultsDeep(data, APP_DEFAULT_CONFIG);
     super.init(filepath, initData);

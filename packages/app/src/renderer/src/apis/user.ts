@@ -1,5 +1,6 @@
 import request from "./request";
 import { generateHMACSHA256 } from "../utils";
+import configApi from "./common";
 import type { BiliUser } from "@biliLive-tools/types";
 
 /**
@@ -46,7 +47,8 @@ const updateAuth = async (uid: number) => {
 
 const getCookie = async (uid: number) => {
   const timestamp = Math.floor(Date.now() / 1000);
-  const secret = "r96gkr8ahc34fsrewr34";
+  const appConfig = await configApi.get();
+  const secret = appConfig.passKey;
   const signature = await generateHMACSHA256(`${uid}${timestamp}`, secret);
 
   const res = await request.post(`/user/get_cookie`, {

@@ -1053,19 +1053,28 @@ export const validateBiliupConfig = (config: BiliupConfig): [boolean, string | n
   return [true, null];
 };
 
-const DEFAULT_PASSKEY = "REDACTED_OLD_BILIKEY";
-
+/**
+ * 获取 B站用户数据加密密钥。
+ * 优先级：环境变量 BILILIVE_TOOLS_BILIKEY → 配置文件 biliKey（首次启动自动生成）
+ */
 function getPassKey() {
   if (process.env.BILILIVE_TOOLS_BILIKEY) {
     return process.env.BILILIVE_TOOLS_BILIKEY;
   }
-  return DEFAULT_PASSKEY;
+  const key = appConfig.get("biliKey");
+  if (key) return key;
+  // 兜底：首次启动时 biliKey 尚未初始化
+  return appConfig.getAll().biliKey || "";
 }
 
 function getKeyCandidates(): string[] {
   const keys = [getPassKey()];
-  if (process.env.BILILIVE_TOOLS_BILIKEY && getPassKey() !== DEFAULT_PASSKEY) {
-    keys.push(DEFAULT_PASSKEY);
+  // 如果用户通过环境变量覆盖了密钥，将旧配置密钥加入候选列表以实现自动迁移
+  if (process.env.BILILIVE_TOOLS_BILIKEY) {
+    const configKey = appConfig.get("biliKey");
+    if (configKey && configKey !== process.env.BILILIVE_TOOLS_BILIKEY) {
+      keys.push(configKey);
+    }
   }
   if (process.env.BILILIVE_TOOLS_BILIKEY_PREV) {
     const prevKeys = process.env.BILILIVE_TOOLS_BILIKEY_PREV.split(",")
@@ -1073,7 +1082,7 @@ function getKeyCandidates(): string[] {
       .filter(Boolean);
     keys.push(...prevKeys);
   }
-  return [...new Set(keys)];
+  return [...new Set(keys)].filter(Boolean);
 }
 
 // 迁移B站登录信息

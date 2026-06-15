@@ -619,6 +619,8 @@ export interface AppConfig {
   port: number;
   host: string;
   passKey: string;
+  /** B站用户数据加密密钥（首次启动自动生成，可通过 BILILIVE_TOOLS_BILIKEY 环境变量覆盖） */
+  biliKey: string;
   https?: boolean;
   requestInfoForRecord: boolean;
   biliUploadFileNameType: "ask" | "always" | "never";

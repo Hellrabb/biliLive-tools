@@ -1,5 +1,6 @@
 import Router from "@koa/router";
 import biliService from "@biliLive-tools/shared/task/bili.js";
+import { appConfig } from "@biliLive-tools/shared";
 import crypto from "crypto";
 import type { BiliUser } from "@biliLive-tools/types";
 
@@ -52,7 +53,12 @@ router.post("/get_cookie", async (ctx) => {
     return;
   }
 
-  const secret = "r96gkr8ahc34fsrewr34";
+  const secret = process.env.BILILIVE_TOOLS_PASSKEY || appConfig.get("passKey");
+  if (!secret) {
+    ctx.status = 500;
+    ctx.body = "服务未配置 passKey";
+    return;
+  }
   const hash = crypto.createHmac("sha256", secret).update(`${uid}${timestamp}`).digest("hex");
 
   if (hash !== signature) {

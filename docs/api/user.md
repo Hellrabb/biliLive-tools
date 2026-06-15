@@ -119,7 +119,8 @@ const crypto = require("crypto");
 
 const uid = 123456789;
 const timestamp = Math.floor(Date.now() / 1000);
-const secret = "r96gkr8ahc34fsrewr34";
+// secret 使用应用的 passKey（与 Authorization 头相同）
+const secret = "your_passkey_here";
 
 const signature = crypto.createHmac("sha256", secret).update(`${uid}${timestamp}`).digest("hex");
 ```
