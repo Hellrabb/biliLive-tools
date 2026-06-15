@@ -1,6 +1,6 @@
 import request from "./request";
 import { generateHMACSHA256 } from "../utils";
-import configApi from "./common";
+import configApi from "./config";
 import type { BiliUser } from "@biliLive-tools/types";
 
 /**

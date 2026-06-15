@@ -4,6 +4,20 @@
 
 ## 活跃条目
 
+### L-crypto-migration
+
+**来源**: `fix-docker-security-regressions` (2026-06-16)
+
+**问题模式**: 加密方案升级时，如果旧密钥从代码中移除，必须同时提供解密回退路径。`getKeyCandidates()` 应始终包含旧密钥作为末位回退，配合 `decodeUser()` 的自动迁移逻辑（旧密钥解密→新密钥重加密）。
+
+**检查清单**（当再次修改加密/密钥体系时）:
+
+- [ ] `getKeyCandidates()` 是否包含所有历史密钥？
+- [ ] `decodeUser()` 的 `usedKeyIndex > 0` 迁移路径是否正常工作？
+- [ ] `verifyBiliKey` API 是否同时检查 env var 和 config 文件？
+- [ ] Docker `.env` 是否已 gitignore？
+- [ ] 启动日志是否告知用户密钥来源（env/生成/已有）？
+
 ### 观察（Monitored）
 
 - **2026-06-09** | `autoclip-ffmpeg-custom` — `getPresetLabel()` if-else 链待改为 keyed lookup（6 分支，在阈值边缘）。触发条件：下次新增编码器类型时一并重构为 `Map<string, preset[]>`。

@@ -15,12 +15,8 @@ services:
                 - gpu
               driver: nvidia
               count: -1
+    env_file: .env
     environment:
-      # 登录密钥（可选覆盖：不设置则由应用首次启动自动生成并持久化到 /app/data）
-      # - BILILIVE_TOOLS_PASSKEY=your_random_passkey
-      # 账户加密密钥（可选覆盖：不设置则由应用首次启动自动生成）
-      # - BILILIVE_TOOLS_BILIKEY=your_random_bilikey
-      # - BILILIVE_TOOLS_BILIKEY_PREV=your_old_bilikey
       LANG: zh_CN.UTF-8
       LANGUAGE: zh_CN:zh
       LC_ALL: zh_CN.UTF-8

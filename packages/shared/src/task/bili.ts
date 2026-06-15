@@ -1076,6 +1076,7 @@ function getKeyCandidates(): string[] {
       keys.push(configKey);
     }
   }
+  // 升级用户：设置 BILILIVE_TOOLS_BILIKEY_PREV 为旧密钥以自动迁移历史数据
   if (process.env.BILILIVE_TOOLS_BILIKEY_PREV) {
     const prevKeys = process.env.BILILIVE_TOOLS_BILIKEY_PREV.split(",")
       .map((k) => k.trim())

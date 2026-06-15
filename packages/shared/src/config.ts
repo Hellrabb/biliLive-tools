@@ -103,11 +103,34 @@ export class AppConfig extends Config {
       APP_DEFAULT_CONFIG.sync.aliyunpan.execPath = "/app/bin/aliyunpan";
     }
     // 安全密钥：首次启动自动生成，可通过环境变量覆盖
-    APP_DEFAULT_CONFIG.passKey = crypto.randomBytes(32).toString("base64url");
-    APP_DEFAULT_CONFIG.biliKey = crypto.randomBytes(32).toString("hex");
+    const passKeyFromEnv = process.env.BILILIVE_TOOLS_PASSKEY;
+    const biliKeyFromEnv = process.env.BILILIVE_TOOLS_BILIKEY;
+    APP_DEFAULT_CONFIG.passKey = passKeyFromEnv || crypto.randomBytes(32).toString("base64url");
+    APP_DEFAULT_CONFIG.biliKey = biliKeyFromEnv || crypto.randomBytes(32).toString("hex");
+
+    const existingData = fs.existsSync(filepath)
+      ? JSON.parse(fs.readFileSync(filepath, "utf-8"))
+      : {};
+    const isNewPassKey = !existingData.passKey;
+    const isNewBiliKey = !existingData.biliKey;
 
     const initData = defaultsDeep(data, APP_DEFAULT_CONFIG);
     super.init(filepath, initData);
+
+    if (isNewPassKey) {
+      if (passKeyFromEnv) {
+        log.info("使用环境变量 BILILIVE_TOOLS_PASSKEY 作为登录密钥");
+      } else {
+        log.info(`已生成登录密钥 passKey: ${APP_DEFAULT_CONFIG.passKey}`);
+      }
+    }
+    if (isNewBiliKey) {
+      if (biliKeyFromEnv) {
+        log.info("使用环境变量 BILILIVE_TOOLS_BILIKEY 作为加密密钥");
+      } else {
+        log.info(`已生成加密密钥 biliKey: ${APP_DEFAULT_CONFIG.biliKey}`);
+      }
+    }
   }
   get<K extends keyof AppConfigType>(key: K): AppConfigType[K] {
     return super.get(key);

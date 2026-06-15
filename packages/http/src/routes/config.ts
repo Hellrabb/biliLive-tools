@@ -50,7 +50,15 @@ router.post("/set", async (ctx) => {
 
 router.post("/verifyBiliKey", async (ctx) => {
   try {
-    const serverKey = process.env.BILILIVE_TOOLS_BILIKEY;
+    const serverKey =
+      process.env.BILILIVE_TOOLS_BILIKEY ||
+      (() => {
+        try {
+          return appConfig.get("biliKey");
+        } catch {
+          return "";
+        }
+      })();
     const configured = typeof serverKey === "string" && serverKey.trim().length > 0;
 
     const requestBody = ctx.request.body as { key?: unknown };
